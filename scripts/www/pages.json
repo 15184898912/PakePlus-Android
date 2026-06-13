@@ -1,0 +1,74 @@
+{
+  "pages": [
+    {
+      "path": "pages/diagnosis/diagnosis",
+      "style": {
+        "navigationBarTitleText": "智能诊断",
+        "navigationBarBackgroundColor": "#1565C0",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/schematic/schematic",
+      "style": {
+        "navigationBarTitleText": "AI智能图纸",
+        "navigationBarBackgroundColor": "#1565C0",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/tools/tools",
+      "style": {
+        "navigationBarTitleText": "维修工具",
+        "navigationBarBackgroundColor": "#1565C0",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationBarBackgroundColor": "#1565C0",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#1565C0",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "家电维修助手",
+    "navigationBarBackgroundColor": "#1565C0",
+    "backgroundColor": "#F5F5F5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#1565C0",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/diagnosis/diagnosis",
+        "text": "智能诊断"
+      },
+      {
+        "pagePath": "pages/schematic/schematic",
+        "text": "图纸中心"
+      },
+      {
+        "pagePath": "pages/tools/tools",
+        "text": "维修工具"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  }
+}
