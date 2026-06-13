@@ -1,0 +1,30 @@
+{
+    "name" : "家电维修助手",
+    "appid" : "__UNI__1506598",
+    "versionName" : "1.0.0",
+    "versionCode" : "100",
+    "vueVersion" : "3",
+    "app-plus" : {
+        "modules" : {
+            "Speech" : {
+                "ifly" : {
+                    "appid" : "2fdb1721"
+                }
+            }
+        },
+        "distribute" : {
+            "android" : {
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>"
+                ]
+            },
+            "ios" : {
+                "dSYMs" : false
+            }
+        },
+        "usingComponents" : true
+    }
+}
