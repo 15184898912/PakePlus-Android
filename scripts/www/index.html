@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>深圳手机回收评估报价单</title>
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 18px;
+    color: #333;
+    background: #fff;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-text-size-adjust: 100%;
+    -ms-content-zooming: zoom;
+}
+
+.app-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    padding-bottom: 80px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.bottom-btns {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    gap: 1px;
+}
+
+.header {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+    color: #fff;
+    text-align: center;
+    padding: 16px 12px 12px;
+}
+
+.title {
+    font-size: 26px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.date {
+    font-size: 18px;
+    opacity: 0.9;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-underline-offset: 4px;
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.date:active {
+    background: rgba(255,255,255,0.2);
+}
+
+/* 品牌标签栏 */
+.brand-tabs {
+    display: flex;
+    overflow-x: auto;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 0 4px;
+    -webkit-overflow-scrolling: touch;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    align-items: center;
+}
+
+.brand-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.brand-tab {
+    flex-shrink: 0;
+    padding: 12px 14px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.brand-tab.active {
+    color: #2196F3;
+    border-bottom-color: #2196F3;
+    font-weight: bold;
+    font-size: 17px;
+}
+
+.brand-tab .count {
+    display: inline-block;
+    background: #e0e0e0;
+    color: #666;
+    font-size: 11px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    margin-left: 3px;
+    font-weight: normal;
+}
+
+.brand-tab.active .count {
+    background: #2196F3;
+    color: #fff;
+}
+
+.brand-add {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #999;
+    cursor: pointer;
+    margin-left: 4px;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.brand-add:active {
+    background: #f0f0f0;
+    color: #2196F3;
+}
+
+.brand-manage {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #666;
+    background: #f5f5f5;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+.brand-manage:active {
+    background: #e0e0e0;
+}
+
+.search-bar {
+    background: #f0f0f0;
+    padding: 8px;
+    flex-shrink: 0;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    height: 48px;
+    padding: 0 16px;
+}
+
+.search-icon {
+    font-size: 22px;
+    color: #999;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.search-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 18px;
+    height: 100%;
+    background: transparent;
+    font-family: inherit;
+}
+
+.search-box input::placeholder {
+    color: #999;
+}
+
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 720px;
+}
+
+thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #333;
+}
+
+th {
+    background: #333;
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    padding: 18px 8px;
+    border: 1px solid #ccc;
+    height: 64px;
+}
+
+td {
+    text-align: center;
+    padding: 16px 8px;
+    font-size: 19px;
+    border: 1px solid #ccc;
+    word-break: break-word;
+    line-height: 1.5;
+}
+
+tbody tr {
+    cursor: pointer;
+}
+
+tbody tr:nth-child(odd) {
+    background: #fff;
+}
+
+tbody tr:nth-child(even) {
+    background: #f5f5f5;
+}
+
+tbody tr:active {
+    background: #e3f2fd !important;
+}
+
+th, td {
+    width: 16.666%;
+    min-width: 60px;
+}
+
+/* 品牌专属系列颜色 */
+.series-oppo-find { background: #303f9f !important; color: #fff !important; font-weight: bold; }
+.series-oppo-reno { background: #00897b !important; color: #fff !important; font-weight: bold; }
+.series-oppo-a { background: #f57c00 !important; color: #fff !important; font-weight: bold; }
+.series-oppo-k { background: #7b1fa2 !important; color: #fff !important; font-weight: bold; }
+.series-oppo-r { background: #c62828 !important; color: #fff !important; font-weight: bold; }
+.series-oppo-fold { background: #1565c0 !important; color: #FFD700 !important; font-weight: bold; }
+
+.series-huawei-mate { background: #b71c1c !important; color: #fff !important; font-weight: bold; }
+.series-huawei-p { background: #880e4f !important; color: #fff !important; font-weight: bold; }
+.series-huawei-nova { background: #00695c !important; color: #fff !important; font-weight: bold; }
+.series-huawei-enjoy { background: #ef6c00 !important; color: #fff !important; font-weight: bold; }
+.series-huawei-fold { background: #311b92 !important; color: #FFD700 !important; font-weight: bold; }
+
+.series-honor-magic { background: #0d47a1 !important; color: #fff !important; font-weight: bold; }
+.series-honor-number { background: #1b5e20 !important; color: #fff !important; font-weight: bold; }
+.series-honor-x { background: #e65100 !important; color: #fff !important; font-weight: bold; }
+.series-honor-play { background: #4a148c !important; color: #fff !important; font-weight: bold; }
+
+.series-xiaomi-mi { background: #ff6f00 !important; color: #fff !important; font-weight: bold; }
+.series-xiaomi-redmi { background: #d84315 !important; color: #fff !important; font-weight: bold; }
+.series-xiaomi-redmi-note { background: #ad1457 !important; color: #fff !important; font-weight: bold; }
+.series-xiaomi-mix { background: #263238 !important; color: #FFD700 !important; font-weight: bold; }
+.series-xiaomi-civi { background: #00838f !important; color: #fff !important; font-weight: bold; }
+.series-xiaomi-fold { background: #1a237e !important; color: #FFD700 !important; font-weight: bold; }
+
+.series-oneplus-number { background: #212121 !important; color: #f44336 !important; font-weight: bold; }
+.series-oneplus-nord { background: #37474f !important; color: #fff !important; font-weight: bold; }
+.series-oneplus-ace { background: #b71c1c !important; color: #fff !important; font-weight: bold; }
+
+.series-vivo-x { background: #01579b !important; color: #fff !important; font-weight: bold; }
+.series-vivo-s { background: #006064 !important; color: #fff !important; font-weight: bold; }
+.series-vivo-y { background: #e65100 !important; color: #fff !important; font-weight: bold; }
+.series-vivo-t { background: #4a148c !important; color: #fff !important; font-weight: bold; }
+.series-vivo-iqoo { background: #212121 !important; color: #4CAF50 !important; font-weight: bold; }
+.series-vivo-iqoo-neo { background: #3e2723 !important; color: #FF9800 !important; font-weight: bold; }
+.series-vivo-iqoo-z { background: #263238 !important; color: #03A9F4 !important; font-weight: bold; }
+.series-vivo-fold { background: #311b92 !important; color: #FFD700 !important; font-weight: bold; }
+
+.price-high { color: #2E7D32 !important; font-weight: bold; }
+.price-mid-high { color: #1565C0 !important; font-weight: 600; }
+.price-mid { color: #EF6C00 !important; }
+.price-low { color: #C62828 !important; }
+.price-zero { color: #999 !important; font-style: italic; }
+
+.model-cell { font-weight: 500; }
+
+.btn-add {
+    flex: 1;
+    height: 64px;
+    background: #2196F3;
+    color: #fff;
+    border: none;
+    font-size: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-add:active { background: #1976D2; }
+
+.btn-batch {
+    flex: 1;
+    height: 64px;
+    background: #4CAF50;
+    color: #fff;
+    border: none;
+    font-size: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-batch:active { background: #388E3C; }
+
+.btn-price {
+    width: 70px;
+    height: 64px;
+    background: #9C27B0;
+    color: #fff;
+    border: none;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-price:active { background: #7B1FA2; }
+
+.btn-manage {
+    width: 60px;
+    height: 64px;
+    background: #FF9800;
+    color: #fff;
+    border: none;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-manage:active { background: #F57C00; }
+
+.batch-textarea {
+    width: 100%;
+    min-height: 220px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 16px;
+    font-family: monospace;
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+    -webkit-appearance: none;
+}
+
+.batch-textarea:focus { border-color: #2196F3; }
+
+.mask {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.mask.show { display: flex; }
+
+.dialog {
+    background: #fff;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 380px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-title {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.dialog-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.form-item { margin-bottom: 16px; }
+
+.form-item label {
+    display: block;
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.form-item input, .form-item select {
+    width: 100%;
+    height: 52px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0 16px;
+    font-size: 18px;
+    outline: none;
+    font-family: inherit;
+    -webkit-appearance: none;
+    background: #fff;
+}
+
+.form-item select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+}
+
+.form-item input:focus, .form-item select:focus { border-color: #2196F3; }
+
+.form-item .radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.form-item .radio-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 15px;
+    cursor: pointer;
+    background: #fff;
+}
+
+.form-item .radio-item.active {
+    border-color: #2196F3;
+    background: #E3F2FD;
+    color: #1976D2;
+}
+
+.form-item .radio-item input {
+    width: auto;
+    height: auto;
+    margin-right: 6px;
+}
+
+.percent-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.percent-row input[type="number"] {
+    flex: 1;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #2196F3;
+}
+
+.percent-row .percent-label {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.percent-row .op-btns {
+    display: flex;
+    gap: 6px;
+}
+
+.percent-row .op-btn {
+    width: 48px;
+    height: 48px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.percent-row .op-btn.active-up {
+    border-color: #4CAF50;
+    background: #E8F5E9;
+    color: #4CAF50;
+}
+
+.percent-row .op-btn.active-down {
+    border-color: #f44336;
+    background: #FFEBEE;
+    color: #f44336;
+}
+
+.quick-percent {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.quick-percent span {
+    padding: 4px 10px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #666;
+    cursor: pointer;
+}
+
+.quick-percent span:active {
+    background: #e0e0e0;
+}
+
+.dialog-footer {
+    display: flex;
+    padding: 16px 20px;
+    border-top: 1px solid #eee;
+    gap: 16px;
+}
+
+.btn-cancel, .btn-ok {
+    flex: 1;
+    height: 52px;
+    border: none;
+    border-radius: 4px;
+    font-size: 18px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-cancel { background: #f0f0f0; color: #666; }
+.btn-cancel:active { background: #e0e0e0; }
+
+.btn-ok { background: #2196F3; color: #fff; }
+.btn-ok:active { background: #1976D2; }
+
+.btn-del { background: #f44336; }
+.btn-del:active { background: #d32f2f; }
+
+.del-text {
+    text-align: center;
+    font-size: 18px;
+    color: #666;
+    padding: 24px 0;
+}
+
+.tip {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 16px 32px;
+    border-radius: 32px;
+    font-size: 16px;
+    z-index: 2000;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+}
+
+.tip.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* 品牌管理列表 */
+.brand-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.brand-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 17px;
+}
+
+.brand-item:last-child { border-bottom: none; }
+
+.brand-item-name {
+    font-weight: 500;
+    flex: 1;
+}
+
+.brand-item-count {
+    color: #999;
+    font-size: 14px;
+    margin-right: 12px;
+}
+
+.brand-item-del {
+    color: #f44336;
+    font-size: 14px;
+    padding: 4px 12px;
+    cursor: pointer;
+}
+
+.brand-item-del:active {
+    background: #ffebee;
+    border-radius: 4px;
+}
+
+.brand-item-default {
+    color: #999;
+    font-size: 12px;
+}
+
+.preview-info {
+    background: #f5f5f5;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.8;
+}
+
+.preview-info strong {
+    color: #333;
+}
+    </style>
+</head>
+<body>
+    <div class="app-wrapper" id="appWrapper">
+        <div class="app" id="app">
+            <div class="header">
+                <div class="title" id="title">深圳手机回收评估报价单</div>
+                <div class="date" id="date" onclick="editDate()"></div>
+            </div>
+            
+            <!-- 品牌标签栏 -->
+            <div class="brand-tabs" id="brandTabs"></div>
+
+            <div class="search-bar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="搜索系列或型号">
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>系列</th>
+                            <th>型号</th>
+                            <th>开机屏坏</th>
+                            <th>不开机</th>
+                            <th>废板</th>
+                            <th>整机</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bottom-btns">
+            <button class="btn-manage" id="manageBtn">品牌</button>
+            <button class="btn-price" id="priceBtn">调价</button>
+            <button class="btn-batch" id="batchBtn">导入</button>
+            <button class="btn-add" id="addBtn">添加</button>
+        </div>
+    </div>
+
+    <!-- 编辑/添加对话框 -->
+    <div class="mask" id="editMask">
+        <div class="dialog">
+            <div class="dialog-title" id="editTitle">添加新机型</div>
+            <div class="dialog-body">
+                <div class="form-item">
+                    <label>品牌</label>
+                    <select id="fBrand"></select>
+                </div>
+                <div class="form-item">
+                    <label>系列</label>
+                    <input type="text" id="fSeries" placeholder="请输入系列">
+                </div>
+                <div class="form-item">
+                    <label>型号</label>
+                    <input type="text" id="fModel" placeholder="请输入型号">
+                </div>
+                <div class="form-item">
+                    <label>开机屏坏价格</label>
+                    <input type="number" id="fP1" placeholder="请输入价格" min="0">
+                </div>
+                <div class="form-item">
+                    <label>不开机价格</label>
+                    <input type="number" id="fP2" placeholder="请输入价格" min="0">
+                </div>
+                <div class="form-item">
+                    <label>废板价格</label>
+                    <input type="number" id="fP3" placeholder="请输入价格" min="0">
+                </div>
+                <div class="form-item">
+                    <label>整机价格</label>
+                    <input type="number" id="fP4" placeholder="请输入价格" min="0">
+                </div>
+            </div>
+            <div class="dialog-footer" style="gap:8px;">
+                <button class="btn-cancel" id="cancelBtn" style="flex:1;">取消</button>
+                <button class="btn-ok" id="addMoreBtn" style="flex:1.2; background:#4CAF50;">保存并继续</button>
+                <button class="btn-ok" id="okBtn" style="flex:1;">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认对话框 -->
+    <div class="mask" id="delMask">
+        <div class="dialog" style="max-width:300px">
+            <div class="dialog-title">确认删除</div>
+            <div class="dialog-body">
+                <p class="del-text" id="delText">确定要删除该机型吗？</p>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-cancel" id="delCancel">取消</button>
+                <button class="btn-ok btn-del" id="delOk">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量导入对话框 -->
+    <div class="mask" id="batchMask">
+        <div class="dialog" style="max-width:500px;">
+            <div class="dialog-title">批量导入机型</div>
+            <div class="dialog-body">
+                <div class="form-item">
+                    <label>导入到品牌</label>
+                    <select id="batchBrand"></select>
+                </div>
+                <p style="font-size:14px;color:#666;margin-bottom:10px;line-height:1.6;">
+                    粘贴Excel或表格数据，每行一个机型，格式：<br>
+                    <strong style="color:#333;">系列 型号 开机屏坏 不开机 废板 整机</strong><br>
+                    支持空格、制表符、逗号分隔
+                </p>
+                <textarea id="batchText" class="batch-textarea" placeholder="示例：
+Find系列 Find X7 2200 1000 500 4000
+Reno系列 Reno11 800 300 80 1800
+A系列 A97 300 100 30 800"></textarea>
+                <p id="batchResult" style="font-size:14px;color:#4CAF50;margin-top:10px;display:none;"></p>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-cancel" id="batchCancel">取消</button>
+                <button class="btn-ok" id="batchOk">导入数据</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量调价对话框 -->
+    <div class="mask" id="priceMask">
+        <div class="dialog" style="max-width:420px;">
+            <div class="dialog-title">批量调整价格</div>
+            <div class="dialog-body">
+                <div class="form-item">
+                    <label>调整范围</label>
+                    <select id="priceRange">
+                        <option value="current">当前品牌所有机型</option>
+                        <option value="all">所有品牌全部机型</option>
+                        <option value="search">当前搜索结果</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <label>调整项目</label>
+                    <div class="radio-group" id="priceColumns">
+                        <div class="radio-item active" data-col="all">全部价格</div>
+                        <div class="radio-item" data-col="p1">开机屏坏</div>
+                        <div class="radio-item" data-col="p2">不开机</div>
+                        <div class="radio-item" data-col="p3">废板</div>
+                        <div class="radio-item" data-col="p4">整机</div>
+                    </div>
+                </div>
+                <div class="form-item">
+                    <label>调整方式</label>
+                    <div class="percent-row">
+                        <div class="op-btns">
+                            <div class="op-btn active-up" id="opUp" data-op="up">↑</div>
+                            <div class="op-btn" id="opDown" data-op="down">↓</div>
+                        </div>
+                        <input type="number" id="pricePercent" value="10" min="1" max="90">
+                        <span class="percent-label">%</span>
+                    </div>
+                    <div class="quick-percent">
+                        <span data-p="5">5%</span>
+                        <span data-p="10">10%</span>
+                        <span data-p="15">15%</span>
+                        <span data-p="20">20%</span>
+                        <span data-p="30">30%</span>
+                        <span data-p="50">50%</span>
+                    </div>
+                </div>
+                <div class="preview-info" id="pricePreview">
+                    预计将调整 <strong id="previewCount">0</strong> 款机型的价格
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-cancel" id="priceCancel">取消</button>
+                <button class="btn-ok" id="priceOk" style="background:#9C27B0;">确认调价</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加品牌对话框 -->
+    <div class="mask" id="addBrandMask">
+        <div class="dialog" style="max-width:320px;">
+            <div class="dialog-title">添加品牌</div>
+            <div class="dialog-body">
+                <div class="form-item">
+                    <label>品牌名称</label>
+                    <input type="text" id="newBrandName" placeholder="请输入品牌名称">
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-cancel" id="addBrandCancel">取消</button>
+                <button class="btn-ok" id="addBrandOk">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 品牌管理对话框 -->
+    <div class="mask" id="manageMask">
+        <div class="dialog" style="max-width:400px;">
+            <div class="dialog-title">品牌管理</div>
+            <div class="dialog-body">
+                <div class="brand-list" id="brandList"></div>
+                <button class="btn-ok" style="width:100%;margin-top:16px;height:48px;" id="addBrandBtn">+ 添加新品牌</button>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-ok" id="manageOk" style="width:100%;">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日期编辑对话框 -->
+    <div class="mask" id="dateMask">
+        <div class="dialog" style="max-width:320px;">
+            <div class="dialog-title">设置日期</div>
+            <div class="dialog-body">
+                <div class="form-item">
+                    <label>选择日期</label>
+                    <input type="date" id="dateInput">
+                </div>
+                <div class="form-item">
+                    <label>或自定义文字</label>
+                    <input type="text" id="dateCustom" placeholder="如：2024年1月15日 更新">
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-cancel" id="dateCancel">取消</button>
+                <button class="btn-ok" id="dateOk">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tip" id="tip"></div>
+
+    <script>
+// ============ 数据存储 ============
+const STORAGE_KEY = 'phone_recycle_data_v2';
+const BRANDS_KEY = 'phone_recycle_brands';
+const DATE_KEY = 'phone_recycle_date';
+const CURRENT_BRAND_KEY = 'phone_recycle_current_brand';
+
+// 默认品牌列表
+const DEFAULT_BRANDS = ['OPPO', '华为', '荣耀', '小米', '红米', '壹加', 'vivo'];
+
+// 各品牌预置数据
+const PRESET_DATA = {
+    'OPPO': [
+        {series:'Find系列', model:'Find X7', p1:2200, p2:1000, p3:500, p4:4000},
+        {series:'Find系列', model:'Find X7 Ultra', p1:3000, p2:1500, p3:800, p4:5500},
+        {series:'Find系列', model:'Find X6', p1:1500, p2:700, p3:300, p4:2800},
+        {series:'Find系列', model:'Find X6 Pro', p1:2000, p2:1000, p3:500, p4:3800},
+        {series:'Find系列', model:'Find X5', p1:800, p2:400, p3:150, p4:1600},
+        {series:'Find系列', model:'Find X5 Pro', p1:1200, p2:600, p3:200, p4:2200},
+        {series:'Find系列', model:'Find N3 Flip', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'Find系列', model:'Find N3', p1:3500, p2:1500, p3:500, p4:6000},
+        {series:'Find系列', model:'Find N2 Flip', p1:1000, p2:500, p3:200, p4:2000},
+        {series:'Find系列', model:'Find N2', p1:2000, p2:800, p3:300, p4:3800},
+        {series:'Reno系列', model:'Reno11', p1:800, p2:300, p3:80, p4:1800},
+        {series:'Reno系列', model:'Reno11 Pro', p1:1200, p2:500, p3:120, p4:2500},
+        {series:'Reno系列', model:'Reno10', p1:600, p2:250, p3:70, p4:1300},
+        {series:'Reno系列', model:'Reno10 Pro', p1:900, p2:400, p3:100, p4:1900},
+        {series:'Reno系列', model:'Reno10 Pro+', p1:1300, p2:600, p3:150, p4:2800},
+        {series:'Reno系列', model:'Reno9', p1:500, p2:200, p3:60, p4:1100},
+        {series:'Reno系列', model:'Reno9 Pro', p1:700, p2:300, p3:80, p4:1500},
+        {series:'Reno系列', model:'Reno9 Pro+', p1:1000, p2:450, p3:100, p4:2200},
+        {series:'Reno系列', model:'Reno8', p1:400, p2:150, p3:50, p4:800},
+        {series:'Reno系列', model:'Reno8 Pro', p1:600, p2:250, p3:70, p4:1200},
+        {series:'A系列', model:'A97', p1:300, p2:100, p3:30, p4:800},
+        {series:'A系列', model:'A96', p1:250, p2:80, p3:25, p4:600},
+        {series:'A系列', model:'A93s', p1:200, p2:70, p3:20, p4:450},
+        {series:'A系列', model:'A58', p1:200, p2:70, p3:20, p4:500},
+        {series:'A系列', model:'A58x', p1:180, p2:60, p3:18, p4:400},
+        {series:'A系列', model:'A2 Pro', p1:500, p2:200, p3:50, p4:1200},
+        {series:'A系列', model:'A2m', p1:250, p2:80, p3:25, p4:600},
+        {series:'A系列', model:'A2x', p1:200, p2:70, p3:20, p4:450},
+        {series:'A系列', model:'A1 Pro', p1:400, p2:150, p3:40, p4:900},
+        {series:'A系列', model:'A1x', p1:200, p2:70, p3:20, p4:450},
+        {series:'K系列', model:'K11', p1:600, p2:250, p3:70, p4:1300},
+        {series:'K系列', model:'K11x', p1:350, p2:120, p3:35, p4:800},
+        {series:'K系列', model:'K10', p1:400, p2:150, p3:50, p4:900},
+        {series:'K系列', model:'K10 Pro', p1:600, p2:250, p3:80, p4:1300},
+        {series:'K系列', model:'K9x', p1:200, p2:70, p3:20, p4:400},
+        {series:'K系列', model:'K9s', p1:180, p2:60, p3:20, p4:350},
+        {series:'R系列', model:'R17', p1:80, p2:30, p3:10, p4:150},
+        {series:'R系列', model:'R17 Pro', p1:100, p2:40, p3:15, p4:200},
+        {series:'R系列', model:'R15', p1:50, p2:20, p3:8, p4:80},
+        {series:'R系列', model:'R15x', p1:60, p2:25, p3:10, p4:100},
+        {series:'R系列', model:'R11s', p1:30, p2:10, p3:5, p4:50},
+        {series:'R系列', model:'R11', p1:30, p2:10, p3:5, p4:50},
+        {series:'R系列', model:'R9s', p1:20, p2:8, p3:3, p4:30},
+        {series:'R系列', model:'R9', p1:15, p2:5, p3:2, p4:25},
+    ],
+    '华为': [
+        {series:'Mate系列', model:'Mate 60 Pro', p1:2500, p2:1200, p3:400, p4:5000},
+        {series:'Mate系列', model:'Mate 60', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'Mate系列', model:'Mate 60 Pro+', p1:3500, p2:1500, p3:500, p4:6500},
+        {series:'Mate系列', model:'Mate 60 RS', p1:4000, p2:1800, p3:600, p4:8000},
+        {series:'Mate系列', model:'Mate X5', p1:4500, p2:2000, p3:600, p4:8000},
+        {series:'Mate系列', model:'Mate X3', p1:3000, p2:1300, p3:400, p4:5500},
+        {series:'Mate系列', model:'Mate Xs 2', p1:1500, p2:700, p3:200, p4:2800},
+        {series:'Mate系列', model:'Mate 50 Pro', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'Mate系列', model:'Mate 50', p1:1000, p2:500, p3:200, p4:2000},
+        {series:'Mate系列', model:'Mate 50 RS', p1:2000, p2:900, p3:300, p4:4000},
+        {series:'Mate系列', model:'Mate 40 Pro', p1:800, p2:400, p3:150, p4:1500},
+        {series:'Mate系列', model:'Mate 40', p1:500, p2:250, p3:100, p4:1000},
+        {series:'Mate系列', model:'Mate 40 Pro+', p1:1000, p2:500, p3:200, p4:2000},
+        {series:'Mate系列', model:'Mate 40 RS', p1:1200, p2:600, p3:250, p4:2500},
+        {series:'Mate系列', model:'Mate 30 Pro', p1:400, p2:200, p3:80, p4:700},
+        {series:'Mate系列', model:'Mate 30', p1:250, p2:120, p3:50, p4:450},
+        {series:'P系列', model:'Pura 70 Ultra', p1:3500, p2:1500, p3:500, p4:6500},
+        {series:'P系列', model:'Pura 70 Pro', p1:2500, p2:1100, p3:400, p4:4800},
+        {series:'P系列', model:'Pura 70', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'P系列', model:'P60 Pro', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'P系列', model:'P60', p1:1000, p2:500, p3:200, p4:2000},
+        {series:'P系列', model:'P60 Art', p1:2000, p2:900, p3:300, p4:3800},
+        {series:'P系列', model:'P50 Pro', p1:800, p2:400, p3:150, p4:1500},
+        {series:'P系列', model:'P50', p1:500, p2:250, p3:100, p4:1000},
+        {series:'P系列', model:'P50 Pocket', p1:800, p2:400, p3:150, p4:1500},
+        {series:'P系列', model:'P40 Pro', p1:400, p2:200, p3:80, p4:700},
+        {series:'P系列', model:'P40', p1:250, p2:120, p3:50, p4:450},
+        {series:'nova系列', model:'nova 12 Ultra', p1:1500, p2:700, p3:200, p4:2800},
+        {series:'nova系列', model:'nova 12 Pro', p1:1000, p2:500, p3:150, p4:2000},
+        {series:'nova系列', model:'nova 12', p1:700, p2:300, p3:100, p4:1400},
+        {series:'nova系列', model:'nova 12活力版', p1:500, p2:200, p3:70, p4:1000},
+        {series:'nova系列', model:'nova 11 Pro', p1:700, p2:300, p3:100, p4:1400},
+        {series:'nova系列', model:'nova 11', p1:500, p2:200, p3:70, p4:1000},
+        {series:'nova系列', model:'nova 10 Pro', p1:500, p2:200, p3:70, p4:900},
+        {series:'nova系列', model:'nova 10', p1:350, p2:150, p3:50, p4:650},
+        {series:'nova系列', model:'nova 9', p1:250, p2:100, p3:40, p4:450},
+        {series:'畅享系列', model:'畅享70 Pro', p1:350, p2:120, p3:40, p4:800},
+        {series:'畅享系列', model:'畅享70', p1:250, p2:80, p3:30, p4:550},
+        {series:'畅享系列', model:'畅享60 Pro', p1:300, p2:100, p3:35, p4:650},
+        {series:'畅享系列', model:'畅享60', p1:200, p2:70, p3:25, p4:450},
+        {series:'畅享系列', model:'畅享60X', p1:350, p2:120, p3:40, p4:800},
+        {series:'畅享系列', model:'畅享50 Pro', p1:200, p2:70, p3:25, p4:450},
+        {series:'畅享系列', model:'畅享50', p1:150, p2:50, p3:20, p4:300},
+    ],
+    '荣耀': [
+        {series:'Magic系列', model:'Magic6 Pro', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'Magic系列', model:'Magic6', p1:1300, p2:600, p3:200, p4:2500},
+        {series:'Magic系列', model:'Magic6 至臻版', p1:2500, p2:1100, p3:400, p4:4800},
+        {series:'Magic系列', model:'Magic V2 RSR', p1:3500, p2:1500, p3:500, p4:6500},
+        {series:'Magic系列', model:'Magic V2', p1:2500, p2:1100, p3:400, p4:4800},
+        {series:'Magic系列', model:'Magic Vs2', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'Magic系列', model:'Magic Vs', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'Magic系列', model:'Magic V', p1:1000, p2:500, p3:200, p4:2000},
+        {series:'Magic系列', model:'Magic5 Pro', p1:1000, p2:500, p3:180, p4:2000},
+        {series:'Magic系列', model:'Magic5', p1:700, p2:300, p3:120, p4:1400},
+        {series:'Magic系列', model:'Magic5 至臻版', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'Magic系列', model:'Magic4 Pro', p1:500, p2:250, p3:100, p4:1000},
+        {series:'Magic系列', model:'Magic4', p1:350, p2:150, p3:60, p4:700},
+        {series:'Magic系列', model:'Magic4 至臻版', p1:700, p2:350, p3:120, p4:1400},
+        {series:'Magic系列', model:'Magic3 Pro', p1:300, p2:150, p3:50, p4:550},
+        {series:'数字系列', model:'荣耀100 Pro', p1:1000, p2:450, p3:150, p4:2000},
+        {series:'数字系列', model:'荣耀100', p1:700, p2:300, p3:100, p4:1400},
+        {series:'数字系列', model:'荣耀90 Pro', p1:700, p2:300, p3:100, p4:1400},
+        {series:'数字系列', model:'荣耀90', p1:500, p2:200, p3:70, p4:1000},
+        {series:'数字系列', model:'荣耀90 GT', p1:700, p2:300, p3:100, p4:1400},
+        {series:'数字系列', model:'荣耀80 Pro', p1:500, p2:200, p3:70, p4:900},
+        {series:'数字系列', model:'荣耀80', p1:350, p2:150, p3:50, p4:650},
+        {series:'数字系列', model:'荣耀80 GT', p1:500, p2:200, p3:70, p4:900},
+        {series:'数字系列', model:'荣耀70 Pro+', p1:400, p2:180, p3:60, p4:750},
+        {series:'数字系列', model:'荣耀70 Pro', p1:300, p2:150, p3:50, p4:550},
+        {series:'数字系列', model:'荣耀70', p1:250, p2:100, p3:40, p4:450},
+        {series:'数字系列', model:'荣耀60', p1:200, p2:80, p3:30, p4:350},
+        {series:'X系列', model:'X50', p1:400, p2:150, p3:50, p4:900},
+        {series:'X系列', model:'X50i', p1:300, p2:100, p3:35, p4:650},
+        {series:'X系列', model:'X50i+', p1:350, p2:120, p3:40, p4:750},
+        {series:'X系列', model:'X40', p1:300, p2:100, p3:35, p4:600},
+        {series:'X系列', model:'X40i', p1:200, p2:70, p3:25, p4:400},
+        {series:'X系列', model:'X40 GT', p1:350, p2:120, p3:40, p4:700},
+        {series:'X系列', model:'X30', p1:200, p2:70, p3:25, p4:400},
+        {series:'X系列', model:'X30i', p1:150, p2:50, p3:20, p4:300},
+        {series:'Play系列', model:'Play8T', p1:200, p2:70, p3:25, p4:450},
+        {series:'Play系列', model:'Play8T Pro', p1:250, p2:80, p3:30, p4:550},
+        {series:'Play系列', model:'Play7T', p1:150, p2:50, p3:20, p4:300},
+        {series:'Play系列', model:'Play7T Pro', p1:200, p2:70, p3:25, p4:400},
+        {series:'Play系列', model:'Play6T', p1:120, p2:40, p3:15, p4:220},
+        {series:'Play系列', model:'Play5', p1:100, p2:35, p3:12, p4:180},
+    ],
+    '小米': [
+        {series:'小米数字系列', model:'小米14 Ultra', p1:2500, p2:1100, p3:400, p4:4800},
+        {series:'小米数字系列', model:'小米14 Pro', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'小米数字系列', model:'小米14', p1:1300, p2:600, p3:200, p4:2500},
+        {series:'小米数字系列', model:'小米13 Ultra', p1:1800, p2:800, p3:300, p4:3500},
+        {series:'小米数字系列', model:'小米13 Pro', p1:1200, p2:550, p3:200, p4:2300},
+        {series:'小米数字系列', model:'小米13', p1:800, p2:350, p3:120, p4:1500},
+        {series:'小米数字系列', model:'小米12S Ultra', p1:1000, p2:450, p3:150, p4:2000},
+        {series:'小米数字系列', model:'小米12S Pro', p1:700, p2:300, p3:100, p4:1300},
+        {series:'小米数字系列', model:'小米12S', p1:500, p2:200, p3:70, p4:900},
+        {series:'小米数字系列', model:'小米12 Pro', p1:400, p2:180, p3:60, p4:700},
+        {series:'小米数字系列', model:'小米12', p1:300, p2:120, p3:40, p4:500},
+        {series:'小米数字系列', model:'小米11 Ultra', p1:350, p2:150, p3:50, p4:600},
+        {series:'小米数字系列', model:'小米11 Pro', p1:250, p2:100, p3:35, p4:400},
+        {series:'小米数字系列', model:'小米11', p1:180, p2:70, p3:25, p4:300},
+        {series:'MIX系列', model:'MIX Fold 3', p1:3000, p2:1300, p3:400, p4:5500},
+        {series:'MIX系列', model:'MIX Fold 2', p1:1800, p2:800, p3:250, p4:3500},
+        {series:'MIX系列', model:'MIX Flip', p1:2000, p2:900, p3:300, p4:3800},
+        {series:'MIX系列', model:'MIX 4', p1:300, p2:120, p3:40, p4:500},
+        {series:'Civi系列', model:'Civi 4 Pro', p1:800, p2:350, p3:100, p4:1600},
+        {series:'Civi系列', model:'Civi 3', p1:600, p2:250, p3:80, p4:1200},
+        {series:'Civi系列', model:'Civi 2', p1:400, p2:180, p3:60, p4:800},
+        {series:'Civi系列', model:'Civi 1S', p1:300, p2:120, p3:40, p4:550},
+    ],
+    '红米': [
+        {series:'Redmi Note系列', model:'Redmi Note 13 Pro+', p1:700, p2:300, p3:100, p4:1500},
+        {series:'Redmi Note系列', model:'Redmi Note 13 Pro', p1:500, p2:200, p3:70, p4:1000},
+        {series:'Redmi Note系列', model:'Redmi Note 13', p1:350, p2:120, p3:40, p4:700},
+        {series:'Redmi Note系列', model:'Redmi Note 13R Pro', p1:400, p2:150, p3:50, p4:800},
+        {series:'Redmi Note系列', model:'Redmi Note 12 Turbo', p1:600, p2:250, p3:80, p4:1200},
+        {series:'Redmi Note系列', model:'Redmi Note 12 Pro+', p1:500, p2:200, p3:70, p4:1000},
+        {series:'Redmi Note系列', model:'Redmi Note 12 Pro', p1:400, p2:150, p3:50, p4:750},
+        {series:'Redmi Note系列', model:'Redmi Note 12', p1:250, p2:100, p3:35, p4:500},
+        {series:'Redmi Note系列', model:'Redmi Note 12T Pro', p1:400, p2:150, p3:50, p4:800},
+        {series:'Redmi Note系列', model:'Redmi Note 11T Pro', p1:350, p2:130, p3:45, p4:650},
+        {series:'Redmi Note系列', model:'Redmi Note 11T Pro+', p1:400, p2:150, p3:50, p4:750},
+        {series:'Redmi Note系列', model:'Redmi Note 11 Pro', p1:250, p2:100, p3:35, p4:450},
+        {series:'Redmi Note系列', model:'Redmi Note 11', p1:180, p2:70, p3:25, p4:350},
+        {series:'Redmi K系列', model:'Redmi K70 Pro', p1:1200, p2:550, p3:180, p4:2300},
+        {series:'Redmi K系列', model:'Redmi K70', p1:900, p2:400, p3:130, p4:1700},
+        {series:'Redmi K系列', model:'Redmi K70E', p1:600, p2:250, p3:80, p4:1200},
+        {series:'Redmi K系列', model:'Redmi K60 Ultra', p1:800, p2:350, p3:120, p4:1500},
+        {series:'Redmi K系列', model:'Redmi K60 Pro', p1:700, p2:300, p3:100, p4:1300},
+        {series:'Redmi K系列', model:'Redmi K60', p1:500, p2:200, p3:70, p4:1000},
+        {series:'Redmi K系列', model:'Redmi K60E', p1:350, p2:150, p3:50, p4:700},
+        {series:'Redmi K系列', model:'Redmi K50 Ultra', p1:500, p2:200, p3:70, p4:900},
+        {series:'Redmi K系列', model:'Redmi K50 Pro', p1:400, p2:150, p3:50, p4:700},
+        {series:'Redmi K系列', model:'Redmi K50', p1:300, p2:120, p3:40, p4:550},
+        {series:'Redmi K系列', model:'Redmi K40S', p1:200, p2:80, p3:30, p4:350},
+        {series:'Redmi K系列', model:'Redmi K40 Pro', p1:200, p2:80, p3:30, p4:350},
+        {series:'Redmi K系列', model:'Redmi K40', p1:150, p2:60, p3:20, p4:250},
+        {series:'Redmi数字系列', model:'Redmi 13C', p1:150, p2:50, p3:20, p4:300},
+        {series:'Redmi数字系列', model:'Redmi 12C', p1:120, p2:40, p3:15, p4:220},
+        {series:'Redmi数字系列', model:'Redmi 12', p1:180, p2:60, p3:25, p4:350},
+        {series:'Redmi数字系列', model:'Redmi 10A', p1:80, p2:30, p3:10, p4:150},
+        {series:'Redmi数字系列', model:'Redmi 9A', p1:50, p2:20, p3:8, p4:80},
+    ],
+    '壹加': [
+        {series:'一加数字系列', model:'一加12', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'一加数字系列', model:'一加11', p1:1000, p2:450, p3:150, p4:1900},
+        {series:'一加数字系列', model:'一加10 Pro', p1:500, p2:200, p3:70, p4:900},
+        {series:'一加数字系列', model:'一加9 Pro', p1:300, p2:120, p3:40, p4:500},
+        {series:'一加数字系列', model:'一加9', p1:200, p2:80, p3:30, p4:350},
+        {series:'一加数字系列', model:'一加9RT', p1:200, p2:80, p3:30, p4:350},
+        {series:'一加数字系列', model:'一加9R', p1:180, p2:70, p3:25, p4:300},
+        {series:'一加数字系列', model:'一加8 Pro', p1:180, p2:70, p3:25, p4:280},
+        {series:'一加数字系列', model:'一加8', p1:120, p2:50, p3:18, p4:200},
+        {series:'一加数字系列', model:'一加8T', p1:150, p2:60, p3:20, p4:250},
+        {series:'一加数字系列', model:'一加7 Pro', p1:100, p2:40, p3:15, p4:150},
+        {series:'一加数字系列', model:'一加7', p1:80, p2:30, p3:10, p4:120},
+        {series:'一加数字系列', model:'一加7T Pro', p1:100, p2:40, p3:15, p4:160},
+        {series:'一加数字系列', model:'一加7T', p1:80, p2:30, p3:12, p4:130},
+        {series:'Ace系列', model:'一加Ace 3', p1:1000, p2:450, p3:150, p4:1900},
+        {series:'Ace系列', model:'一加Ace 3 Pro', p1:1300, p2:600, p3:200, p4:2500},
+        {series:'Ace系列', model:'一加Ace 2 Pro', p1:900, p2:400, p3:130, p4:1700},
+        {series:'Ace系列', model:'一加Ace 2', p1:700, p2:300, p3:100, p4:1300},
+        {series:'Ace系列', model:'一加Ace 2V', p1:500, p2:200, p3:70, p4:1000},
+        {series:'Ace系列', model:'一加Ace Pro', p1:500, p2:200, p3:70, p4:900},
+        {series:'Ace系列', model:'一加Ace', p1:400, p2:150, p3:50, p4:700},
+        {series:'Ace系列', model:'一加Ace竞速版', p1:300, p2:120, p3:40, p4:550},
+        {series:'Nord系列', model:'一加Nord 3', p1:500, p2:200, p3:70, p4:900},
+        {series:'Nord系列', model:'一加Nord CE3', p1:300, p2:120, p3:40, p4:550},
+        {series:'Nord系列', model:'一加Nord 2T', p1:250, p2:100, p3:35, p4:450},
+        {series:'Nord系列', model:'一加Nord N20', p1:200, p2:70, p3:25, p4:350},
+        {series:'折叠系列', model:'一加Open', p1:2500, p2:1100, p3:400, p4:4800},
+    ],
+    'vivo': [
+        {series:'X系列', model:'X100 Ultra', p1:2800, p2:1200, p3:400, p4:5200},
+        {series:'X系列', model:'X100 Pro', p1:2000, p2:900, p3:300, p4:3800},
+        {series:'X系列', model:'X100', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'X系列', model:'X100s', p1:1300, p2:600, p3:200, p4:2500},
+        {series:'X系列', model:'X100s Pro', p1:1800, p2:800, p3:280, p4:3500},
+        {series:'X系列', model:'X90 Pro+', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'X系列', model:'X90 Pro', p1:1000, p2:500, p3:180, p4:2000},
+        {series:'X系列', model:'X90', p1:800, p2:350, p3:120, p4:1500},
+        {series:'X系列', model:'X90s', p1:900, p2:400, p3:150, p4:1700},
+        {series:'X系列', model:'X80 Pro', p1:700, p2:300, p3:100, p4:1300},
+        {series:'X系列', model:'X80', p1:500, p2:200, p3:70, p4:900},
+        {series:'X系列', model:'X70 Pro+', p1:400, p2:180, p3:60, p4:700},
+        {series:'X系列', model:'X70 Pro', p1:300, p2:130, p3:45, p4:500},
+        {series:'X系列', model:'X Fold3 Pro', p1:3500, p2:1500, p3:500, p4:6500},
+        {series:'X系列', model:'X Fold3', p1:2800, p2:1200, p3:400, p4:5200},
+        {series:'X系列', model:'X Flip', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'S系列', model:'S19 Pro', p1:900, p2:400, p3:130, p4:1800},
+        {series:'S系列', model:'S19', p1:700, p2:300, p3:100, p4:1400},
+        {series:'S系列', model:'S18 Pro', p1:800, p2:350, p3:120, p4:1600},
+        {series:'S系列', model:'S18', p1:600, p2:250, p3:80, p4:1200},
+        {series:'S系列', model:'S18e', p1:400, p2:150, p3:50, p4:800},
+        {series:'S系列', model:'S17 Pro', p1:600, p2:250, p3:80, p4:1200},
+        {series:'S系列', model:'S17', p1:450, p2:180, p3:60, p4:900},
+        {series:'S系列', model:'S17e', p1:300, p2:120, p3:40, p4:600},
+        {series:'S系列', model:'S16 Pro', p1:400, p2:160, p3:55, p4:800},
+        {series:'S系列', model:'S16', p1:300, p2:120, p3:40, p4:600},
+        {series:'S系列', model:'S15 Pro', p1:300, p2:120, p3:40, p4:550},
+        {series:'S系列', model:'S15', p1:200, p2:80, p3:30, p4:400},
+        {series:'Y系列', model:'Y200 GT', p1:500, p2:200, p3:70, p4:1000},
+        {series:'Y系列', model:'Y200', p1:400, p2:150, p3:50, p4:800},
+        {series:'Y系列', model:'Y100', p1:350, p2:130, p3:45, p4:700},
+        {series:'Y系列', model:'Y100i', p1:250, p2:100, p3:35, p4:500},
+        {series:'Y系列', model:'Y78+', p1:300, p2:120, p3:40, p4:600},
+        {series:'Y系列', model:'Y78', p1:200, p2:80, p3:25, p4:400},
+        {series:'Y系列', model:'Y77', p1:180, p2:70, p3:25, p4:350},
+        {series:'Y系列', model:'Y77e', p1:150, p2:60, p3:20, p4:300},
+        {series:'Y系列', model:'Y53s', p1:100, p2:40, p3:15, p4:180},
+        {series:'Y系列', model:'Y52s', p1:80, p2:30, p3:10, p4:150},
+        {series:'Y系列', model:'Y33s', p1:120, p2:45, p3:15, p4:220},
+        {series:'Y系列', model:'Y31s', p1:100, p2:40, p3:12, p4:180},
+        {series:'T系列', model:'T2', p1:400, p2:150, p3:50, p4:800},
+        {series:'T系列', model:'T2x', p1:250, p2:100, p3:35, p4:500},
+        {series:'T系列', model:'T1', p1:300, p2:120, p3:40, p4:600},
+        {series:'T系列', model:'T1x', p1:200, p2:80, p3:25, p4:400},
+        {series:'iQOO系列', model:'iQOO 12 Pro', p1:1500, p2:700, p3:250, p4:2800},
+        {series:'iQOO系列', model:'iQOO 12', p1:1200, p2:550, p3:180, p4:2300},
+        {series:'iQOO系列', model:'iQOO 11 Pro', p1:900, p2:400, p3:130, p4:1700},
+        {series:'iQOO系列', model:'iQOO 11', p1:700, p2:300, p3:100, p4:1300},
+        {series:'iQOO系列', model:'iQOO 10 Pro', p1:600, p2:250, p3:80, p4:1100},
+        {series:'iQOO系列', model:'iQOO 10', p1:450, p2:180, p3:60, p4:850},
+        {series:'iQOO Neo系列', model:'iQOO Neo9 Pro', p1:900, p2:400, p3:130, p4:1700},
+        {series:'iQOO Neo系列', model:'iQOO Neo9', p1:700, p2:300, p3:100, p4:1300},
+        {series:'iQOO Neo系列', model:'iQOO Neo9S Pro+', p1:1000, p2:450, p3:150, p4:1900},
+        {series:'iQOO Neo系列', model:'iQOO Neo8 Pro', p1:600, p2:250, p3:80, p4:1200},
+        {series:'iQOO Neo系列', model:'iQOO Neo8', p1:500, p2:200, p3:70, p4:950},
+        {series:'iQOO Neo系列', model:'iQOO Neo7 竞速版', p1:450, p2:180, p3:60, p4:850},
+        {series:'iQOO Neo系列', model:'iQOO Neo7', p1:400, p2:160, p3:55, p4:750},
+        {series:'iQOO Z系列', model:'iQOO Z9 Turbo', p1:600, p2:250, p3:80, p4:1200},
+        {series:'iQOO Z系列', model:'iQOO Z9', p1:400, p2:150, p3:50, p4:800},
+        {series:'iQOO Z系列', model:'iQOO Z9x', p1:250, p2:100, p3:35, p4:500},
+        {series:'iQOO Z系列', model:'iQOO Z8', p1:350, p2:140, p3:45, p4:700},
+        {series:'iQOO Z系列', model:'iQOO Z8x', p1:250, p2:100, p3:35, p4:500},
+        {series:'iQOO Z系列', model:'iQOO Z7', p1:250, p2:100, p3:35, p4:500},
+        {series:'iQOO Z系列', model:'iQOO Z7x', p1:180, p2:70, p3:25, p4:350},
+    ]
+};
+
+// ============ 全局状态 ============
+let allData = {};
+let brands = [];
+let currentBrand = 'OPPO';
+let editIndex = -1;
+let delIndex = -1;
+let scale = 1;
+let priceOp = 'up';
+let priceCol = 'all';
+
+// ============ 初始化 ============
+function init() {
+    loadData();
+    renderBrandTabs();
+    renderTable();
+    updateDate();
+    bindEvents();
+    bindZoom();
+}
+
+function loadData() {
+    const savedBrands = localStorage.getItem(BRANDS_KEY);
+    if (savedBrands) {
+        brands = JSON.parse(savedBrands);
+        if (!brands.includes('vivo')) {
+            brands.push('vivo');
+        }
+    } else {
+        brands = [...DEFAULT_BRANDS];
+        localStorage.setItem(BRANDS_KEY, JSON.stringify(brands));
+    }
+
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+        allData = JSON.parse(savedData);
+        brands.forEach(b => {
+            if (!allData[b]) {
+                allData[b] = PRESET_DATA[b] || [];
+            }
+        });
+    } else {
+        brands.forEach(b => {
+            allData[b] = PRESET_DATA[b] || [];
+        });
+        saveData();
+    }
+
+    const savedBrand = localStorage.getItem(CURRENT_BRAND_KEY);
+    if (savedBrand && brands.includes(savedBrand)) {
+        currentBrand = savedBrand;
+    }
+}
+
+function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    localStorage.setItem(BRANDS_KEY, JSON.stringify(brands));
+    localStorage.setItem(CURRENT_BRAND_KEY, currentBrand);
+}
+
+function updateDate() {
+    const savedDate = localStorage.getItem(DATE_KEY);
+    if (savedDate) {
+        document.getElementById('date').textContent = savedDate;
+    } else {
+        const now = new Date();
+        const dateStr = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日';
+        document.getElementById('date').textContent = dateStr;
+        localStorage.setItem(DATE_KEY, dateStr);
+    }
+}
+
+// ============ 渲染品牌标签 ============
+function renderBrandTabs() {
+    const container = document.getElementById('brandTabs');
+    let html = '';
+    
+    brands.forEach(brand => {
+        const count = (allData[brand] || []).length;
+        const active = brand === currentBrand ? 'active' : '';
+        html += `<div class="brand-tab ${active}" data-brand="${brand}">${brand}<span class="count">${count}</span></div>`;
+    });
+    
+    html += `<div class="brand-add" id="addBrandTab" title="添加品牌">+</div>`;
+    html += `<div class="brand-manage" id="manageBrandTab">管理</div>`;
+    
+    container.innerHTML = html;
+
+    container.querySelectorAll('.brand-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            currentBrand = this.dataset.brand;
+            saveData();
+            renderBrandTabs();
+            renderTable();
+            document.getElementById('searchInput').value = '';
+        });
+    });
+
+    document.getElementById('addBrandTab').addEventListener('click', showAddBrandDialog);
+    document.getElementById('manageBrandTab').addEventListener('click', showManageDialog);
+    updateBrandSelects();
+}
+
+function updateBrandSelects() {
+    const fBrand = document.getElementById('fBrand');
+    const batchBrand = document.getElementById('batchBrand');
+    let options = brands.map(b => `<option value="${b}" ${b === currentBrand ? 'selected' : ''}>${b}</option>`).join('');
+    if (fBrand) fBrand.innerHTML = options;
+    if (batchBrand) batchBrand.innerHTML = options;
+}
+
+// ============ 渲染表格 ============
+function renderTable(filterText) {
+    const tbody = document.getElementById('tbody');
+    const data = allData[currentBrand] || [];
+    
+    let filtered = data;
+    if (filterText) {
+        filtered = data.filter(item => 
+            item.series.includes(filterText) || item.model.includes(filterText)
+        );
+    }
+
+    let html = '';
+    filtered.forEach((item) => {
+        const realIdx = data.indexOf(item);
+        const seriesClass = getSeriesClass(item.series, currentBrand);
+        html += `<tr data-idx="${realIdx}">
+            <td class="${seriesClass}">${item.series}</td>
+            <td class="model-cell">${item.model}</td>
+            <td class="${getPriceClass(item.p1)}">${item.p1 || '-'}</td>
+            <td class="${getPriceClass(item.p2)}">${item.p2 || '-'}</td>
+            <td class="${getPriceClass(item.p3)}">${item.p3 || '-'}</td>
+            <td class="${getPriceClass(item.p4)}">${item.p4 || '-'}</td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html;
+
+    tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', function() {
+            editIndex = parseInt(this.dataset.idx);
+            showEditDialog(editIndex);
+        });
+    });
+}
+
+function getSeriesClass(series, brand) {
+    const s = series.toLowerCase();
+    
+    if (brand === 'OPPO') {
+        if (s.includes('find')) return 'series-oppo-find';
+        if (s.includes('reno')) return 'series-oppo-reno';
+        if (s.includes('a系列')) return 'series-oppo-a';
+        if (s.includes('k系列')) return 'series-oppo-k';
+        if (s.includes('r系列')) return 'series-oppo-r';
+        if (s.includes('折叠') || s.includes('n2') || s.includes('n3')) return 'series-oppo-fold';
+    }
+    
+    if (brand === '华为') {
+        if (s.includes('mate')) return 'series-huawei-mate';
+        if (s.includes('p系列') || s.includes('pura')) return 'series-huawei-p';
+        if (s.includes('nova')) return 'series-huawei-nova';
+        if (s.includes('畅享')) return 'series-huawei-enjoy';
+        if (s.includes('折叠') || s.includes('x5') || s.includes('x3') || s.includes('xs')) return 'series-huawei-fold';
+    }
+    
+    if (brand === '荣耀') {
+        if (s.includes('magic')) return 'series-honor-magic';
+        if (s.includes('数字') || /^\d{2,3}/.test(series)) return 'series-honor-number';
+        if (s.includes('x系列')) return 'series-honor-x';
+        if (s.includes('play')) return 'series-honor-play';
+    }
+    
+    if (brand === '小米') {
+        if (s.includes('mix')) return 'series-xiaomi-mix';
+        if (s.includes('civi')) return 'series-xiaomi-civi';
+        if (s.includes('折叠') || s.includes('fold') || s.includes('flip')) return 'series-xiaomi-fold';
+        return 'series-xiaomi-mi';
+    }
+    
+    if (brand === '红米') {
+        if (s.includes('k系列')) return 'series-xiaomi-mi';
+        if (s.includes('note')) return 'series-xiaomi-redmi-note';
+        return 'series-xiaomi-redmi';
+    }
+    
+    if (brand === '壹加' || brand === '一加') {
+        if (s.includes('ace')) return 'series-oneplus-ace';
+        if (s.includes('nord')) return 'series-oneplus-nord';
+        if (s.includes('折叠') || s.includes('open')) return 'series-xiaomi-fold';
+        return 'series-oneplus-number';
+    }
+    
+    if (brand === 'vivo' || brand === 'VIVO') {
+        if (s.includes('iqoo z')) return 'series-vivo-iqoo-z';
+        if (s.includes('iqoo neo')) return 'series-vivo-iqoo-neo';
+        if (s.includes('iqoo')) return 'series-vivo-iqoo';
+        if (s.includes('x系列') || s.startsWith('x')) return 'series-vivo-x';
+        if (s.includes('s系列') || s.startsWith('s')) return 'series-vivo-s';
+        if (s.includes('y系列') || s.startsWith('y')) return 'series-vivo-y';
+        if (s.includes('t系列') || s.startsWith('t')) return 'series-vivo-t';
+        if (s.includes('fold') || s.includes('flip') || s.includes('折叠')) return 'series-vivo-fold';
+    }
+    
+    return '';
+}
+
+function getPriceClass(price) {
+    const p = parseInt(price) || 0;
+    if (p === 0) return 'price-zero';
+    if (p >= 2000) return 'price-high';
+    if (p >= 1000) return 'price-mid-high';
+    if (p >= 300) return 'price-mid';
+    return 'price-low';
+}
+
+// ============ 事件绑定 ============
+function bindEvents() {
+    document.getElementById('searchInput').addEventListener('input', function() {
+        renderTable(this.value.trim());
+    });
+
+    document.getElementById('addBtn').addEventListener('click', function() {
+        editIndex = -1;
+        showEditDialog(-1);
+    });
+
+    document.getElementById('manageBtn').addEventListener('click', showManageDialog);
+    document.getElementById('priceBtn').addEventListener('click', showPriceDialog);
+    document.getElementById('batchBtn').addEventListener('click', function() {
+        document.getElementById('batchBrand').value = currentBrand;
+        document.getElementById('batchText').value = '';
+        document.getElementById('batchResult').style.display = 'none';
+        showMask('batchMask');
+    });
+
+    document.getElementById('batchCancel').addEventListener('click', function() { hideMask('batchMask'); });
+    document.getElementById('batchOk').addEventListener('click', doBatchImport);
+
+    document.getElementById('cancelBtn').addEventListener('click', function() { hideMask('editMask'); });
+    document.getElementById('okBtn').addEventListener('click', function() { saveEdit(false); });
+    document.getElementById('addMoreBtn').addEventListener('click', function() { saveEdit(true); });
+
+    document.getElementById('delCancel').addEventListener('click', function() { hideMask('delMask'); });
+    document.getElementById('delOk').addEventListener('click', doDelete);
+
+    document.getElementById('addBrandCancel').addEventListener('click', function() { hideMask('addBrandMask'); });
+    document.getElementById('addBrandOk').addEventListener('click', doAddBrand);
+
+    document.getElementById('manageOk').addEventListener('click', function() { hideMask('manageMask'); });
+    document.getElementById('addBrandBtn').addEventListener('click', function() {
+        hideMask('manageMask');
+        showAddBrandDialog();
+    });
+
+    document.getElementById('dateCancel').addEventListener('click', function() { hideMask('dateMask'); });
+    document.getElementById('dateOk').addEventListener('click', doSetDate);
+
+    document.getElementById('priceCancel').addEventListener('click', function() { hideMask('priceMask'); });
+    document.getElementById('priceOk').addEventListener('click', doBatchPrice);
+
+    bindPriceEvents();
+    bindEnterNavigation();
+}
+
+function bindEnterNavigation() {
+    const inputs = ['fSeries', 'fModel', 'fP1', 'fP2', 'fP3', 'fP4'];
+    inputs.forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (i < inputs.length - 1) {
+                    document.getElementById(inputs[i+1]).focus();
+                } else {
+                    saveEdit(false);
+                }
+            }
+        });
+    });
+}
+
+function bindPriceEvents() {
+    document.getElementById('opUp').addEventListener('click', function() {
+        priceOp = 'up';
+        document.getElementById('opUp').classList.add('active-up');
+        document.getElementById('opUp').classList.remove('active-down');
+        document.getElementById('opDown').classList.remove('active-down');
+        document.getElementById('opDown').classList.remove('active-up');
+        updatePricePreview();
+    });
+    document.getElementById('opDown').addEventListener('click', function() {
+        priceOp = 'down';
+        document.getElementById('opDown').classList.add('active-down');
+        document.getElementById('opDown').classList.remove('active-up');
+        document.getElementById('opUp').classList.remove('active-up');
+        document.getElementById('opUp').classList.remove('active-down');
+        updatePricePreview();
+    });
+
+    document.querySelectorAll('#priceColumns .radio-item').forEach(item => {
+        item.addEventListener('click', function() {
+            document.querySelectorAll('#priceColumns .radio-item').forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            priceCol = this.dataset.col;
+            updatePricePreview();
+        });
+    });
+
+    document.getElementById('priceRange').addEventListener('change', updatePricePreview);
+    document.getElementById('pricePercent').addEventListener('input', updatePricePreview);
+
+    document.querySelectorAll('.quick-percent span').forEach(span => {
+        span.addEventListener('click', function() {
+            document.getElementById('pricePercent').value = this.dataset.p;
+            updatePricePreview();
+        });
+    });
+}
+
+function getPriceTargetData() {
+    const range = document.getElementById('priceRange').value;
+    const searchText = document.getElementById('searchInput').value.trim();
+    let targets = [];
+
+    if (range === 'all') {
+        brands.forEach(b => {
+            (allData[b] || []).forEach((item, idx) => {
+                targets.push({brand: b, index: idx, item: item});
+            });
+        });
+    } else if (range === 'search' && searchText) {
+        brands.forEach(b => {
+            (allData[b] || []).forEach((item, idx) => {
+                if (item.series.includes(searchText) || item.model.includes(searchText)) {
+                    targets.push({brand: b, index: idx, item: item});
+                }
+            });
+        });
+    } else {
+        (allData[currentBrand] || []).forEach((item, idx) => {
+            if (!searchText || item.series.includes(searchText) || item.model.includes(searchText)) {
+                targets.push({brand: currentBrand, index: idx, item: item});
+            }
+        });
+    }
+    return targets;
+}
+
+function updatePricePreview() {
+    const targets = getPriceTargetData();
+    const percent = parseInt(document.getElementById('pricePercent').value) || 0;
+    const opText = priceOp === 'up' ? '上涨' : '下降';
+    let colText = '全部价格';
+    const colNames = {p1:'开机屏坏', p2:'不开机', p3:'废板', p4:'整机'};
+    if (priceCol !== 'all') colText = colNames[priceCol];
+    
+    document.getElementById('previewCount').textContent = targets.length;
+    document.getElementById('pricePreview').innerHTML = 
+        `预计将调整 <strong>${targets.length}</strong> 款机型的<strong>${colText}</strong>，<strong style="color:${priceOp==='up'?'#4CAF50':'#f44336'}">${opText} ${percent}%</strong>`;
+}
+
+function doBatchPrice() {
+    const targets = getPriceTargetData();
+    const percent = parseInt(document.getElementById('pricePercent').value) || 0;
+    
+    if (targets.length === 0) {
+        showTip('没有可调整的机型');
+        return;
+    }
+    if (percent <= 0) {
+        showTip('请输入调整百分比');
+        return;
+    }
+
+    const factor = priceOp === 'up' ? (1 + percent/100) : (1 - percent/100);
+    const cols = priceCol === 'all' ? ['p1','p2','p3','p4'] : [priceCol];
+    
+    let count = 0;
+    targets.forEach(t => {
+        cols.forEach(c => {
+            const old = parseInt(t.item[c]) || 0;
+            if (old > 0) {
+                t.item[c] = Math.round(old * factor);
+                count++;
+            }
+        });
+    });
+
+    saveData();
+    renderBrandTabs();
+    renderTable(document.getElementById('searchInput').value.trim());
+    hideMask('priceMask');
+    showTip(`已调整 ${targets.length} 款机型的价格`);
+}
+
+function showPriceDialog() {
+    priceOp = 'up';
+    priceCol = 'all';
+    document.getElementById('pricePercent').value = 10;
+    document.getElementById('priceRange').value = 'current';
+    document.getElementById('opUp').classList.add('active-up');
+    document.getElementById('opUp').classList.remove('active-down');
+    document.getElementById('opDown').classList.remove('active-down', 'active-up');
+    document.querySelectorAll('#priceColumns .radio-item').forEach(i => i.classList.remove('active'));
+    document.querySelector('#priceColumns .radio-item[data-col="all"]').classList.add('active');
+    updatePricePreview();
+    showMask('priceMask');
+}
+
+// ============ 缩放功能 ============
+function bindZoom() {
+    const app = document.getElementById('app');
+    const wrapper = document.getElementById('appWrapper');
+    
+    let startDist = 0;
+    let startScale = 1;
+    let isPinching = false;
+
+    function getDist(p1, p2) {
+        const dx = p1.clientX - p2.clientX;
+        const dy = p1.clientY - p2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function setTransform() {
+        scale = Math.max(0.5, Math.min(scale, 4));
+        app.style.transform = 'scale(' + scale + ')';
+        app.style.transformOrigin = 'center top';
+        wrapper.style.paddingBottom = (80 + app.offsetHeight * Math.max(0, scale - 1)) + 'px';
+    }
+
+    wrapper.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            isPinching = true;
+            startDist = getDist(e.touches[0], e.touches[1]);
+            startScale = scale;
+        }
+    }, {passive: true});
+
+    wrapper.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 2 && isPinching) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dist = getDist(e.touches[0], e.touches[1]);
+            scale = startScale * (dist / startDist);
+            requestAnimationFrame(setTransform);
+        }
+    }, {passive: false, capture: true});
+
+    wrapper.addEventListener('touchend', function(e) {
+        if (e.touches.length < 2) {
+            isPinching = false;
+            if (scale < 1) {
+                scale = 1;
+                setTransform();
+            }
+        }
+    }, {passive: true});
+
+    wrapper.addEventListener('touchcancel', function(e) {
+        isPinching = false;
+    }, {passive: true});
+
+    let lastTouchTime = 0;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    
+    wrapper.addEventListener('touchend', function(e) {
+        if (isPinching || e.changedTouches.length !== 1) return;
+        const touch = e.changedTouches[0];
+        const now = Date.now();
+        const dx = Math.abs(touch.clientX - lastTouchX);
+        const dy = Math.abs(touch.clientY - lastTouchY);
+        
+        if (now - lastTouchTime < 300 && dx < 20 && dy < 20) {
+            if (scale > 1.1) {
+                scale = 1;
+            } else {
+                scale = 2;
+            }
+            setTransform();
+        }
+        lastTouchTime = now;
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+    }, {passive: true});
+
+    setTransform();
+}
+
+// ============ 对话框操作 ============
+function showMask(id) { document.getElementById(id).classList.add('show'); }
+function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+
+function showEditDialog(idx) {
+    const title = document.getElementById('editTitle');
+    updateBrandSelects();
+
+    if (idx >= 0) {
+        title.textContent = '编辑机型';
+        const item = allData[currentBrand][idx];
+        document.getElementById('fBrand').value = currentBrand;
+        document.getElementById('fSeries').value = item.series;
+        document.getElementById('fModel').value = item.model;
+        document.getElementById('fP1').value = item.p1;
+        document.getElementById('fP2').value = item.p2;
+        document.getElementById('fP3').value = item.p3;
+        document.getElementById('fP4').value = item.p4;
+    } else {
+        title.textContent = '添加新机型';
+        document.getElementById('fBrand').value = currentBrand;
+        document.getElementById('fSeries').value = '';
+        document.getElementById('fModel').value = '';
+        document.getElementById('fP1').value = '';
+        document.getElementById('fP2').value = '';
+        document.getElementById('fP3').value = '';
+        document.getElementById('fP4').value = '';
+    }
+
+    showMask('editMask');
+    setTimeout(() => document.getElementById('fSeries').focus(), 100);
+}
+
+function saveEdit(continueAdd) {
+    const brand = document.getElementById('fBrand').value;
+    const series = document.getElementById('fSeries').value.trim();
+    const model = document.getElementById('fModel').value.trim();
+    const p1 = parseInt(document.getElementById('fP1').value) || 0;
+    const p2 = parseInt(document.getElementById('fP2').value) || 0;
+    const p3 = parseInt(document.getElementById('fP3').value) || 0;
+    const p4 = parseInt(document.getElementById('fP4').value) || 0;
+
+    if (!series || !model) {
+        showTip('请填写系列和型号');
+        return;
+    }
+
+    if (!allData[brand]) allData[brand] = [];
+    const item = {series, model, p1, p2, p3, p4};
+
+    if (editIndex >= 0 && brand === currentBrand) {
+        allData[brand][editIndex] = item;
+        showTip('修改成功');
+    } else {
+        allData[brand].push(item);
+        showTip('添加成功');
+    }
+
+    saveData();
+    currentBrand = brand;
+    renderBrandTabs();
+    renderTable();
+
+    if (continueAdd) {
+        document.getElementById('fSeries').value = '';
+        document.getElementById('fModel').value = '';
+        document.getElementById('fP1').value = '';
+        document.getElementById('fP2').value = '';
+        document.getElementById('fP3').value = '';
+        document.getElementById('fP4').value = '';
+        document.getElementById('fSeries').focus();
+        editIndex = -1;
+    } else {
+        hideMask('editMask');
+    }
+}
+
+function doDelete() {
+    if (delIndex >= 0) {
+        allData[currentBrand].splice(delIndex, 1);
+        saveData();
+        renderBrandTabs();
+        renderTable();
+        showTip('删除成功');
+    }
+    hideMask('delMask');
+    delIndex = -1;
+}
+
+function doBatchImport() {
+    const brand = document.getElementById('batchBrand').value;
+    const text = document.getElementById('batchText').value.trim();
+    
+    if (!text) {
+        showTip('请粘贴数据');
+        return;
+    }
+
+    const lines = text.split('\n').filter(l => l.trim());
+    let count = 0;
+
+    lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        const parts = line.split(/[\t,，\s]+/).filter(p => p);
+        if (parts.length >= 6) {
+            const item = {
+                series: parts[0],
+                model: parts[1],
+                p1: parseInt(parts[2]) || 0,
+                p2: parseInt(parts[3]) || 0,
+                p3: parseInt(parts[4]) || 0,
+                p4: parseInt(parts[5]) || 0
+            };
+            if (!allData[brand]) allData[brand] = [];
+            allData[brand].push(item);
+            count++;
+        }
+    });
+
+    if (count > 0) {
+        saveData();
+        currentBrand = brand;
+        renderBrandTabs();
+        renderTable();
+        document.getElementById('batchResult').textContent = `成功导入 ${count} 条数据`;
+        document.getElementById('batchResult').style.display = 'block';
+        showTip(`成功导入 ${count} 条数据`);
+        setTimeout(() => hideMask('batchMask'), 800);
+    } else {
+        showTip('未识别到有效数据，请检查格式');
+    }
+}
+
+function showAddBrandDialog() {
+    document.getElementById('newBrandName').value = '';
+    showMask('addBrandMask');
+    setTimeout(() => document.getElementById('newBrandName').focus(), 100);
+}
+
+function doAddBrand() {
+    const name = document.getElementById('newBrandName').value.trim();
+    if (!name) { showTip('请输入品牌名称'); return; }
+    if (brands.includes(name)) { showTip('该品牌已存在'); return; }
+    
+    brands.push(name);
+    allData[name] = [];
+    currentBrand = name;
+    saveData();
+    renderBrandTabs();
+    renderTable();
+    hideMask('addBrandMask');
+    showTip(`已添加品牌：${name}`);
+}
+
+function showManageDialog() {
+    const list = document.getElementById('brandList');
+    let html = '';
+    
+    brands.forEach((brand, idx) => {
+        const count = (allData[brand] || []).length;
+        const isDefault = DEFAULT_BRANDS.includes(brand);
+        html += `<div class="brand-item">
+            <span class="brand-item-name">${brand}</span>
+            <span class="brand-item-count">${count}款</span>
+            ${!isDefault ? `<span class="brand-item-del" data-idx="${idx}">删除</span>` : `<span class="brand-item-default">预置</span>`}
+        </div>`;
+    });
+    
+    list.innerHTML = html;
+    
+    list.querySelectorAll('.brand-item-del').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const idx = parseInt(this.dataset.idx);
+            const brand = brands[idx];
+            if (confirm(`确定要删除品牌"${brand}"及其所有数据吗？`)) {
+                brands.splice(idx, 1);
+                delete allData[brand];
+                if (currentBrand === brand) {
+                    currentBrand = brands[0] || 'OPPO';
+                }
+                saveData();
+                renderBrandTabs();
+                renderTable();
+                showManageDialog();
+                showTip(`已删除品牌：${brand}`);
+            }
+        });
+    });
+    
+    showMask('manageMask');
+}
+
+function editDate() {
+    const now = new Date();
+    document.getElementById('dateInput').value = now.toISOString().split('T')[0];
+    document.getElementById('dateCustom').value = '';
+    showMask('dateMask');
+}
+
+function doSetDate() {
+    const dateInput = document.getElementById('dateInput').value;
+    const custom = document.getElementById('dateCustom').value.trim();
+    
+    let dateStr;
+    if (custom) {
+        dateStr = custom;
+    } else if (dateInput) {
+        const d = new Date(dateInput);
+        dateStr = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+    } else {
+        const now = new Date();
+        dateStr = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日';
+    }
+    
+    document.getElementById('date').textContent = dateStr;
+    localStorage.setItem(DATE_KEY, dateStr);
+    hideMask('dateMask');
+    showTip('日期已更新');
+}
+
+function showTip(msg) {
+    const tip = document.getElementById('tip');
+    tip.textContent = msg;
+    tip.classList.add('show');
+    setTimeout(() => tip.classList.remove('show'), 2000);
+}
+
+const observer = new MutationObserver(function() {
+    const footer = document.querySelector('#editMask .dialog-footer');
+    const title = document.getElementById('editTitle').textContent;
+    if (title === '编辑机型' && !document.getElementById('editDelBtn')) {
+        const delBtn = document.createElement('button');
+        delBtn.id = 'editDelBtn';
+        delBtn.className = 'btn-ok btn-del';
+        delBtn.style.flex = '1';
+        delBtn.textContent = '删除';
+        delBtn.addEventListener('click', function() {
+            hideMask('editMask');
+            delIndex = editIndex;
+            document.getElementById('delText').textContent = `确定要删除 ${allData[currentBrand][delIndex].model} 吗？`;
+            showMask('delMask');
+        });
+        footer.insertBefore(delBtn, document.getElementById('cancelBtn'));
+    } else if (title === '添加新机型' && document.getElementById('editDelBtn')) {
+        document.getElementById('editDelBtn').remove();
+    }
+});
+observer.observe(document.getElementById('editTitle'), {childList: true, subtree: true, characterData: true});
+
+init();
+    </script>
+</body>
+</html>
