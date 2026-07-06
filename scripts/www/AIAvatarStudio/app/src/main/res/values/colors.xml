@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调 - 科技感深蓝与亮青 -->
+    <color name="primary_dark">#0D1B2A</color>
+    <color name="primary">#1B2838</color>
+    <color name="primary_light">#2D3E50</color>
+    <color name="accent_cyan">#00D4FF</color>
+    <color name="accent_cyan_dark">#00A8CC</color>
+    <color name="accent_blue">#0066FF</color>
+    
+    <!-- 背景色 -->
+    <color name="background_dark">#0A0F1C</color>
+    <color name="surface_dark">#141E2B</color>
+    <color name="card_background">#1E2D3D</color>
+    
+    <!-- 文字颜色 -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0BEC5</color>
+    <color name="text_hint">#607D8B</color>
+    
+    <!-- 功能色 -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+    <color name="error">#F44336</color>
+    
+    <!-- 数字人背景色 -->
+    <color name="avatar_bg_gray">#37474F</color>
+    <color name="avatar_bg_blue">#1565C0</color>
+    <color name="avatar_bg_green">#2E7D32</color>
+    
+    <!-- 场景背景色 -->
+    <color name="office_bg">#37474F</color>
+    <color name="nature_bg">#2E7D32</color>
+    
+    <!-- 白色透明 -->
+    <color name="white_10">#1AFFFFFF</color>
+    <color name="white_20">#33FFFFFF</color>
+    <color name="white_60">#99FFFFFF</color>
+    <color name="black_40">#66000000</color>
+</resources>
