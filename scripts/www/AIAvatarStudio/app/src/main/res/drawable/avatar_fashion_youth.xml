@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 青色背景圆形 -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#00838F" />
+        </shape>
+    </item>
+    <!-- 时尚青年图标 -->
+    <item
+        android:drawable="@drawable/ic_fashion_youth"
+        android:gravity="center" />
+</layer-list>
