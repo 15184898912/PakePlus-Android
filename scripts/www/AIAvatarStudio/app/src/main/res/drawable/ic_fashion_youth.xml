@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="130">
+    <!-- 头部圆形 -->
+    <path
+        android:fillColor="#FFCC99"
+        android:pathData="M50,20 C65,20 75,32 75,48 C75,62 65,72 50,72 C35,72 25,62 25,48 C25,32 35,20 50,20Z" />
+    <!-- 时尚发型（金色/挑染） -->
+    <path
+        android:fillColor="#FFA726"
+        android:pathData="M26,40 C26,26 37,16 50,16 C63,16 74,26 74,40 C74,35 67,26 55,25 C45,24 38,28 32,35 C29,38 27,42 26,45Z" />
+    <!-- 眼睛 -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M39,46 C39,44 43,44 43,46 C43,48 39,48 39,46Z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M57,46 C57,44 61,44 61,46 C61,48 57,48 57,46Z" />
+    <!-- 酷感微笑 -->
+    <path
+        android:fillColor="#D84315"
+        android:pathData="M45,62 Q50,64 55,62" />
+    <!-- 连帽衫身体 -->
+    <path
+        android:fillColor="#00BCD4"
+        android:pathData="M20,95 L50,73 L80,95 L80,130 L20,130Z" />
+    <!-- 帽子轮廓 -->
+    <path
+        android:fillColor="#0097A7"
+        android:pathData="M35,75 L50,70 L65,75 L62,85 L50,80 L38,85Z" />
+    <!-- 耳机装饰 -->
+    <path
+        android:fillColor="#212121"
+        android:pathData="M23,45 C20,45 18,48 18,52 C18,56 20,58 23,58Z" />
+    <path
+        android:fillColor="#212121"
+        android:pathData="M77,45 C80,45 82,48 82,52 C82,56 80,58 77,58Z" />
+</vector>
