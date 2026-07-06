@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="130">
+    <!-- 头部圆形 -->
+    <path
+        android:fillColor="#FFE0C2"
+        android:pathData="M50,20 C64,20 74,32 74,48 C74,62 64,72 50,72 C36,72 26,62 26,48 C26,32 36,20 50,20Z" />
+    <!-- 长发（棕色） -->
+    <path
+        android:fillColor="#5D4037"
+        android:pathData="M22,45 C22,25 35,15 50,15 C65,15 78,25 78,45 C78,55 75,70 72,75 L68,70 C70,60 70,48 65,40 C60,30 50,25 40,28 C32,32 28,42 30,55 L26,70 C24,60 22,52 22,45Z" />
+    <!-- 眼睛 -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M39,46 C39,44 43,44 43,46 C43,48 39,48 39,46Z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M57,46 C57,44 61,44 61,46 C61,48 57,48 57,46Z" />
+    <!-- 嘴唇（红色） -->
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M44,61 Q50,65 56,61 Q50,63 44,61Z" />
+    <!-- 连衣裙身体 -->
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M25,100 L50,75 L75,100 L70,130 L30,130Z" />
+    <!-- 领口装饰 -->
+    <path
+        android:fillColor="#F8BBD9"
+        android:pathData="M44,75 L50,85 L56,75 L53,80 L50,82 L47,80Z" />
+</vector>
