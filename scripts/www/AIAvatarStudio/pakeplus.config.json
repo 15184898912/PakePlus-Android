@@ -1,0 +1,38 @@
+{
+  "name": "AI数字人视频工坊",
+  "packageName": "com.ai.avatarstudio",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "minSdkVersion": 24,
+  "targetSdkVersion": 33,
+  "compileSdkVersion": 33,
+  "description": "AI数字人视频生成工具，用户可通过简单步骤创建自己的数字分身并生成说话视频",
+  "author": "AI Avatar Studio",
+  "buildType": "debug",
+  "outputDir": "./output",
+  "gradleVersion": "8.0",
+  "kotlinVersion": "1.9.0",
+  "features": {
+    "camera": true,
+    "storage": true,
+    "audio": true,
+    "internet": true
+  },
+  "permissions": [
+    "android.permission.INTERNET",
+    "android.permission.CAMERA",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.READ_MEDIA_IMAGES",
+    "android.permission.READ_MEDIA_AUDIO",
+    "android.permission.READ_MEDIA_VIDEO",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+    "android.permission.RECORD_AUDIO"
+  ],
+  "theme": {
+    "primaryColor": "#00D4FF",
+    "backgroundColor": "#0A0F1C",
+    "darkMode": true
+  },
+  "orientation": "portrait",
+  "fullscreen": false
+}
