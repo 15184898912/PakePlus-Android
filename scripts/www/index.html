@@ -786,11 +786,13 @@ function doDel() {
     closeDel();
 }
 
-// ========== 双指捏合缩放（极简可靠版） ==========
+// ========== 双指捏合缩放（流畅版 - CSS zoom保证点击准确） ==========
 var currentZoom = 1.3;
 var initialDistance = 0;
 var initialZoom = 1.3;
 var isPinching = false;
+var rafPending = false;
+var pendingZoom = 1.3;
 
 // 计算两指距离
 function getTouchDistance(touches) {
@@ -799,19 +801,29 @@ function getTouchDistance(touches) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// 应用缩放
-function applyZoom() {
-    // 限制缩放范围
-    if (currentZoom < 1) currentZoom = 1;
-    if (currentZoom > 4) currentZoom = 4;
+// 使用requestAnimationFrame批量更新，减少重绘
+function flushZoom() {
+    rafPending = false;
+    if (pendingZoom < 1) pendingZoom = 1;
+    if (pendingZoom > 4) pendingZoom = 4;
+    currentZoom = pendingZoom;
     
-    // 使用CSS zoom，Android WebView原生支持，不影响点击坐标
+    // CSS zoom: Android WebView原生支持，点击坐标自动正确
+    document.documentElement.style.zoom = currentZoom;
     document.body.style.zoom = currentZoom;
     
-    // 保存用户设置
-    try {
-        localStorage.setItem('oppo_zoom_level', currentZoom.toString());
-    } catch(e) {}
+    // 松手时保存
+    if (!isPinching) {
+        try { localStorage.setItem('oppo_zoom_level', currentZoom); } catch(e) {}
+    }
+}
+
+function requestZoomUpdate(z) {
+    pendingZoom = z;
+    if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(flushZoom);
+    }
 }
 
 function initPinchZoom() {
@@ -822,17 +834,19 @@ function initPinchZoom() {
             var z = parseFloat(saved);
             if (z >= 1 && z <= 4) {
                 currentZoom = z;
+                pendingZoom = z;
             }
         }
     } catch(e) {}
     
-    // 初始应用默认缩放
-    applyZoom();
+    // 初始应用
+    document.documentElement.style.zoom = currentZoom;
+    document.body.style.zoom = currentZoom;
     
     var lastTouchEnd = 0;
+    var lastZoomValue = currentZoom;
     
     document.addEventListener('touchstart', function(e) {
-        // 如果在输入框、按钮、对话框内，不处理缩放
         var target = e.target;
         if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
             target.tagName === 'TEXTAREA' || target.closest('.mask')) {
@@ -840,12 +854,12 @@ function initPinchZoom() {
         }
         
         if (e.touches.length === 2) {
-            // 双指接触屏幕，开始缩放
             isPinching = true;
             initialDistance = getTouchDistance(e.touches);
             initialZoom = currentZoom;
+            lastZoomValue = currentZoom;
         }
-    }, false);
+    }, {passive: false});
     
     document.addEventListener('touchmove', function(e) {
         var target = e.target;
@@ -855,13 +869,18 @@ function initPinchZoom() {
         }
         
         if (e.touches.length === 2 && isPinching) {
-            // 双指移动，计算缩放
-            var currentDistance = getTouchDistance(e.touches);
-            if (initialDistance > 10) { // 避免初始距离太小导致跳变
-                currentZoom = initialZoom * (currentDistance / initialDistance);
-                applyZoom();
+            var dist = getTouchDistance(e.touches);
+            if (initialDistance > 5) {
+                var newZoom = initialZoom * (dist / initialDistance);
+                // 限制范围
+                if (newZoom < 1) newZoom = 1;
+                if (newZoom > 4) newZoom = 4;
+                // 阈值：只有变化超过0.02才更新，减少更新频率
+                if (Math.abs(newZoom - lastZoomValue) > 0.02) {
+                    lastZoomValue = newZoom;
+                    requestZoomUpdate(newZoom);
+                }
             }
-            // 阻止默认行为防止页面滚动
             e.preventDefault();
         }
     }, {passive: false});
@@ -869,29 +888,45 @@ function initPinchZoom() {
     document.addEventListener('touchend', function(e) {
         if (e.touches.length < 2) {
             isPinching = false;
+            // 最终值立即应用并保存
+            requestZoomUpdate(lastZoomValue);
         }
         
-        // 双击重置缩放
+        // 双击切换缩放
         var target = e.target;
         if (target.tagName !== 'INPUT' && target.tagName !== 'BUTTON' && 
-            target.tagName !== 'TEXTAREA' && !target.closest('.mask')) {
+            target.tagName !== 'TEXTAREA' && !target.closest('.mask') && e.touches.length === 0) {
             var now = Date.now();
-            if (now - lastTouchEnd <= 300 && e.touches.length === 0) {
-                // 双击：如果放大了就重置回1.3，否则放大到1.8
-                if (currentZoom > 1.4) {
-                    currentZoom = 1.3;
-                } else {
-                    currentZoom = 2.0;
+            if (now - lastTouchEnd <= 300) {
+                var targetZ = currentZoom > 1.4 ? 1.3 : 2.0;
+                // 平滑动画过渡
+                var startZ = currentZoom;
+                var startTime = now;
+                var duration = 200;
+                function animate() {
+                    var t = Math.min(1, (Date.now() - startTime) / duration);
+                    // easeOutQuad缓动
+                    t = t * (2 - t);
+                    var z = startZ + (targetZ - startZ) * t;
+                    document.documentElement.style.zoom = z;
+                    document.body.style.zoom = z;
+                    currentZoom = z;
+                    pendingZoom = z;
+                    if (t < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        try { localStorage.setItem('oppo_zoom_level', targetZ); } catch(e) {}
+                    }
                 }
-                applyZoom();
+                requestAnimationFrame(animate);
             }
             lastTouchEnd = now;
         }
-    }, false);
+    }, {passive: false});
     
     document.addEventListener('touchcancel', function() {
         isPinching = false;
-    }, false);
+    }, true);
 }
 
 document.addEventListener('DOMContentLoaded', function(){
