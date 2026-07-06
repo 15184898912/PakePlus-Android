@@ -1,0 +1,56 @@
+<resources>
+    <string name="app_name">AI数字人视频工坊</string>
+    
+    <!-- 标题 -->
+    <string name="title_main">AI数字人视频工坊</string>
+    <string name="subtitle_create_avatar">创建你的数字分身</string>
+    
+    <!-- 按钮文字 -->
+    <string name="btn_upload_photo">上传照片</string>
+    <string name="btn_select_avatar">选择形象</string>
+    <string name="btn_generate_voice">生成语音</string>
+    <string name="btn_upload_audio">上传音频</string>
+    <string name="btn_compose_video">合成视频</string>
+    <string name="btn_save_gallery">保存到相册</string>
+    <string name="btn_play">播放</string>
+    <string name="btn_stop">停止</string>
+    
+    <!-- 提示文字 -->
+    <string name="hint_enter_text">请输入要让数字人说的话…</string>
+    <string name="hint_select_avatar">请选择或上传数字人形象</string>
+    <string name="hint_select_background">选择背景</string>
+    
+    <!-- 状态文字 -->
+    <string name="status_generating_avatar">AI正在生成数字分身…</string>
+    <string name="status_generating_voice">正在合成AI语音…</string>
+    <string name="status_composing_video">正在合成视频 %d%%</string>
+    <string name="status_avatar_ready">数字分身已就绪</string>
+    <string name="status_voice_ready">语音已生成</string>
+    <string name="status_video_ready">视频合成完成</string>
+    <string name="status_saved_success">已保存到相册</string>
+    <string name="status_playing">正在播放…</string>
+    
+    <!-- 数字人形象名称 -->
+    <string name="avatar_business_man">商务男士</string>
+    <string name="avatar_elegant_lady">优雅女士</string>
+    <string name="avatar_fashion_youth">时尚青年</string>
+    
+    <!-- 背景名称 -->
+    <string name="bg_gray">灰色</string>
+    <string name="bg_blue">蓝色</string>
+    <string name="bg_green">绿色</string>
+    <string name="bg_office">办公室</string>
+    <string name="bg_nature">自然风景</string>
+    
+    <!-- 权限相关 -->
+    <string name="permission_storage_title">需要存储权限</string>
+    <string name="permission_storage_message">应用需要访问存储来选择照片、音频和保存视频</string>
+    <string name="permission_camera_title">需要相机权限</string>
+    <string name="permission_camera_message">应用需要相机权限以支持拍照功能</string>
+    <string name="dialog_ok">确定</string>
+    <string name="dialog_cancel">取消</string>
+    <string name="dialog_settings">去设置</string>
+    
+    <!-- 默认文案 -->
+    <string name="default_welcome_text">你好，我是你的AI数字人助手，有什么可以帮你的吗？</string>
+</resources>
