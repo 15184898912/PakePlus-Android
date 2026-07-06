@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 标题文字样式 -->
+    <style name="TextTitle">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- 副标题文字样式 -->
+    <style name="TextSubtitle">
+        <item name="android:textColor">@color/accent_cyan</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+
+    <!-- 正文文字样式 -->
+    <style name="TextBody">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!-- 次要文字样式 -->
+    <style name="TextSecondary">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <!-- 卡片样式 -->
+    <style name="CardStyle">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">8dp</item>
+        <item name="cardBackgroundColor">@color/card_background</item>
+        <item name="contentPadding">16dp</item>
+    </style>
+
+    <!-- 主按钮样式 -->
+    <style name="ButtonPrimary" parent="Widget.MaterialComponents.Button">
+        <item name="android:textColor">@color/primary_dark</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="backgroundTint">@color/accent_cyan</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:paddingLeft">20dp</item>
+        <item name="android:paddingRight">20dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- 次要按钮样式 -->
+    <style name="ButtonSecondary" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">@color/accent_cyan</item>
+        <item name="android:textSize">14sp</item>
+        <item name="strokeColor">@color/accent_cyan</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- 输入框样式 -->
+    <style name="InputStyle" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="boxStrokeColor">@color/accent_cyan</item>
+        <item name="boxCornerRadiusTopStart">12dp</item>
+        <item name="boxCornerRadiusTopEnd">12dp</item>
+        <item name="boxCornerRadiusBottomStart">12dp</item>
+        <item name="boxCornerRadiusBottomEnd">12dp</item>
+        <item name="hintTextColor">@color/accent_cyan</item>
+    </style>
+
+    <!-- 进度条样式 -->
+    <style name="ProgressBarStyle" parent="Widget.MaterialComponents.LinearProgressIndicator">
+        <item name="indicatorColor">@color/accent_cyan</item>
+        <item name="trackColor">@color/primary_light</item>
+        <item name="trackCornerRadius">4dp</item>
+        <item name="trackThickness">8dp</item>
+    </style>
+
+    <!-- 选项按钮选中样式 -->
+    <style name="OptionButtonSelected">
+        <item name="android:background">@drawable/bg_option_selected</item>
+        <item name="android:textColor">@color/primary_dark</item>
+    </style>
+
+    <!-- 选项按钮未选中样式 -->
+    <style name="OptionButtonUnselected">
+        <item name="android:background">@drawable/bg_option_unselected</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+</resources>
