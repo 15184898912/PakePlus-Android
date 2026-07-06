@@ -1,0 +1,539 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background_dark"
+    tools:context=".MainActivity">
+
+    <!-- 标题栏 -->
+    <LinearLayout
+        android:id="@+id/titleBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="16dp"
+        android:paddingBottom="12dp"
+        android:paddingHorizontal="20dp"
+        android:background="@color/background_dark">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/title_main"
+            style="@style/TextTitle" />
+
+        <TextView
+            android:id="@+id/tvSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/subtitle_create_avatar"
+            style="@style/TextSubtitle"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <!-- 数字人预览区 -->
+    <FrameLayout
+        android:id="@+id/previewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_preview_area"
+        android:padding="16dp">
+
+        <!-- 背景层 -->
+        <View
+            android:id="@+id/previewBackground"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/avatar_bg_gray" />
+
+        <!-- 数字人形象容器 -->
+        <LinearLayout
+            android:id="@+id/avatarContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <!-- 数字人形象 -->
+            <ImageView
+                android:id="@+id/ivAvatar"
+                android:layout_width="220dp"
+                android:layout_height="280dp"
+                android:src="@drawable/avatar_placeholder"
+                android:scaleType="fitCenter"
+                android:contentDescription="@string/hint_select_avatar" />
+
+            <!-- 眼部区域（用于眨眼动画） -->
+            <View
+                android:id="@+id/eyeOverlay"
+                android:layout_width="60dp"
+                android:layout_height="8dp"
+                android:layout_marginTop="-145dp"
+                android:background="@android:color/transparent" />
+
+        </LinearLayout>
+
+        <!-- 加载进度层 -->
+        <LinearLayout
+            android:id="@+id/loadingOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:background="@color/black_40"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/progressBarGenerating"
+                style="?android:attr/progressBarStyleLarge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminateTint="@color/accent_cyan" />
+
+            <TextView
+                android:id="@+id/tvLoadingStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/status_generating_avatar"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        <!-- 合成进度条 -->
+        <LinearLayout
+            android:id="@+id/progressOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@color/black_40"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvProgressText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/status_composing_video"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp" />
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/progressBarVideo"
+                style="@style/ProgressBarStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:indicatorColor="@color/accent_cyan"
+                app:trackColor="@color/primary_light" />
+        </LinearLayout>
+
+        <!-- 播放状态指示 -->
+        <TextView
+            android:id="@+id/tvPlayingStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:text="@string/status_playing"
+            android:textColor="@color/accent_cyan"
+            android:textSize="12sp"
+            android:background="@color/black_40"
+            android:padding="8dp"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- 控制面板（可滚动） -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/controlPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        android:background="@color/background_dark"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 状态提示 -->
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/hint_select_avatar"
+                style="@style/TextSecondary"
+                android:gravity="center"
+                android:paddingVertical="8dp" />
+
+            <!-- 形象选择区域 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/CardStyle"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="选择数字人形象"
+                        style="@style/TextBody"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center">
+
+                        <!-- 上传照片按钮 -->
+                        <LinearLayout
+                            android:id="@+id/btnUploadPhoto"
+                            android:layout_width="0dp"
+                            android:layout_height="80dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:background="@drawable/bg_option_unselected"
+                            android:layout_marginEnd="8dp"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_upload"
+                                android:layout_marginBottom="4dp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/btn_upload_photo"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <!-- 商务男士 -->
+                        <LinearLayout
+                            android:id="@+id/btnAvatar1"
+                            android:layout_width="0dp"
+                            android:layout_height="80dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:background="@drawable/bg_option_unselected"
+                            android:layout_marginHorizontal="4dp"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:src="@drawable/avatar_business_man"
+                                android:layout_marginBottom="2dp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/avatar_business_man"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <!-- 优雅女士 -->
+                        <LinearLayout
+                            android:id="@+id/btnAvatar2"
+                            android:layout_width="0dp"
+                            android:layout_height="80dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:background="@drawable/bg_option_unselected"
+                            android:layout_marginHorizontal="4dp"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:src="@drawable/avatar_elegant_lady"
+                                android:layout_marginBottom="2dp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/avatar_elegant_lady"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <!-- 时尚青年 -->
+                        <LinearLayout
+                            android:id="@+id/btnAvatar3"
+                            android:layout_width="0dp"
+                            android:layout_height="80dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:background="@drawable/bg_option_unselected"
+                            android:layout_marginStart="8dp"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:src="@drawable/avatar_fashion_youth"
+                                android:layout_marginBottom="2dp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/avatar_fashion_youth"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 语音输入区域 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/CardStyle"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="语音内容"
+                        style="@style/TextBody"
+                        android:layout_marginBottom="12dp" />
+
+                    <!-- 文本输入框 -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:boxStrokeColor="@color/accent_cyan"
+                        app:hintTextColor="@color/accent_cyan">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etTextInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@string/hint_enter_text"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_hint"
+                            android:inputType="textMultiLine"
+                            android:minLines="2"
+                            android:maxLines="4"
+                            android:backgroundTint="@color/accent_cyan" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- 语音按钮组 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnGenerateVoice"
+                            style="@style/ButtonSecondary"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/btn_generate_voice"
+                            android:layout_marginEnd="8dp"
+                            app:icon="@drawable/ic_mic"
+                            app:iconTint="@color/accent_cyan" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnUploadAudio"
+                            style="@style/ButtonSecondary"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/btn_upload_audio"
+                            android:layout_marginStart="8dp"
+                            app:icon="@drawable/ic_upload"
+                            app:iconTint="@color/accent_cyan" />
+                    </LinearLayout>
+
+                    <!-- 播放控制 -->
+                    <LinearLayout
+                        android:id="@+id/playbackControls"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPlay"
+                            style="@style/ButtonPrimary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/btn_play"
+                            android:layout_marginEnd="8dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnStop"
+                            style="@style/ButtonSecondary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/btn_stop" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 背景选择区域 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/CardStyle"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/hint_select_background"
+                        style="@style/TextBody"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center">
+
+                        <!-- 灰色背景 -->
+                        <LinearLayout
+                            android:id="@+id/btnBgGray"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_gray_thumb"
+                            android:layout_marginEnd="6dp"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <!-- 蓝色背景 -->
+                        <LinearLayout
+                            android:id="@+id/btnBgBlue"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_blue_thumb"
+                            android:layout_marginHorizontal="3dp"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <!-- 绿色背景 -->
+                        <LinearLayout
+                            android:id="@+id/btnBgGreen"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_green_thumb"
+                            android:layout_marginHorizontal="3dp"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <!-- 办公室背景 -->
+                        <LinearLayout
+                            android:id="@+id/btnBgOffice"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_office_thumb"
+                            android:layout_marginHorizontal="3dp"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <!-- 自然风景背景 -->
+                        <LinearLayout
+                            android:id="@+id/btnBgNature"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_nature_thumb"
+                            android:layout_marginStart="6dp"
+                            android:clickable="true"
+                            android:focusable="true" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvBgName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/bg_gray"
+                        style="@style/TextSecondary"
+                        android:gravity="center"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 合成按钮区域 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnComposeVideo"
+                    style="@style/ButtonPrimary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/btn_compose_video"
+                    android:layout_marginEnd="8dp"
+                    android:textSize="16sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveGallery"
+                    style="@style/ButtonSecondary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/btn_save_gallery"
+                    android:layout_marginStart="8dp"
+                    android:enabled="false"
+                    app:icon="@drawable/ic_save"
+                    app:iconTint="@color/accent_cyan" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>
