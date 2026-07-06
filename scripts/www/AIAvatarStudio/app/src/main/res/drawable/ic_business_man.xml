@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="130">
+    <!-- 头部圆形 -->
+    <path
+        android:fillColor="#FFD3B4"
+        android:pathData="M50,20 C65,20 75,32 75,48 C75,62 65,72 50,72 C35,72 25,62 25,48 C25,32 35,20 50,20Z" />
+    <!-- 头发（深色） -->
+    <path
+        android:fillColor="#2C1810"
+        android:pathData="M25,42 C25,28 36,18 50,18 C64,18 75,28 75,42 C75,38 68,28 50,28 C32,28 25,38 25,42Z" />
+    <!-- 眼睛 -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M39,45 C39,43 43,43 43,45 C43,47 39,47 39,45Z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M57,45 C57,43 61,43 61,45 C61,47 57,47 57,45Z" />
+    <!-- 微笑嘴巴 -->
+    <path
+        android:fillColor="#C9786B"
+        android:pathData="M43,60 Q50,65 57,60" />
+    <!-- 西装身体 -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M20,95 L50,75 L80,95 L80,130 L20,130Z" />
+    <!-- 衬衫 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,75 L50,88 L57,75 L55,82 L50,85 L45,82Z" />
+    <!-- 领带 -->
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M47,84 L53,84 L55,100 L50,112 L45,100Z" />
+</vector>
