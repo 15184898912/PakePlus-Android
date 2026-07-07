@@ -12,7 +12,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft Ya
 /* 标题栏 - 深蓝色 */
 .header { background: linear-gradient(135deg, #1a237e, #283593); color: #fff; padding: 12px; text-align: center; position: relative; }
 .header h1 { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
-.header .date { font-size: 15px; margin-top: 4px; opacity: 0.9; text-decoration: underline; text-underline-offset: 3px; }
+.header .date { font-size: 15px; margin-top: 4px; opacity: 0.9; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; display: inline-block; padding: 4px 12px; border-radius: 4px; }
+.header .date:active { background: rgba(255,255,255,0.2); }
+.header .date::after { content: ' ✎'; font-size: 12px; opacity: 0.7; }
 .header .top-menu-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #fff; font-size: 26px; cursor: pointer; padding: 6px 10px; line-height: 1; border-radius: 4px; }
 .header .top-menu-btn:active { background: rgba(255,255,255,0.15); }
 .header .top-add-btn { position: absolute; right: 56px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #fff; font-size: 26px; cursor: pointer; padding: 6px 10px; line-height: 1; border-radius: 4px; font-weight: bold; }
@@ -35,8 +37,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft Ya
 .search-bar input:focus { border-color: #2196F3; background-color: #fff; }
 
 /* 表格容器 */
-.table-container { overflow: auto; -webkit-overflow-scrolling: touch; flex: 1; position: relative; }
-.table-wrapper { width: 100%; transform-origin: top left; transition: none; }
+.table-container { overflow: auto; -webkit-overflow-scrolling: touch; flex: 1; position: relative; touch-action: pan-x pan-y pinch-zoom; }
+.table-wrapper { width: 100%; transform-origin: top left; transition: none; touch-action: manipulation; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
 th, td { border: 1px solid #ccc; padding: 6px 4px; text-align: center; vertical-align: middle; }
 th { background: #333; color: #fff; font-weight: bold; font-size: 15px; padding: 8px 4px; position: sticky; top: 0; z-index: 10; }
@@ -220,6 +222,25 @@ tr:active td.price-full { background: #e3f2fd !important; }
     <div class="modal-btns">
       <button class="btn-cancel" id="modalCancel">取消</button>
       <button class="btn-confirm" id="modalConfirm">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Date Edit Modal -->
+<div class="modal-overlay" id="dateModal">
+  <div class="modal" style="max-width: 320px;">
+    <h2>修改报价单日期</h2>
+    <div class="form-group">
+      <label>日期文字（可自由输入任意格式）</label>
+      <input type="text" id="dateInput" placeholder="如：2026年7月7日">
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+      <button class="btn-cancel" style="flex:1; padding:8px; font-size:13px;" id="dateToday">今天</button>
+      <button class="btn-cancel" style="flex:1; padding:8px; font-size:13px;" id="dateReset">恢复自动</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="dateCancel">取消</button>
+      <button class="btn-confirm" id="dateConfirm">确定</button>
     </div>
   </div>
 </div>
@@ -1051,10 +1072,57 @@ function saveCustomBrands() {
   localStorage.setItem(CUSTOM_BRANDS_KEY, JSON.stringify(custom));
 }
 
+const CUSTOM_DATE_KEY = 'recycle_custom_date';
+let useCustomDate = false;
+
 function showDate() {
-  const d = new Date();
-  document.getElementById('dateDisplay').textContent = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+  const customDate = localStorage.getItem(CUSTOM_DATE_KEY);
+  const dateEl = document.getElementById('dateDisplay');
+  if (customDate) {
+    dateEl.textContent = customDate;
+    useCustomDate = true;
+  } else {
+    const d = new Date();
+    dateEl.textContent = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+    useCustomDate = false;
+  }
 }
+
+function openDateEditor() {
+  const customDate = localStorage.getItem(CUSTOM_DATE_KEY);
+  const d = new Date();
+  const todayStr = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+  document.getElementById('dateInput').value = customDate || todayStr;
+  document.getElementById('dateModal').classList.add('show');
+  setTimeout(() => document.getElementById('dateInput').focus(), 100);
+}
+
+document.getElementById('dateDisplay').addEventListener('click', openDateEditor);
+document.getElementById('dateCancel').addEventListener('click', () => {
+  document.getElementById('dateModal').classList.remove('show');
+});
+document.getElementById('dateConfirm').addEventListener('click', () => {
+  const val = document.getElementById('dateInput').value.trim();
+  if (val) {
+    localStorage.setItem(CUSTOM_DATE_KEY, val);
+    showDate();
+    toast('日期已更新');
+  }
+  document.getElementById('dateModal').classList.remove('show');
+});
+document.getElementById('dateToday').addEventListener('click', () => {
+  const d = new Date();
+  document.getElementById('dateInput').value = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+});
+document.getElementById('dateReset').addEventListener('click', () => {
+  localStorage.removeItem(CUSTOM_DATE_KEY);
+  showDate();
+  document.getElementById('dateModal').classList.remove('show');
+  toast('已恢复自动更新日期');
+});
+document.getElementById('dateModal').addEventListener('click', e => {
+  if (e.target.id === 'dateModal') document.getElementById('dateModal').classList.remove('show');
+});
 
 let toastTimer;
 function toast(msg) {
@@ -1136,6 +1204,11 @@ function render() {
     tr.addEventListener('click', () => openEdit(q.id));
     let pressTimer;
     tr.addEventListener('touchstart', e => {
+      // 双指操作时不启动长按
+      if (e.touches.length > 1) {
+        clearTimeout(pressTimer);
+        return;
+      }
       pressTimer = setTimeout(() => openDelete(q.id), 500);
     }, {passive: true});
     tr.addEventListener('touchend', () => clearTimeout(pressTimer));
@@ -1171,54 +1244,64 @@ function applyScale() {
 let initialDist = 0, initialScale = 1;
 let initialScrollX = 0, initialScrollY = 0;
 let centerX = 0, centerY = 0;
+let isPinching = false;
 const tableContainer = document.getElementById('tableContainer');
-tableContainer.addEventListener('touchstart', e => {
+
+// 绑定到整个文档，确保在表格任意位置都能触发缩放
+document.addEventListener('touchstart', e => {
   if (e.touches.length === 2) {
+    isPinching = true;
     const t1 = e.touches[0], t2 = e.touches[1];
     initialDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     initialScale = scale;
-    // 记录双指中心点
+    // 记录双指中心点（相对于表格容器）
     centerX = (t1.clientX + t2.clientX) / 2;
     centerY = (t1.clientY + t2.clientY) / 2;
-    // 记录容器位置
-    const rect = tableContainer.getBoundingClientRect();
     initialScrollX = tableContainer.scrollLeft;
     initialScrollY = tableContainer.scrollTop;
-    // 中心点在内容中的相对位置（缩放前）
+    const rect = tableContainer.getBoundingClientRect();
     centerX = centerX - rect.left + tableContainer.scrollLeft;
     centerY = centerY - rect.top + tableContainer.scrollTop;
   }
-}, {passive: true});
-tableContainer.addEventListener('touchmove', e => {
-  if (e.touches.length === 2) {
+}, {passive: true, capture: true});
+
+document.addEventListener('touchmove', e => {
+  if (e.touches.length === 2 && isPinching) {
     e.preventDefault();
     const t1 = e.touches[0], t2 = e.touches[1];
     const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-    const newScale = Math.max(0.5, Math.min(initialScale * (dist / initialDist), 3));
-    // 计算缩放后的滚动位置，保持中心点内容可见
-    const ratio = newScale / initialScale;
-    scale = newScale;
-    applyScale();
-    // 调整滚动位置，让缩放中心保持在原位
-    const rect = tableContainer.getBoundingClientRect();
-    tableContainer.scrollLeft = centerX * ratio - (centerX - initialScrollX);
-    tableContainer.scrollTop = centerY * ratio - (centerY - initialScrollY);
-  }
-}, {passive: false});
-// 双击重置缩放
-let lastTap = 0;
-tableContainer.addEventListener('touchend', e => {
-  if (e.changedTouches.length === 1 && e.touches.length === 0) {
-    const now = Date.now();
-    if (now - lastTap < 300) {
-      // 双击重置缩放
-      scale = 1;
+    if (initialDist > 0) {
+      const newScale = Math.max(0.5, Math.min(initialScale * (dist / initialDist), 3));
+      const ratio = newScale / initialScale;
+      scale = newScale;
       applyScale();
-      tableContainer.scrollLeft = 0;
+      tableContainer.scrollLeft = centerX * ratio - (centerX - initialScrollX);
+      tableContainer.scrollTop = centerY * ratio - (centerY - initialScrollY);
     }
-    lastTap = now;
   }
-});
+}, {passive: false, capture: true});
+
+document.addEventListener('touchend', e => {
+  if (e.touches.length < 2) {
+    isPinching = false;
+    initialDist = 0;
+  }
+  // 双击重置缩放（仅在表格区域内）
+  if (e.touches.length === 0 && e.changedTouches.length === 1) {
+    const target = e.target;
+    if (tableContainer.contains(target)) {
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        scale = 1;
+        applyScale();
+      }
+      lastTap = now;
+    }
+  }
+}, {capture: true});
+
+let lastTap = 0;
+
 // Ctrl+滚轮缩放（电脑端）
 document.addEventListener('wheel', e => {
   if (e.ctrlKey) {
