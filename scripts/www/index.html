@@ -38,7 +38,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft Ya
 
 /* 表格容器 */
 .table-container { overflow: auto; -webkit-overflow-scrolling: touch; flex: 1; position: relative; touch-action: pan-x pan-y pinch-zoom; }
-.table-wrapper { width: 100%; transform-origin: top left; transition: none; touch-action: manipulation; }
+.table-wrapper { width: 100%; transition: none; touch-action: manipulation; transform-origin: top left; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
 th, td { border: 1px solid #ccc; padding: 6px 4px; text-align: center; vertical-align: middle; }
 th { background: #333; color: #fff; font-weight: bold; font-size: 15px; padding: 8px 4px; position: sticky; top: 0; z-index: 10; }
@@ -1223,16 +1223,8 @@ function render() {
 
 function applyScale() {
   const wrapper = document.getElementById('tableWrapper');
-  const container = document.getElementById('tableContainer');
-  // 使用CSS transform整体缩放表格（字体、边框、间距一起缩放）
-  wrapper.style.transform = 'scale(' + scale + ')';
-  // 缩放后调整wrapper宽高，使滚动容器正确计算滚动区域
-  wrapper.style.width = (100 / scale) + '%';
-  // 等待DOM更新后调整高度
-  requestAnimationFrame(() => {
-    const table = document.getElementById('dataTable');
-    wrapper.style.height = (table.offsetHeight / scale) + 'px';
-  });
+  // 使用CSS zoom进行真实布局缩放，sticky表头能正常工作
+  wrapper.style.zoom = scale;
   const hint = document.getElementById('scaleHint');
   hint.textContent = '缩放: ' + Math.round(scale * 100) + '%';
   hint.classList.add('show');
@@ -1240,70 +1232,54 @@ function applyScale() {
   hint._t = setTimeout(() => hint.classList.remove('show'), 1200);
 }
 
-// 双指缩放（整体缩放，以双指中心为锚点）
+// 双指缩放（使用CSS zoom整体缩放，表头正常固定）
 let initialDist = 0, initialScale = 1;
-let initialScrollX = 0, initialScrollY = 0;
-let centerX = 0, centerY = 0;
 let isPinching = false;
 const tableContainer = document.getElementById('tableContainer');
 
-// 绑定到整个文档，确保在表格任意位置都能触发缩放
-document.addEventListener('touchstart', e => {
+tableContainer.addEventListener('touchstart', e => {
   if (e.touches.length === 2) {
     isPinching = true;
     const t1 = e.touches[0], t2 = e.touches[1];
     initialDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     initialScale = scale;
-    // 记录双指中心点（相对于表格容器）
-    centerX = (t1.clientX + t2.clientX) / 2;
-    centerY = (t1.clientY + t2.clientY) / 2;
-    initialScrollX = tableContainer.scrollLeft;
-    initialScrollY = tableContainer.scrollTop;
-    const rect = tableContainer.getBoundingClientRect();
-    centerX = centerX - rect.left + tableContainer.scrollLeft;
-    centerY = centerY - rect.top + tableContainer.scrollTop;
   }
-}, {passive: true, capture: true});
+}, {passive: true});
 
-document.addEventListener('touchmove', e => {
+tableContainer.addEventListener('touchmove', e => {
   if (e.touches.length === 2 && isPinching) {
     e.preventDefault();
     const t1 = e.touches[0], t2 = e.touches[1];
     const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     if (initialDist > 0) {
-      const newScale = Math.max(0.5, Math.min(initialScale * (dist / initialDist), 3));
-      const ratio = newScale / initialScale;
-      scale = newScale;
+      scale = Math.max(0.5, Math.min(initialScale * (dist / initialDist), 3));
       applyScale();
-      tableContainer.scrollLeft = centerX * ratio - (centerX - initialScrollX);
-      tableContainer.scrollTop = centerY * ratio - (centerY - initialScrollY);
     }
   }
-}, {passive: false, capture: true});
+}, {passive: false});
 
-document.addEventListener('touchend', e => {
+tableContainer.addEventListener('touchend', e => {
   if (e.touches.length < 2) {
     isPinching = false;
     initialDist = 0;
   }
-  // 双击重置缩放（仅在表格区域内）
-  if (e.touches.length === 0 && e.changedTouches.length === 1) {
-    const target = e.target;
-    if (tableContainer.contains(target)) {
-      const now = Date.now();
-      if (now - lastTap < 300) {
-        scale = 1;
-        applyScale();
-      }
-      lastTap = now;
-    }
-  }
-}, {capture: true});
+}, {passive: true});
 
+// 双击重置缩放
 let lastTap = 0;
+tableContainer.addEventListener('touchend', e => {
+  if (e.touches.length === 0 && e.changedTouches.length === 1 && !isPinching) {
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      scale = 1;
+      applyScale();
+    }
+    lastTap = now;
+  }
+});
 
 // Ctrl+滚轮缩放（电脑端）
-document.addEventListener('wheel', e => {
+tableContainer.addEventListener('wheel', e => {
   if (e.ctrlKey) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
