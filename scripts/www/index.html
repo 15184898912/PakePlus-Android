@@ -36,6 +36,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft Ya
 
 /* 表格容器 */
 .table-container { overflow: auto; -webkit-overflow-scrolling: touch; flex: 1; position: relative; }
+.table-wrapper { width: 100%; transform-origin: top left; transition: none; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
 th, td { border: 1px solid #ccc; padding: 6px 4px; text-align: center; vertical-align: middle; }
 th { background: #333; color: #fff; font-weight: bold; font-size: 15px; padding: 8px 4px; position: sticky; top: 0; z-index: 10; }
@@ -151,19 +152,21 @@ tr:active td.price-full { background: #e3f2fd !important; }
   </div>
 
   <div class="table-container" id="tableContainer">
-    <table id="dataTable">
-      <thead>
-        <tr>
-          <th style="width: 18%;">系列</th>
-          <th style="width: 20%;">型号</th>
-          <th style="width: 15%;">开机屏坏</th>
-          <th style="width: 14%;">不开机</th>
-          <th style="width: 13%;">废板</th>
-          <th style="width: 20%;">整机</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody"></tbody>
-    </table>
+    <div class="table-wrapper" id="tableWrapper">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th style="width: 18%;">系列</th>
+            <th style="width: 20%;">型号</th>
+            <th style="width: 15%;">开机屏坏</th>
+            <th style="width: 14%;">不开机</th>
+            <th style="width: 13%;">废板</th>
+            <th style="width: 20%;">整机</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <button class="fab-add" id="fabAdd" title="添加机型">+</button>
@@ -1146,10 +1149,17 @@ function render() {
 }
 
 function applyScale() {
-  const table = document.getElementById('dataTable');
-  table.style.fontSize = (14 * scale) + 'px';
-  const ths = table.querySelectorAll('th');
-  ths.forEach(th => th.style.fontSize = (15 * scale) + 'px');
+  const wrapper = document.getElementById('tableWrapper');
+  const container = document.getElementById('tableContainer');
+  // 使用CSS transform整体缩放表格（字体、边框、间距一起缩放）
+  wrapper.style.transform = 'scale(' + scale + ')';
+  // 缩放后调整wrapper宽高，使滚动容器正确计算滚动区域
+  wrapper.style.width = (100 / scale) + '%';
+  // 等待DOM更新后调整高度
+  requestAnimationFrame(() => {
+    const table = document.getElementById('dataTable');
+    wrapper.style.height = (table.offsetHeight / scale) + 'px';
+  });
   const hint = document.getElementById('scaleHint');
   hint.textContent = '缩放: ' + Math.round(scale * 100) + '%';
   hint.classList.add('show');
@@ -1157,28 +1167,64 @@ function applyScale() {
   hint._t = setTimeout(() => hint.classList.remove('show'), 1200);
 }
 
-// 双指缩放
+// 双指缩放（整体缩放，以双指中心为锚点）
 let initialDist = 0, initialScale = 1;
+let initialScrollX = 0, initialScrollY = 0;
+let centerX = 0, centerY = 0;
 const tableContainer = document.getElementById('tableContainer');
 tableContainer.addEventListener('touchstart', e => {
   if (e.touches.length === 2) {
-    initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const t1 = e.touches[0], t2 = e.touches[1];
+    initialDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     initialScale = scale;
+    // 记录双指中心点
+    centerX = (t1.clientX + t2.clientX) / 2;
+    centerY = (t1.clientY + t2.clientY) / 2;
+    // 记录容器位置
+    const rect = tableContainer.getBoundingClientRect();
+    initialScrollX = tableContainer.scrollLeft;
+    initialScrollY = tableContainer.scrollTop;
+    // 中心点在内容中的相对位置（缩放前）
+    centerX = centerX - rect.left + tableContainer.scrollLeft;
+    centerY = centerY - rect.top + tableContainer.scrollTop;
   }
 }, {passive: true});
 tableContainer.addEventListener('touchmove', e => {
   if (e.touches.length === 2) {
     e.preventDefault();
-    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    scale = Math.max(0.6, Math.min(initialScale * (dist / initialDist), 2.5));
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    const newScale = Math.max(0.5, Math.min(initialScale * (dist / initialDist), 3));
+    // 计算缩放后的滚动位置，保持中心点内容可见
+    const ratio = newScale / initialScale;
+    scale = newScale;
     applyScale();
+    // 调整滚动位置，让缩放中心保持在原位
+    const rect = tableContainer.getBoundingClientRect();
+    tableContainer.scrollLeft = centerX * ratio - (centerX - initialScrollX);
+    tableContainer.scrollTop = centerY * ratio - (centerY - initialScrollY);
   }
 }, {passive: false});
+// 双击重置缩放
+let lastTap = 0;
+tableContainer.addEventListener('touchend', e => {
+  if (e.changedTouches.length === 1 && e.touches.length === 0) {
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      // 双击重置缩放
+      scale = 1;
+      applyScale();
+      tableContainer.scrollLeft = 0;
+    }
+    lastTap = now;
+  }
+});
+// Ctrl+滚轮缩放（电脑端）
 document.addEventListener('wheel', e => {
   if (e.ctrlKey) {
     e.preventDefault();
-    scale *= e.deltaY > 0 ? 0.95 : 1.05;
-    scale = Math.max(0.6, Math.min(scale, 2.5));
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    scale = Math.max(0.5, Math.min(scale * delta, 3));
     applyScale();
   }
 }, {passive: false});
