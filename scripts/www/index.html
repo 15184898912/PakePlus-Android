@@ -572,16 +572,27 @@ function openFilePicker() {
 
 function handleFileSelect(e) {
   const files = e.target.files;
-  if (!files.length) return;
+  if (!files || !files.length) { showToast('未选择文件'); return; }
   let count = 0;
   for (const file of files) {
-    const type = file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':'image';
     const ext = file.name.split('.').pop().toLowerCase();
-    // 额外检测
-    const finalType = type==='video'? (['mp4','mov','avi','mkv','flv','wmv','webm','m4v','3gp'].includes(ext)?'video':'image') : type;
-    const id = Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    // 优先通过扩展名判断类型（兼容 Android file.type 为空的情况）
+    const videoExts = ['mp4','mov','avi','mkv','flv','wmv','webm','m4v','3gp','ts','m2ts'];
+    const audioExts = ['mp3','wav','aac','ogg','flac','m4a','wma'];
+    const imageExts = ['jpg','jpeg','png','gif','bmp','webp','svg'];
+    let finalType = 'video';
+    if (videoExts.includes(ext)) finalType = 'video';
+    else if (audioExts.includes(ext)) finalType = 'audio';
+    else if (imageExts.includes(ext)) finalType = 'image';
+    else {
+      // 扩展名无法识别时回退到 MIME type
+      const mt = file.type || '';
+      if (mt.startsWith('video/')) finalType = 'video';
+      else if (mt.startsWith('audio/')) finalType = 'audio';
+      else finalType = 'image';
+    }
 
-    // 创建对象URL
+    const id = Date.now()+'_'+Math.random().toString(36).slice(2,6);
     const objUrl = URL.createObjectURL(file);
 
     const asset = {
@@ -595,47 +606,83 @@ function handleFileSelect(e) {
 
     state.materials.unshift(asset);
 
+    // 安全移除元素的辅助函数
+    function safeRemove(el) { try { if(el&&el.parentNode) el.parentNode.removeChild(el); }catch(e){} }
+
     // 异步获取视频/音频元数据（时长 + 4K/8K分辨率）
     if (finalType==='video') {
       const v = document.createElement('video');
       v.preload = 'metadata';
       v.muted = true;
+      v.playsInline = true;
+      let metaLoaded = false;
       v.onloadedmetadata = function(){
-        asset.duration = Math.round(v.duration);
-        asset.width = v.videoWidth;
-        asset.height = v.videoHeight;
-        // 日志输出分辨率信息
-        console.log('[AI云剪] 导入视频:', file.name, v.videoWidth+'×'+v.videoHeight, Math.round(v.duration)+'s');
+        if (metaLoaded) return;
+        metaLoaded = true;
+        asset.duration = isNaN(v.duration)?0:Math.round(v.duration);
+        asset.width = v.videoWidth||0;
+        asset.height = v.videoHeight||0;
+        console.log('[AI云剪] 导入视频:', file.name, asset.width+'×'+asset.height, asset.duration+'s');
         renderRecentGrid(); renderMaterialGrid();
-        v.remove();
+        safeRemove(v);
       };
+      v.onerror = function(){
+        console.warn('[AI云剪] 视频元数据读取失败:', file.name);
+        safeRemove(v);
+      };
+      // 超时回退：3秒后如果还没触发onloadedmetadata，强制刷新列表
+      setTimeout(function(){
+        if (!metaLoaded) {
+          safeRemove(v);
+          renderRecentGrid(); renderMaterialGrid();
+        }
+      }, 3000);
       v.src = objUrl;
     } else if (finalType==='audio') {
       const a = new Audio(objUrl);
       a.preload = 'metadata';
+      let metaLoaded = false;
       a.onloadedmetadata = function(){
-        asset.duration = Math.round(a.duration);
+        if (metaLoaded) return;
+        metaLoaded = true;
+        asset.duration = isNaN(a.duration)?0:Math.round(a.duration);
         renderRecentGrid(); renderMaterialGrid();
-        a.remove();
+        safeRemove(a);
       };
+      a.onerror = function(){
+        safeRemove(a);
+      };
+      setTimeout(function(){
+        if (!metaLoaded) { safeRemove(a); renderRecentGrid(); renderMaterialGrid(); }
+      }, 3000);
     } else if (finalType==='image') {
       const img = new Image();
+      let loaded = false;
       img.onload = function(){
-        asset.width = img.naturalWidth;
-        asset.height = img.naturalHeight;
+        if (loaded) return;
+        loaded = true;
+        asset.width = img.naturalWidth||0;
+        asset.height = img.naturalHeight||0;
         renderRecentGrid(); renderMaterialGrid();
-        img.remove();
+        safeRemove(img);
       };
+      img.onerror = function(){
+        safeRemove(img);
+      };
+      setTimeout(function(){
+        if (!loaded) { safeRemove(img); renderRecentGrid(); renderMaterialGrid(); }
+      }, 3000);
       img.src = objUrl;
     }
 
     count++;
   }
+  // 立即刷新列表（即使没有元数据也先显示文件名）
   renderRecentGrid();
   renderMaterialGrid();
   showToast('成功导入 '+count+' 个真实素材');
   // 重置input以便重复选择相同文件
-  e.target.value = '';
+  try { e.target.value = ''; } catch(err) {}
 }
 
 /* ========== 模拟解析链接 ========== */
@@ -733,14 +780,17 @@ function filterMaterial(type) {
 function mockImport() {
   const types = ['video','video','video','audio','image'];
   const names = ['城市夜景延时.mp4','海边日出航拍.mp4','美食制作教程.mp4','背景音乐-轻柔.mp3','封面设计.png'];
-  types.forEach((t,i)=>addMaterial(t,names[i],'local'));
+  const durations = [117, 111, 83, 30, 5];
+  types.forEach((t,i)=>addMaterial(t,names[i],'local',{duration:durations[i], isReal:true}));
   showToast('成功导入 '+types.length+' 个演示素材');
 }
 
 /* ========== 剪辑台 - 真实视频预览 ========== */
 function createProject() {
   state.clips = []; renderTimeline();
-  document.getElementById('previewPlaceholder').style.display='flex';
+  const ph = document.getElementById('previewPlaceholder');
+  ph.style.display='flex';
+  ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><p>暂无素材</p><p class="hint">从素材库添加视频开始剪辑</p>';
   document.getElementById('previewVideo').style.display='none';
   document.getElementById('previewControls').style.display='none';
   document.getElementById('resLabel').style.display='none';
@@ -749,10 +799,13 @@ function createProject() {
 
 function addToTimeline(assetId) {
   const asset = state.materials.find(a=>a.id===assetId);
-  if (!asset) return;
+  if (!asset) { showToast('素材不存在'); return; }
   state.clips.push({ id:Date.now().toString(), assetId, name:asset.name, duration:asset.duration||10, asset });
   renderTimeline();
-  loadPreview(asset);
+  // 自动跳转到AI剪辑tab，让用户直接看到预览
+  switchTab(2);
+  // 短暂延迟等待tab切换完成后再加载预览
+  setTimeout(()=>loadPreview(asset), 50);
   showToast('已添加: '+asset.name);
 }
 
@@ -762,48 +815,60 @@ function loadPreview(asset) {
   const ctrl = document.getElementById('previewControls');
   const resLbl = document.getElementById('resLabel');
 
-  if (!asset.isReal) {
-    ph.style.display='flex'; video.style.display='none'; ctrl.style.display='none'; resLbl.style.display='none';
-    return;
-  }
+  // 清理之前绑定的视频事件
+  video.ontimeupdate = null;
+  video.onloadedmetadata = null;
 
-  ph.style.display='none';
-  video.style.display='block';
-  ctrl.style.display='flex';
+  // 有真实文件URL的视频/音频 - 用video元素播放
+  if (asset.objUrl && (asset.type==='video' || asset.type==='audio')) {
+    ph.style.display='none';
+    video.style.display='block';
+    ctrl.style.display='flex';
 
-  if (asset.objUrl) {
     video.src = asset.objUrl;
     video.load();
     state.playingAssetId = asset.id;
+
+    // 同步播放进度
+    video.ontimeupdate = function(){
+      if (!video.paused) {
+        const pct = (video.currentTime / (video.duration||1))*100;
+        document.getElementById('seekFill').style.width = pct+'%';
+        document.getElementById('seekThumb').style.left = pct+'%';
+        document.getElementById('timeLabel').textContent = formatTime(Math.round(video.currentTime));
+      }
+    };
+    video.onloadedmetadata = function(){
+      asset.duration = Math.round(video.duration);
+      if (video.videoWidth && video.videoHeight) {
+        asset.width = video.videoWidth;
+        asset.height = video.videoHeight;
+        renderRecentGrid(); renderMaterialGrid();
+      }
+    };
+  } else {
+    // 无真实文件的演示素材或图片 - 显示信息占位图
+    ph.style.display='flex';
+    video.style.display='none';
+    ctrl.style.display='none';
+    state.playingAssetId = null;
+    // 更新占位图内容显示素材信息
+    const infoHtml = `<div style="text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">${asset.type==='video'?'🎬':asset.type==='audio'?'🎵':'🖼️'}</div>
+      <div style="font-size:14px;color:var(--ink);margin-bottom:6px">${asset.name}</div>
+      <div style="font-size:12px;color:var(--muted2)">${asset.type==='video'?'视频':asset.type==='audio'?'音频':'图片'} · ${formatTime(asset.duration)} · ${asset.width||0}×${asset.height||0}</div>
+      ${!asset.objUrl?'<div style="font-size:11px;color:var(--accent);margin-top:8px">演示素材 · 导出时占位渲染</div>':''}
+    </div>`;
+    ph.innerHTML = infoHtml;
   }
 
+  // 显示分辨率标签
   if (asset.width && asset.height) {
     resLbl.textContent = asset.width+'×'+asset.height;
     resLbl.style.display = 'block';
   } else {
     resLbl.style.display = 'none';
   }
-
-  // 同步元数据
-  video.ontimeupdate = function(){
-    if (!video.paused) {
-      const pct = (video.currentTime / (video.duration||1))*100;
-      document.getElementById('seekFill').style.width = pct+'%';
-      document.getElementById('seekThumb').style.left = pct+'%';
-      document.getElementById('timeLabel').textContent = formatTime(Math.round(video.currentTime));
-    }
-  };
-  video.onloadedmetadata = function(){
-    asset.duration = Math.round(video.duration);
-    // 如果有分辨率信息则更新
-    if (video.videoWidth && video.videoHeight) {
-      asset.width = video.videoWidth;
-      asset.height = video.videoHeight;
-      resLbl.textContent = asset.width+'×'+asset.height;
-      resLbl.style.display = 'block';
-      renderRecentGrid(); renderMaterialGrid();
-    }
-  };
 }
 
 function togglePlayReal() {
@@ -1279,11 +1344,7 @@ shareTopBtn.title = '分享';
 shareTopBtn.onclick = shareVideo;
 topBar.appendChild(shareTopBtn);
 
-// 预载演示素材
-addMaterial('video','城市夜景延时.mp4','douyin');
-addMaterial('video','海边日出航拍.mp4','bilibili');
-addMaterial('video','旅行vlog精选.mp4','local');
-addMaterial('audio','轻柔背景音乐.mp3','local');
+// 不预加载演示素材，素材库初始为空，由用户导入真实视频
 </script>
 </body>
 </html>
