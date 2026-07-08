@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Seedance 2.0</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden}
+button{border:none;background:none;cursor:pointer;color:inherit;font-family:inherit}
+input,textarea{font-family:inherit;outline:none;border:none;background:transparent;color:#fff}
+img{display:block;max-width:100%}
+
+/* Phone frame */
+#phone-frame{width:100%;height:100%;max-width:420px;max-height:900px;background:#0a0a0a;position:relative;overflow:hidden;border-radius:0}
+@media(min-width:480px){#phone-frame{height:92vh;max-height:850px;border-radius:40px;border:8px solid #222;box-shadow:0 25px 80px rgba(0,0,0,.8),0 0 0 2px #333}}
+#app{width:100%;height:100%;position:relative;display:flex;flex-direction:column;background:#0a0a0a;overflow:hidden}
+
+/* Status bar */
+.status-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px;font-size:13px;font-weight:600;color:#fff;flex-shrink:0;z-index:100}
+.status-time{letter-spacing:.5px}
+.status-icons{display:flex;align-items:center;gap:6px}
+.status-5g{font-size:11px;font-weight:700}
+
+/* Pages */
+.page{position:absolute;top:0;left:0;right:0;bottom:60px;overflow-y:auto;overflow-x:hidden;opacity:0;pointer-events:none;transition:opacity .25s ease;background:#0a0a0a;scrollbar-width:none}
+.page::-webkit-scrollbar{display:none}
+.page.active{opacity:1;pointer-events:auto;z-index:10}
+
+/* Bottom nav */
+.bottom-nav{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;background:rgba(30,30,30,.95);backdrop-filter:blur(20px);border-radius:28px;padding:8px 32px;gap:48px;border:1px solid rgba(255,255,255,.06);z-index:200}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 16px;color:#666;font-size:11px;font-weight:500;transition:color .2s}
+.nav-item.active{color:#fff}
+
+/* Icon button */
+.icon-btn{width:36px;height:36px;border-radius:18px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#fff;transition:background .2s}
+.icon-btn.dark{background:rgba(0,0,0,.3)}
+.icon-btn:active{background:#333}
+
+/* ===== Discovery ===== */
+.discovery-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 12px;position:sticky;top:0;background:#0a0a0a;z-index:50}
+.discovery-header h1{font-size:22px;font-weight:700}
+.category-tabs{display:flex;gap:8px;padding:0 16px 12px;overflow-x:auto;scrollbar-width:none}
+.category-tabs::-webkit-scrollbar{display:none}
+.category-tab{display:flex;align-items:center;gap:4px;padding:6px 14px;border-radius:16px;background:#1a1a1a;color:#888;font-size:13px;font-weight:500;white-space:nowrap;flex-shrink:0;border:none;transition:all .2s}
+.category-tab.active{background:rgba(255,255,255,.15);color:#fff}
+.discovery-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 140px}
+.discovery-card{background:#1e1e1e;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:transform .2s}
+.discovery-card:active{transform:scale(.97)}
+.card-img-wrap{position:relative}
+.card-img{width:100%;object-fit:cover;display:block;border-radius:16px 16px 0 0}
+.card-badge{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:12px;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+.card-overlay{position:absolute;bottom:0;left:0;right:0;padding:8px;display:flex;justify-content:flex-end;gap:8px}
+.card-action{display:flex;align-items:center;gap:3px;color:#fff;font-size:11px;font-weight:500}
+.card-body{padding:10px 12px}
+.card-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-desc{font-size:12px;color:#aaa;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-btn{width:100%;padding:6px 0;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-size:13px;font-weight:500;margin-bottom:8px;border:1px solid rgba(255,255,255,.06)}
+.card-footer{display:flex;align-items:center;gap:6px}
+.card-avatar{width:18px;height:18px;border-radius:9px;object-fit:cover}
+.card-author{flex:1;font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-fav svg{width:14px;height:14px}
+.card-play-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);pointer-events:none}
+.card-play-overlay svg{margin-left:3px}
+
+.fab-container{position:absolute;bottom:72px;left:0;right:0;display:flex;justify-content:center;pointer-events:none;z-index:150}
+.fab-btn{display:flex;align-items:center;gap:8px;background:rgba(30,30,30,.95);backdrop-filter:blur(20px);padding:10px 24px;border-radius:28px;border:1px solid rgba(255,255,255,.1);color:#fff;font-size:15px;font-weight:600;pointer-events:auto;transition:transform .2s}
+.fab-btn:active{transform:scale(.96)}
+
+/* ===== Generator ===== */
+.generator-top{display:flex;justify-content:center;padding:8px 0;flex-shrink:0}
+.quality-selector{display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:12px;background:#1a1a1a;color:#aaa;font-size:13px}
+.generator-title{text-align:center;padding:12px 0 16px;flex-shrink:0}
+.generator-title h1{font-size:22px;font-weight:700;letter-spacing:1px}
+.generator-bg{flex:1;position:relative;overflow:hidden;min-height:120px}
+.blur-circles{position:relative;width:100%;height:100%}
+.blur-circle{position:absolute;width:80px;height:80px;border-radius:40px;overflow:hidden;border:2px solid rgba(255,255,255,.08);filter:blur(12px)}
+.blur-circle img{width:100%;height:100%;object-fit:cover}
+
+.generator-bottom{padding:0 20px 24px;flex-shrink:0}
+.avatar-scroll{display:flex;gap:12px;overflow-x:auto;padding:8px 4px;scrollbar-width:none}
+.avatar-scroll::-webkit-scrollbar{display:none}
+.avatar-item{width:52px;height:52px;border-radius:26px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid transparent;overflow:hidden;position:relative;transition:border-color .2s}
+.avatar-item.active{border-color:#fff}
+.avatar-item.add{border-style:dashed;border-color:rgba(255,255,255,.2);border-width:1.5px}
+.avatar-item img{width:100%;height:100%;object-fit:cover}
+.avatar-item svg{color:#aaa}
+
+.prompt-box{background:#1a1a1a;border-radius:24px;padding:14px 20px;margin:8px 0 16px;border:1px solid rgba(255,255,255,.08)}
+.prompt-box textarea{width:100%;color:#fff;font-size:15px;text-align:center;resize:none;line-height:22px;min-height:22px;overflow:hidden;scrollbar-width:none}
+.prompt-box textarea::-webkit-scrollbar{display:none}
+.prompt-box textarea::placeholder{color:rgba(255,255,255,.45);opacity:1}
+.prompt-box textarea:focus{outline:none}
+.prompt-box textarea:focus::placeholder{color:rgba(255,255,255,.25)}
+
+.mode-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px}
+.mode-toggle{display:flex;align-items:center;background:#1a1a1a;border-radius:24px;padding:4px;border:1px solid rgba(255,255,255,.06)}
+.mode-btn{padding:8px 20px;border-radius:20px;font-size:15px;font-weight:500;color:#888;transition:all .2s}
+.mode-btn.active{color:#fff;background:rgba(255,255,255,.1)}
+.generate-action-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);padding:9px 18px;border-radius:24px;border:1px solid rgba(255,255,255,.1);color:#fff;font-size:15px;font-weight:600;transition:opacity .2s}
+.generate-action-btn:disabled{opacity:.4;cursor:not-allowed}
+.sub-modes{display:flex;justify-content:center;gap:20px}
+.sub-mode{display:flex;align-items:center;gap:4px;padding:6px 12px;color:#888;font-size:13px}
+
+/* ===== Detail ===== */
+#page-detail{background:#000;padding-bottom:0}
+.detail-media{position:absolute;top:0;left:0;right:0;bottom:0}
+.detail-media img{width:100%;height:100%;object-fit:cover}
+.detail-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.2)}
+.detail-play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);z-index:15;cursor:pointer;transition:transform .2s}
+.detail-play-btn:active{transform:translate(-50%,-50%) scale(.92)}
+.detail-play-btn svg{margin-left:4px}
+.detail-topbar{position:absolute;top:36px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;z-index:20}
+.detail-right-actions{position:absolute;right:16px;bottom:200px;display:flex;flex-direction:column;align-items:center;gap:18px;z-index:20}
+.side-action{display:flex;flex-direction:column;align-items:center;gap:3px;color:#fff;font-size:11px;font-weight:500}
+.side-action svg{filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+
+.detail-bottom{position:absolute;bottom:72px;left:0;right:0;padding:20px 16px 16px;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);z-index:20}
+.detail-author{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#detail-avatar{width:36px;height:36px;border-radius:18px;border:2px solid rgba(255,255,255,.3);object-fit:cover}
+.detail-author-info{display:flex;align-items:center;flex:1}
+#detail-author-name{font-size:15px;font-weight:600;color:#fff}
+.detail-meta{font-size:13px;color:rgba(255,255,255,.7);margin-left:4px}
+.follow-btn{width:28px;height:28px;border-radius:14px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff}
+.detail-desc{font-size:15px;color:rgba(255,255,255,.9);margin-bottom:10px;line-height:1.4}
+.detail-collection{display:flex;align-items:center;gap:4px;align-self:flex-start;background:rgba(255,255,255,.15);padding:5px 12px;border-radius:16px;margin-bottom:10px;font-size:13px;color:#fff;font-weight:500}
+.detail-actions{display:flex;gap:10px}
+.detail-action-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);padding:7px 16px;border-radius:20px;color:#fff;font-size:13px;font-weight:500}
+
+/* ===== Inpaint ===== */
+#page-inpaint{background:#0a0a0a}
+.inpaint-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;background:#0a0a0a;z-index:50}
+.inpaint-header h2{font-size:17px;font-weight:600}
+.inpaint-canvas-wrap{position:relative;margin:16px;background:#1a1a1a;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.06);aspect-ratio:3/4}
+.inpaint-canvas-wrap img{width:100%;height:100%;object-fit:contain}
+#inpaint-canvas{position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair}
+.processing-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff}
+.processing-overlay p{font-size:17px;font-weight:600}
+.processing-overlay span{font-size:13px;color:rgba(255,255,255,.7)}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.inpaint-tools{display:flex;justify-content:center;gap:16px;margin:8px 0 12px}
+.tool-btn{display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:20px;background:#1a1a1a;color:#888;font-size:13px;font-weight:500;border:1px solid rgba(255,255,255,.06);transition:all .2s}
+.tool-btn.active{border-color:rgba(255,255,255,.25);color:#fff;background:rgba(255,255,255,.08)}
+
+.inpaint-options{padding:0 16px;margin-bottom:12px}
+.inpaint-options h3{font-size:15px;font-weight:600;margin-bottom:10px}
+.option-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:4px;padding:6px 14px;border-radius:16px;background:#1a1a1a;color:#888;font-size:13px;border:1px solid rgba(255,255,255,.06);transition:all .2s}
+.chip.active{border-color:rgba(255,255,255,.25);color:#fff;background:rgba(255,255,255,.08)}
+
+.inpaint-prompt{padding:0 16px;margin-bottom:12px}
+.inpaint-prompt h3{font-size:15px;font-weight:600;margin-bottom:10px}
+.prompt-area{background:#1a1a1a;border-radius:16px;padding:12px;border:1px solid rgba(255,255,255,.06)}
+.prompt-area textarea{width:100%;color:#fff;font-size:15px;resize:none;line-height:1.5}
+.prompt-area textarea::placeholder{color:#666}
+.prompt-hint{font-size:12px;color:#888;margin-top:6px;line-height:1.4}
+
+.inpaint-bottom{position:sticky;bottom:0;padding:12px 16px 20px;background:rgba(10,10,10,.95);border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:8px}
+.inpaint-generate-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,.15);padding:12px;border-radius:24px;border:1px solid rgba(255,255,255,.1);color:#fff;font-size:15px;font-weight:600;transition:opacity .2s}
+.inpaint-generate-btn:disabled{opacity:.4;cursor:not-allowed}
+.inpaint-save-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:#1a1a1a;padding:10px;border-radius:24px;border:1px solid rgba(255,255,255,.06);color:#fff;font-size:15px;font-weight:500}
+
+/* Toast */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);background:rgba(30,30,30,.95);backdrop-filter:blur(20px);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid rgba(255,255,255,.1);opacity:0;transition:all .3s;z-index:1000;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== Result Page ===== */
+.result-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;position:sticky;top:0;background:#0a0a0a;z-index:50;border-bottom:1px solid rgba(255,255,255,.06)}
+.result-topbar h2{font-size:17px;font-weight:600}
+.result-content{padding:16px;display:flex;align-items:center;justify-content:center}
+.result-content img,.result-content video{width:100%;border-radius:16px;background:#1a1a1a}
+.result-content video{max-height:50vh}
+.result-loading{display:flex;flex-direction:column;align-items:center;gap:16px;padding:60px 0}
+.result-loading p{color:#aaa;font-size:14px}
+.result-info{padding:0 16px 12px}
+.result-prompt-label{font-size:12px;color:#888;margin-bottom:4px;font-weight:500}
+.result-prompt{font-size:14px;color:#fff;line-height:1.5;margin-bottom:12px}
+.result-meta-row{display:flex;gap:16px}
+.result-meta-item{display:flex;align-items:center;gap:4px}
+.meta-label{font-size:12px;color:#888}
+.meta-value{font-size:12px;color:#fff;background:#1a1a1a;padding:2px 8px;border-radius:8px}
+.result-actions{display:flex;gap:8px;padding:0 16px 12px}
+.result-action-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:24px;font-size:14px;font-weight:500;border:1px solid rgba(255,255,255,.06)}
+.result-action-btn.secondary{background:#1a1a1a;color:#fff}
+.result-action-btn.primary{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.1)}
+.result-editing{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 16px 24px;border-top:1px solid rgba(255,255,255,.06);margin-top:8px}
+.edit-option{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border-radius:12px;background:transparent;color:#aaa;font-size:11px}
+.edit-option svg{color:#aaa}
+
+/* ===== Upload & Media Preview ===== */
+.upload-row{display:flex;justify-content:center;gap:16px;margin-bottom:12px}
+.upload-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;background:#1a1a1a;border:1px solid rgba(255,255,255,.08);color:#ccc;font-size:13px;font-weight:500;transition:all .2s}
+.upload-btn:active{background:#2a2a2a;transform:scale(.96)}
+.upload-btn svg{color:#ccc}
+.media-preview{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding:4px 0;scrollbar-width:none}
+.media-preview::-webkit-scrollbar{display:none}
+.media-item{position:relative;flex-shrink:0;width:64px;height:64px;border-radius:12px;overflow:hidden;background:#1a1a1a;border:2px solid transparent}
+.media-item.selected{border-color:#fff}
+.media-item img,.media-item video{width:100%;height:100%;object-fit:cover}
+.media-item .remove-btn{position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:10px;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
+.media-item .video-badge{position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,.6);border-radius:6px;padding:1px 4px}
+.media-item .video-badge svg{width:12px;height:12px;color:#fff}
+.add-media-btn{flex-shrink:0;width:64px;height:64px;border-radius:12px;background:#1a1a1a;border:1.5px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#666}
+</style>
+</head>
+<body>
+<div id="phone-frame">
+<div id="app">
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span class="status-time" id="status-time">9:57</span>
+  <div class="status-icons"><span class="status-5g">5G</span><svg width="16" height="12" viewBox="0 0 16 12"><path fill="currentColor" d="M1 8h2v3H1zm4-2h2v5H5zm4-2h2v7H9zm4-2h2v9h-2z"/></svg><svg width="20" height="12" viewBox="0 0 20 12"><rect x="1" y="3" width="16" height="6" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="5" width="12" height="2" rx="1" fill="currentColor"/></svg></div>
+</div>
+
+<!-- ===== DISCOVERY ===== -->
+<div class="page active" id="page-discovery">
+  <div class="discovery-header"><h1>发现</h1><button class="icon-btn" onclick="showToast('搜索功能')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button></div>
+  <div class="category-tabs" id="category-tabs"></div>
+  <div class="discovery-grid" id="discovery-grid"></div>
+  <div class="fab-container"><button class="fab-btn" onclick="switchTab('generator')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg><span>开始生图/视频/音乐</span></button></div>
+</div>
+
+<!-- ===== GENERATOR ===== -->
+<div class="page" id="page-generator">
+  <div class="generator-top"><div class="quality-selector"><span>标清</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div></div>
+  <div class="generator-title"><h1>Seedance 2.0</h1></div>
+  <div class="generator-bg"><div class="blur-circles" id="blur-circles"></div></div>
+  <div class="generator-bottom">
+    <div class="upload-row">
+      <button class="upload-btn" onclick="document.getElementById('album-input').click()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+        <span>相册</span>
+      </button>
+      <button class="upload-btn" onclick="document.getElementById('camera-input').click()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+        <span>拍照/录像</span>
+      </button>
+    </div>
+    <div class="media-preview" id="media-preview"></div>
+    <input type="file" id="album-input" accept="image/*,video/*" multiple style="display:none" onchange="handleMediaUpload(event)">
+    <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" style="display:none" onchange="handleMediaUpload(event)">
+    <div class="avatar-scroll" id="avatar-scroll"></div>
+    <div class="prompt-box"><textarea id="prompt-input" placeholder="输入描述你的梦境" rows="1"></textarea></div>
+    <div class="mode-row">
+      <div class="mode-toggle"><button class="mode-btn active" data-mode="digital_human" onclick="setGenMode('digital_human')">出镜</button><button class="mode-btn" data-mode="image" onclick="setGenMode('image')">生图</button></div>
+      <button class="generate-action-btn" id="generate-btn" onclick="handleGenerate()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/></svg><span id="generate-btn-text">开始出镜</span></button>
+    </div>
+    <div class="sub-modes">
+      <button class="sub-mode" onclick="showToast('视频生成')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg><span>视频</span></button>
+      <button class="sub-mode" onclick="showToast('音乐生成')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>音乐</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DETAIL ===== -->
+<div class="page" id="page-detail">
+  <div class="detail-media">
+    <img id="detail-image" src="" alt="">
+    <video id="detail-video" src="" alt="" controls playsinline webkit-playsinline muted preload="auto" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#000"></video>
+    <div class="detail-overlay" id="detail-overlay"></div>
+    <div class="detail-play-btn" id="detail-play-btn" style="display:none" onclick="playDetailVideo()">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </div>
+  </div>
+  <div class="detail-topbar"><button class="icon-btn dark" onclick="backFromDetail()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button><button class="icon-btn dark" onclick="showToast('分享')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg></button></div>
+  <div class="detail-right-actions">
+    <button class="side-action" id="detail-like-btn" onclick="toggleDetailLike()"><svg id="detail-like-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span id="detail-like-count">0</span></button>
+    <button class="side-action" onclick="showToast('评论')"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span id="detail-comment-count">0</span></button>
+    <button class="side-action" onclick="showToast('分享')"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg><span>分享</span></button>
+    <button class="side-action" id="detail-fav-btn" onclick="toggleDetailFav()"><svg id="detail-fav-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg><span>收藏</span></button>
+  </div>
+  <div class="detail-bottom">
+    <div class="detail-author"><img id="detail-avatar" src="" alt=""><div class="detail-author-info"><span id="detail-author-name">@作者</span><span class="detail-meta">· 1人出镜</span></div><button class="follow-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button></div>
+    <p class="detail-desc" id="detail-desc"></p>
+    <div class="detail-collection"><span>合集 · 共12集</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+    <div class="detail-actions"><button class="detail-action-btn" onclick="openInpaint()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span>AI编辑 / 局部重绘</span></button></div>
+  </div>
+</div>
+
+<!-- ===== INPAINT ===== -->
+<div class="page" id="page-inpaint">
+  <div class="inpaint-header"><button class="icon-btn" onclick="navigateTo('detail')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button><h2>AI 局部重绘</h2><button class="icon-btn" onclick="resetInpaint()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button></div>
+  <div class="inpaint-canvas-wrap"><img id="inpaint-image" src="" alt=""><canvas id="inpaint-canvas"></canvas><div class="processing-overlay" id="processing-overlay" style="display:none"><div class="spinner"></div><p>AI 重绘中...</p><span>保留剧情与背景，仅修改指定区域</span></div></div>
+  <div class="inpaint-tools"><button class="tool-btn active" data-tool="brush" onclick="setTool('brush')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2.5 2.24 0 .46.62.8.62.8"/><path d="M14.25 9.15 11.1 12.3"/><path d="M18.85 13.75l-3.15-3.15"/></svg><span>画笔</span></button><button class="tool-btn" data-tool="eraser" onclick="setTool('eraser')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg><span>橡皮</span></button></div>
+  <div class="inpaint-options"><h3>保留选项</h3><div class="option-chips"><button class="chip active" id="chip-story" onclick="toggleChip('story')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg><span>保留剧情</span></button><button class="chip active" id="chip-bg" onclick="toggleChip('bg')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg><span>保留背景</span></button><button class="chip active" id="chip-pose" onclick="toggleChip('pose')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg><span>保留动作</span></button></div></div>
+  <div class="inpaint-prompt"><h3>修改描述</h3><div class="prompt-area"><textarea id="inpaint-prompt-input" placeholder="例如：把衣服颜色改成红色，剧情不变" rows="3"></textarea></div><p class="prompt-hint">在上方图片中涂抹需要修改的区域，然后输入描述，AI将保留其他部分不变。</p></div>
+  <div class="inpaint-bottom"><button class="inpaint-generate-btn" id="inpaint-generate-btn" onclick="handleInpaint()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/></svg><span>开始局部重绘</span></button><button class="inpaint-save-btn" id="inpaint-save-btn" style="display:none" onclick="showToast('已保存到相册')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>保存结果</span></button></div>
+</div>
+
+<!-- ===== RESULT ===== -->
+<div class="page" id="page-result">
+  <div class="result-topbar">
+    <button class="icon-btn" onclick="backFromResult()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h2>生成结果</h2>
+    <button class="icon-btn" onclick="showToast('更多操作')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+  </div>
+  <div class="result-content" id="result-content"></div>
+  <div class="result-info">
+    <div class="result-prompt-label">描述</div>
+    <div class="result-prompt" id="result-prompt-text"></div>
+    <div class="result-meta-row">
+      <div class="result-meta-item"><span class="meta-label">模式</span><span class="meta-value" id="result-mode-text"></span></div>
+      <div class="result-meta-item"><span class="meta-label">画质</span><span class="meta-value">标清</span></div>
+    </div>
+  </div>
+  <div class="result-actions">
+    <button class="result-action-btn secondary" onclick="showToast('已保存到相册')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>保存</span></button>
+    <button class="result-action-btn secondary" onclick="showToast('分享成功')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg><span>分享</span></button>
+    <button class="result-action-btn primary" onclick="regenFromResult()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/></svg><span>再生成</span></button>
+  </div>
+  <div class="result-editing">
+    <button class="edit-option" onclick="openInpaintFromResult()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span>局部重绘</span></button>
+    <button class="edit-option" onclick="showToast('扩图功能')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg><span>扩图</span></button>
+    <button class="edit-option" onclick="showToast('高清修复')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 18v4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M22 12h-4"/><path d="m19.07 4.93-2.83 2.83"/><circle cx="12" cy="12" r="4"/></svg><span>高清修复</span></button>
+    <button class="edit-option" onclick="showToast('换风格')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>换风格</span></button>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav" id="bottom-nav">
+  <button class="nav-item active" data-tab="discovery" onclick="switchTab('discovery')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>发现</span></button>
+  <button class="nav-item" data-tab="generator" onclick="switchTab('generator')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg><span>创作</span></button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+</div>
+</div>
+
+<script>
+/* ===== DATA ===== */
+const CATS=[{id:'hot',name:'热门',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-2.072-2.143-2.5-2.143-.976 0-1.5.714-1.5 1.786 0 1.286 1.5 2.357 2.5 3.857z"/><path d="M12.5 16.5a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-2.072-2.143-2.5-2.143-.976 0-1.5.714-1.5 1.786 0 1.286 1.5 2.357 2.5 3.857z"/></svg>'},{id:'design',name:'平面设计',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>'},{id:'photo',name:'写真',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>'},{id:'video',name:'视频',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>'},{id:'poster',name:'海报',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'},{id:'pet',name:'萌宠',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>'},{id:'guofeng',name:'国风',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19c0-1.7-1.3-3-3-3h-5c-1.7 0-3 1.3-3 3"/><path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>'},{id:'scifi',name:'科幻',icon:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'}];
+
+const ITEMS=[
+{id:'1',type:'image',title:'居家风少年',desc:'不用刻意摆拍也超有质感 ~',img:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop',avatar:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',author:'段琴',likes:314,comments:28,category:'photo',btn:'一键小憩'},
+{id:'2',type:'image',title:'风景区打卡照',desc:'山水之间的诗意栖居',img:'https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=400&h=600&fit=crop',avatar:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',author:'旅行者',likes:892,comments:56,category:'photo'},
+{id:'3',type:'image',title:'名人风格拟真照',desc:'复古胶片质感',img:'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=450&fit=crop',avatar:'https://images.unsplash.com/photo-1599566150163-29194dcabd?w=100&h=100&fit=crop',author:'摄影师小王',likes:1205,comments:102,category:'hot',btn:'拍同款'},
+{id:'4',type:'video',title:'百听不厌的一首歌',desc:'演唱会现场氛围感',img:'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=500&fit=crop',avatar:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',author:'音乐达人',likes:2341,comments:189,category:'video',videoUrl:'https://www.w3schools.com/html/mov_bbb.mp4'},
+{id:'5',type:'image',title:'赛博朋克都市',desc:'霓虹灯下的未来世界',img:'https://images.unsplash.com/photo-1555680202-c86f0e12f086?w=400&h=550&fit=crop',avatar:'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop',author:'未来视觉',likes:567,comments:34,category:'scifi'},
+{id:'6',type:'image',title:'古风美人',desc:'一袭红衣，倾城之恋',img:'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=500&fit=crop',avatar:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',author:'国风阁',likes:3402,comments:256,category:'guofeng',btn:'一键生成'},
+{id:'7',type:'image',title:'萌宠日常',desc:'猫咪的慵懒午后',img:'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=480&fit=crop',avatar:'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',author:'铲屎官',likes:1890,comments:145,category:'pet'},
+{id:'8',type:'image',title:'极简海报',desc:'留白的力量',img:'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=520&fit=crop',avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',author:'设计狮',likes:723,comments:45,category:'poster'}
+];
+
+const AVATARS=[
+{id:'add',name:'自定义',isAdd:true},
+{id:'s1',name:'龙河影像',img:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop'},
+{id:'s2',name:'清新风',img:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop'},
+{id:'s3',name:'少年感',img:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'},
+{id:'s4',name:'国风',img:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop'},
+{id:'s5',name:'商务',img:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop'},
+{id:'s6',name:'赛博',img:'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop'}
+];
+
+/* ===== STATE ===== */
+let activeCat='hot',genMode='digital_human',selAvatar=null,curItem=null;
+let mediaList=[],selectedMediaIdx=-1;
+let likes=new Set(),favs=new Set(),paintTool='brush',painting=false,lx=0,ly=0;
+let prevPage='discovery';
+
+/* ===== NAV ===== */
+function switchTab(tab){
+  prevPage=tab;
+  navigateTo(tab);
+}
+function navigateTo(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const t=document.getElementById('page-'+page);
+  if(t)t.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.tab===page));
+  const b=document.getElementById('bottom-nav');
+  b.style.display=(page==='detail'||page==='inpaint'||page==='result')?'none':'flex';
+}
+function backFromDetail(){
+  navigateTo(prevPage==='detail'?'discovery':prevPage);
+}
+
+/* ===== TOAST ===== */
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+/* ===== DISCOVERY ===== */
+function renderCats(){
+  document.getElementById('category-tabs').innerHTML=CATS.map(c=>
+    `<button class="category-tab ${c.id===activeCat?'active':''}" onclick="pickCat('${c.id}')">${c.icon}<span>${c.name}</span></button>`
+  ).join('');
+}
+function pickCat(id){activeCat=id;renderCats();renderGrid();}
+function renderGrid(){
+  const data=activeCat==='hot'?ITEMS:ITEMS.filter(d=>d.category===activeCat);
+  document.getElementById('discovery-grid').innerHTML=data.map((it,idx)=>`
+    <div class="discovery-card" onclick="openDetail('${it.id}')">
+      <div class="card-img-wrap">
+        <img class="card-img" src="${it.img}" style="height:${it.type==='video'?220:180+(idx%3)*40}px" alt="">
+        ${it.type==='video'?'<div class="card-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></div><div class="card-play-overlay"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>':''}
+        <div class="card-overlay">
+          <div class="card-action" onclick="event.stopPropagation();toggleLike('${it.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="${likes.has(it.id)?'#ff3b30':'none'}" stroke="${likes.has(it.id)?'#ff3b30':'currentColor'}" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span>${it.likes+(likes.has(it.id)?1:0)}</span></div>
+          <div class="card-action"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span>${it.comments}</span></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${it.title}</div>
+        <div class="card-desc">${it.desc}</div>
+        ${it.btn?`<button class="card-btn" onclick="event.stopPropagation();showToast('${it.btn}')">${it.btn}</button>`:''}
+        <div class="card-footer"><img class="card-avatar" src="${it.avatar}" alt=""><span class="card-author">${it.author}</span><button class="card-fav" onclick="event.stopPropagation();toggleFav('${it.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="${favs.has(it.id)?'#ff9500':'none'}" stroke="${favs.has(it.id)?'#ff9500':'currentColor'}" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg></button></div>
+      </div>
+    </div>`).join('');
+}
+function toggleLike(id){likes.has(id)?likes.delete(id):likes.add(id);renderGrid();}
+function toggleFav(id){favs.has(id)?favs.delete(id):favs.add(id);renderGrid();}
+
+/* ===== DETAIL ===== */
+function openDetail(id){
+  curItem=ITEMS.find(d=>d.id===id);if(!curItem)return;
+  const imgEl=document.getElementById('detail-image');
+  const vidEl=document.getElementById('detail-video');
+  const playBtn=document.getElementById('detail-play-btn');
+  const overlay=document.getElementById('detail-overlay');
+  // Reset
+  vidEl.pause();vidEl.currentTime=0;vidEl.style.display='none';
+  imgEl.style.display='block';playBtn.style.display='none';overlay.style.display='block';
+  imgEl.src=curItem.img;
+  // Video type: show play button
+  if(curItem.type==='video'){
+    playBtn.style.display='flex';
+    if(curItem.videoUrl){vidEl.src=curItem.videoUrl;}
+  }
+  document.getElementById('detail-avatar').src=curItem.avatar;
+  document.getElementById('detail-author-name').textContent='@'+curItem.author;
+  document.getElementById('detail-desc').textContent='@'+curItem.author+' '+curItem.desc;
+  updateDetailUI();
+  navigateTo('detail');
+}
+function playDetailVideo(){
+  if(!curItem)return;
+  const imgEl=document.getElementById('detail-image');
+  const vidEl=document.getElementById('detail-video');
+  const playBtn=document.getElementById('detail-play-btn');
+  const overlay=document.getElementById('detail-overlay');
+  if(curItem.videoUrl){
+    imgEl.style.display='none';overlay.style.display='none';playBtn.style.display='none';
+    vidEl.style.display='block';vidEl.muted=false;
+    vidEl.play().catch(()=>{
+      vidEl.muted=true;
+      vidEl.play().catch(()=>{
+        playBtn.style.display='flex';imgEl.style.display='block';vidEl.style.display='none';
+        showToast('视频加载失败，请检查网络');
+      });
+    });
+    vidEl.onended=function(){imgEl.style.display='block';overlay.style.display='block';playBtn.style.display='flex';vidEl.style.display='none';};
+  } else {
+    showToast('视频加载中...');
+    setTimeout(()=>showToast('视频播放需接入AI生成接口'),1500);
+  }
+}
+function updateDetailUI(){
+  if(!curItem)return;
+  const id=curItem.id;
+  document.getElementById('detail-like-count').textContent=curItem.likes+(likes.has(id)?1:0);
+  document.getElementById('detail-comment-count').textContent=curItem.comments;
+  const lc=document.getElementById('detail-like-icon'),fc=document.getElementById('detail-fav-icon');
+  lc.setAttribute('fill',likes.has(id)?'#ff3b30':'none');lc.setAttribute('stroke',likes.has(id)?'#ff3b30':'currentColor');
+  fc.setAttribute('fill',favs.has(id)?'#ff9500':'none');fc.setAttribute('stroke',favs.has(id)?'#ff9500':'currentColor');
+}
+function toggleDetailLike(){if(!curItem)return;likes.has(curItem.id)?likes.delete(curItem.id):likes.add(curItem.id);updateDetailUI();}
+function toggleDetailFav(){if(!curItem)return;favs.has(curItem.id)?favs.delete(curItem.id):favs.add(curItem.id);updateDetailUI();}
+
+/* ===== GENERATOR ===== */
+function renderAvatars(){
+  document.getElementById('avatar-scroll').innerHTML=AVATARS.map(av=>{
+    if(av.isAdd)return `<div class="avatar-item add" onclick="showToast('添加自定义形象')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg></div>`;
+    return `<div class="avatar-item ${selAvatar===av.id?'active':''}" onclick="pickAvatar('${av.id}')"><img src="${av.img}" alt="${av.name}"></div>`;
+  }).join('');
+}
+function pickAvatar(id){selAvatar=selAvatar===id?null:id;renderAvatars();}
+function renderBlur(){
+  const imgs=AVATARS.slice(1,7);
+  document.getElementById('blur-circles').innerHTML=imgs.map((av,idx)=>`
+    <div class="blur-circle" style="left:${15+(idx%3)*25}%;top:${20+Math.floor(idx/3)*40}%;opacity:${0.3+(idx%3)*0.15};transform:scale(${0.7+(idx%2)*0.5})"><img src="${av.img}" alt=""></div>`).join('');
+}
+function setGenMode(mode){
+  genMode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  document.getElementById('generate-btn-text').textContent=mode==='digital_human'?'开始出镜':'开始生图';
+}
+
+/* ===== Media Upload ===== */
+function handleMediaUpload(e){
+  const files=Array.from(e.target.files||[]);
+  files.forEach(file=>{
+    const isVideo=file.type.startsWith('video/');
+    const url=URL.createObjectURL(file);
+    mediaList.push({url,type:isVideo?'video':'image',file});
+  });
+  if(selectedMediaIdx===-1&&mediaList.length>0)selectedMediaIdx=0;
+  renderMediaPreview();
+  e.target.value='';
+}
+function renderMediaPreview(){
+  const container=document.getElementById('media-preview');
+  let html=mediaList.map((m,i)=>`
+    <div class="media-item ${i===selectedMediaIdx?'selected':''}" onclick="selectMedia(${i})">
+      ${m.type==='video'
+        ?`<video src="${m.url}" muted></video><div class="video-badge"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`
+        :`<img src="${m.url}" alt="">`}
+      <button class="remove-btn" onclick="event.stopPropagation();removeMedia(${i})">×</button>
+    </div>`).join('');
+  html+=`<button class="add-media-btn" onclick="document.getElementById('album-input').click()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>`;
+  container.innerHTML=html;
+}
+function selectMedia(idx){selectedMediaIdx=idx;renderMediaPreview();}
+function removeMedia(idx){
+  URL.revokeObjectURL(mediaList[idx].url);
+  mediaList.splice(idx,1);
+  if(selectedMediaIdx>=mediaList.length)selectedMediaIdx=mediaList.length-1;
+  renderMediaPreview();
+}
+function hasUploadedMedia(){return mediaList.length>0&&selectedMediaIdx>=0;}
+function getSelectedMedia(){return selectedMediaIdx>=0?mediaList[selectedMediaIdx]:null;}
+
+function showSimulatedVideo(container,hasMedia){
+  const frames=[
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&h=800&fit=crop'
+  ];
+  const frameHtml=frames.map((f,i)=>`<img src="${f}" class="sim-frame" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${i===0?'1':'0'};transition:opacity .6s ease;border-radius:16px">`).join('');
+  container.innerHTML=`
+    <div style="width:100%;position:relative;padding-bottom:133%;border-radius:16px;overflow:hidden;background:#000">
+      ${frameHtml}
+      <div style="position:absolute;bottom:8px;left:8px;right:8px;display:flex;align-items:center;gap:8px;z-index:10">
+        <button id="sim-play-btn" style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);cursor:pointer">
+          <svg id="sim-play-icon" width="16" height="16" viewBox="0 0 24 24" fill="#fff" style="margin-left:2px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <div style="flex:1;height:3px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden">
+          <div id="sim-progress" style="height:100%;width:0%;background:#fff;border-radius:2px;transition:width .1s linear"></div>
+        </div>
+        <span id="sim-time" style="color:#fff;font-size:11px;font-variant-numeric:tabular-nums">0:00</span>
+      </div>
+      <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:11px;color:#fff;display:flex;align-items:center;gap:4px;z-index:10">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        AI生成视频
+      </div>
+      <div style="position:absolute;top:8px;right:8px;background:rgba(255,59,48,.9);padding:2px 8px;border-radius:8px;font-size:10px;color:#fff;z-index:10">● REC</div>
+    </div>`;
+  // Simulate video playback with frame animation
+  let frameIdx=0,isPlaying=true;
+  const frames2=container.querySelectorAll('.sim-frame');
+  const progress=document.getElementById('sim-progress');
+  const timeEl=document.getElementById('sim-time');
+  const playBtn=document.getElementById('sim-play-btn');
+  const playIcon=document.getElementById('sim-play-icon');
+  let duration=5,elapsed=0;
+  const tick=()=>{
+    if(!isPlaying)return;
+    elapsed+=0.1;
+    if(elapsed>=duration){elapsed=0;frameIdx=0;}
+    const pct=(elapsed/duration)*100;
+    if(progress)progress.style.width=pct+'%';
+    const m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
+    if(timeEl)timeEl.textContent=m+':'+(s<10?'0':'')+s;
+    const newFrame=Math.floor((elapsed/duration)*frames2.length)%frames2.length;
+    if(newFrame!==frameIdx){
+      frames2.forEach((f,i)=>f.style.opacity=i===newFrame?'1':'0');
+      frameIdx=newFrame;
+    }
+  };
+  const interval=setInterval(tick,100);
+  if(playBtn){
+    playBtn.addEventListener('click',()=>{
+      isPlaying=!isPlaying;
+      if(isPlaying){
+        playIcon.innerHTML='<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+      } else {
+        playIcon.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';
+      }
+    });
+  }
+}
+
+function handleGenerate(){
+  const p=document.getElementById('prompt-input').value.trim();
+  if(!p)return showToast('请先输入描述');
+  const media=getSelectedMedia();
+  const hasMedia=!!media;
+  if(genMode==='digital_human'&&!hasMedia){
+    return showToast('出镜模式请先上传照片或视频');
+  }
+  const btn=document.getElementById('generate-btn');
+  btn.disabled=true;
+  btn.innerHTML='<div class="spinner" style="width:16px;height:16px;border-width:2px"></div><span>生成中...</span>';
+
+  const isVideoMode=genMode==='video'||(genMode==='digital_human'&&hasMedia&&media.type==='video');
+  const isDigitalHuman=genMode==='digital_human'&&hasMedia&&media.type==='image';
+
+  // Show loading on result page
+  const rc=document.getElementById('result-content');
+  let loadingText='AI正在'+(isDigitalHuman?'生成数字人出镜视频':isVideoMode?'生成AI视频':'生成图片')+'...';
+  if(hasMedia)loadingText='AI正在基于你的'+(media.type==='video'?'视频':'照片')+'生成'+(isDigitalHuman?'数字人出镜':'AI视频')+'...';
+  rc.innerHTML='<div class="result-loading"><div class="spinner" style="width:40px;height:40px"></div><p>'+loadingText+'</p><p style="font-size:12px;color:#666">'+p.substring(0,20)+(p.length>20?'...':'')+'</p></div>';
+  document.getElementById('result-prompt-text').textContent=p;
+  document.getElementById('result-mode-text').textContent=isDigitalHuman?'数字人出镜视频':isVideoMode?'AI视频':'图片';
+  navigateTo('result');
+
+  setTimeout(()=>{
+    btn.disabled=false;
+    btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/></svg><span>'+(genMode==='digital_human'?'开始出镜':'开始生图')+'</span>';
+
+    if(isDigitalHuman||isVideoMode){
+      // Video result - 即梦AI风格视频效果
+      // Use multiple reliable video sources with fallback + simulated AI effect
+      const videoSources=[
+        'https://www.w3schools.com/html/mov_bbb.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
+      ];
+      const sourceTags=videoSources.map(u=>`<source src="${u}" type="video/mp4">`).join('');
+      rc.innerHTML=`
+        <div style="width:100%;position:relative" id="video-wrap">
+          <video id="result-video" controls playsinline webkit-playsinline muted preload="auto" style="width:100%;border-radius:16px;background:#000;min-height:300px">
+            ${sourceTags}
+          </video>
+          <div id="video-loading" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;border-radius:16px;gap:12px">
+            <div class="spinner" style="width:36px;height:36px;border-width:3px;border-color:rgba(255,255,255,.2);border-top-color:#fff"></div>
+            <p style="color:#aaa;font-size:13px">视频加载中...</p>
+          </div>
+          <button id="play-overlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);cursor:pointer">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff" style="margin-left:4px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          ${hasMedia?`<div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:11px;color:#fff;display:flex;align-items:center;gap:4px;z-index:5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            AI生成视频
+          </div>`:''}
+        </div>`;
+      // Handle video playback
+      setTimeout(()=>{
+        const v=document.getElementById('result-video');
+        const ld=document.getElementById('video-loading');
+        const po=document.getElementById('play-overlay');
+        if(v){
+          v.play().then(()=>{ld&&(ld.style.display='none');}).catch(()=>{
+            ld&&(ld.style.display='none');
+            po&&(po.style.display='flex');
+          });
+          v.addEventListener('ended',()=>{po&&(po.style.display='flex');});
+          v.addEventListener('pause',()=>{po&&(po.style.display='flex');});
+          v.addEventListener('playing',()=>{ld&&(ld.style.display='none');po&&(po.style.display='none');});
+          v.addEventListener('error',()=>{
+            // If all sources fail, show simulated video with animated poster
+            showSimulatedVideo(rc,hasMedia);
+          });
+          if(po){
+            po.addEventListener('click',()=>{v.play();v.muted=false;po.style.display='none';});
+          }
+        }
+      },100);
+    } else {
+      // Image result
+      const sampleImgs=[
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=800&fit=crop',
+        'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop',
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=800&fit=crop',
+        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=800&fit=crop',
+      ];
+      const resultImg=sampleImgs[Math.floor(Math.random()*sampleImgs.length)];
+      rc.innerHTML='<img src="'+resultImg+'" alt="generated">';
+    }
+  },3000);
+}
+function backFromResult(){navigateTo('generator');}
+function regenFromResult(){
+  document.getElementById('prompt-input').value=document.getElementById('result-prompt-text').textContent;
+  handleGenerate();
+}
+function openInpaintFromResult(){
+  const img=document.querySelector('#result-content img');
+  if(img){
+    // Create a fake item for inpaint
+    curItem={id:'gen-'+Date.now(),type:'image',img:img.src,author:'AI生成',likes:0,comments:0,desc:document.getElementById('result-prompt-text').textContent};
+    document.getElementById('inpaint-image').src=img.src;
+  }
+  navigateTo('inpaint');
+  setTimeout(()=>{const c=document.getElementById('inpaint-canvas'),w=c.parentElement;c.width=w.clientWidth;c.height=w.clientHeight;},100);
+}
+
+/* ===== INPAINT ===== */
+function openInpaint(){
+  if(!curItem)return;
+  document.getElementById('inpaint-image').src=curItem.img;
+  navigateTo('inpaint');
+  setTimeout(()=>{const c=document.getElementById('inpaint-canvas'),w=c.parentElement;c.width=w.clientWidth;c.height=w.clientHeight;},100);
+}
+function initCanvas(){
+  const c=document.getElementById('inpaint-canvas'),w=c.parentElement;
+  c.width=w.clientWidth;c.height=w.clientHeight;
+  const ctx=c.getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';
+  function pos(e){const r=c.getBoundingClientRect(),x=e.touches?e.touches[0].clientX:e.clientX,y=e.touches?e.touches[0].clientY:e.clientY;return{x:x-r.left,y:y-r.top};}
+  function start(e){painting=true;const p=pos(e);lx=p.x;ly=p.y;}
+  function move(e){if(!painting)return;e.preventDefault();const p=pos(e);ctx.globalCompositeOperation=paintTool==='eraser'?'destination-out':'source-over';ctx.strokeStyle=paintTool==='brush'?'rgba(255,255,255,0.5)':'transparent';ctx.lineWidth=paintTool==='brush'?18:28;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;}
+  function end(){painting=false;}
+  c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);c.addEventListener('mouseup',end);c.addEventListener('mouseleave',end);
+  c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});c.addEventListener('touchend',end);
+}
+function setTool(t){paintTool=t;document.querySelectorAll('.tool-btn').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));}
+function toggleChip(id){document.getElementById('chip-'+id).classList.toggle('active');}
+function handleInpaint(){
+  const p=document.getElementById('inpaint-prompt-input').value.trim();
+  if(!p)return showToast('请输入修改描述');
+  document.getElementById('processing-overlay').style.display='flex';
+  document.getElementById('inpaint-generate-btn').disabled=true;
+  setTimeout(()=>{
+    document.getElementById('processing-overlay').style.display='none';
+    document.getElementById('inpaint-generate-btn').disabled=false;
+    document.getElementById('inpaint-save-btn').style.display='flex';
+    showToast('局部重绘完成！');
+  },2500);
+}
+function resetInpaint(){
+  const c=document.getElementById('inpaint-canvas');c.getContext('2d').clearRect(0,0,c.width,c.height);
+  document.getElementById('inpaint-prompt-input').value='';
+  document.getElementById('inpaint-save-btn').style.display='none';
+}
+
+/* ===== CLOCK ===== */
+function tick(){
+  const n=new Date(),h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0');
+  document.getElementById('status-time').textContent=h+':'+m;
+}
+
+/* ===== INIT ===== */
+document.addEventListener('DOMContentLoaded',()=>{
+  renderCats();renderGrid();renderAvatars();renderBlur();initCanvas();tick();renderMediaPreview();
+  setInterval(tick,30000);
+  const pi=document.getElementById('prompt-input'),gb=document.getElementById('generate-btn');
+  pi.addEventListener('input',()=>{
+    gb.disabled=!pi.value.trim();
+    pi.style.height='auto';
+    pi.style.height=Math.min(pi.scrollHeight,120)+'px';
+  });
+  gb.disabled=true;
+});
+
+window.addEventListener('resize',()=>{
+  const c=document.getElementById('inpaint-canvas');if(!c)return;
+  const w=c.parentElement,temp=document.createElement('canvas');
+  temp.width=c.width;temp.height=c.height;temp.getContext('2d').drawImage(c,0,0);
+  c.width=w.clientWidth;c.height=w.clientHeight;c.getContext('2d').drawImage(temp,0,0);
+});
+</script>
+</body>
+</html>
