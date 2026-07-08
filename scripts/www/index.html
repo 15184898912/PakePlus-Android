@@ -604,46 +604,112 @@ function handleGenerate(){
   const isVideoMode=genMode==='video'||(genMode==='digital_human'&&hasMedia&&media.type==='video');
   const isDigitalHuman=genMode==='digital_human'&&hasMedia&&media.type==='image';
 
-  // Show loading on result page
   const rc=document.getElementById('result-content');
-  let loadingText='AI正在'+(isDigitalHuman?'生成数字人出镜视频':isVideoMode?'生成AI视频':'生成图片')+'...';
-  if(hasMedia)loadingText='AI正在基于你的'+(media.type==='video'?'视频':'照片')+'生成'+(isDigitalHuman?'数字人出镜':'AI视频')+'...';
-  rc.innerHTML='<div class="result-loading"><div class="spinner" style="width:40px;height:40px"></div><p>'+loadingText+'</p><p style="font-size:12px;color:#666">'+p.substring(0,20)+(p.length>20?'...':'')+'</p></div>';
   document.getElementById('result-prompt-text').textContent=p;
   document.getElementById('result-mode-text').textContent=isDigitalHuman?'数字人出镜视频':isVideoMode?'AI视频':'图片';
   navigateTo('result');
 
-  setTimeout(()=>{
+  // Multi-stage progress for digital human
+  const stages=isDigitalHuman?[
+    {text:'正在识别人脸特征...',dur:800},
+    {text:'正在提取面部关键点...',dur:800},
+    {text:'正在分析表情与动作...',dur:700},
+    {text:'正在驱动口型同步...',dur:800},
+    {text:'正在渲染数字人视频...',dur:900}
+  ]:isVideoMode?[
+    {text:'正在理解场景描述...',dur:700},
+    {text:'正在生成视频帧...',dur:1000},
+    {text:'正在合成运动轨迹...',dur:800},
+    {text:'正在渲染视频...',dur:700}
+  ]:[
+    {text:'正在生成图像...',dur:1500},
+    {text:'正在优化细节...',dur:800}
+  ];
+
+  let stageIdx=0;
+  const totalDur=stages.reduce((s,st)=>s+st.dur,0);
+
+  function showStage(){
+    if(stageIdx>=stages.length){
+      showFinalResult();
+      return;
+    }
+    const s=stages[stageIdx];
+    const progress=((stages.slice(0,stageIdx).reduce((a,b)=>a+b.dur,0)+s.dur/2)/totalDur*100).toFixed(0);
+    rc.innerHTML=`
+      <div class="result-loading" style="width:100%">
+        ${isDigitalHuman&&hasMedia?`
+        <div style="position:relative;width:100px;height:100px;margin-bottom:8px">
+          <img src="${media.url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:3px solid rgba(255,255,255,.3)">
+          <div style="position:absolute;inset:-6px;border-radius:50%;border:2px solid transparent;border-top-color:#fff;animation:spin 1s linear infinite"></div>
+        </div>`:`<div class="spinner" style="width:40px;height:40px;border-width:3px"></div>`}
+        <p style="color:#fff;font-size:15px;font-weight:500">${s.text}</p>
+        <div style="width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-top:8px">
+          <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:2px;transition:width .3s"></div>
+        </div>
+        <p style="font-size:12px;color:#666;margin-top:8px;max-width:260px;text-align:center;line-height:1.5">"${p.substring(0,30)}${p.length>30?'...':''}"</p>
+      </div>`;
+    // Add spin animation
+    const styleEl=document.createElement('style');
+    styleEl.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+    if(!document.getElementById('spin-keyframe')){styleEl.id='spin-keyframe';document.head.appendChild(styleEl);}
+    setTimeout(()=>{stageIdx++;showStage();},s.dur);
+  }
+  showStage();
+
+  function showFinalResult(){
     btn.disabled=false;
     btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/></svg><span>'+(genMode==='digital_human'?'开始出镜':'开始生图')+'</span>';
 
     if(isDigitalHuman||isVideoMode){
-      // Video result - 即梦AI风格视频效果
-      // Use multiple reliable video sources with fallback + simulated AI effect
-      const videoSources=[
-        'https://www.w3schools.com/html/mov_bbb.mp4',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
+      // Real human video sources (Google GTV public sample bucket - real people clips)
+      const humanVideos=[
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+        'https://www.w3schools.com/html/mov_bbb.mp4'
       ];
-      const sourceTags=videoSources.map(u=>`<source src="${u}" type="video/mp4">`).join('');
-      rc.innerHTML=`
-        <div style="width:100%;position:relative" id="video-wrap">
-          <video id="result-video" controls playsinline webkit-playsinline muted preload="auto" style="width:100%;border-radius:16px;background:#000;min-height:300px">
-            ${sourceTags}
-          </video>
+      // Pick a random human video
+      const videoUrl=humanVideos[Math.floor(Math.random()*(humanVideos.length-1))];
+      const refPhotoHtml=isDigitalHuman&&hasMedia?`
+        <div style="position:absolute;bottom:16px;right:12px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="position:relative">
+            <img src="${media.url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.5)">
+            <div style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;background:#4ade80;border-radius:50%;border:2px solid #000;display:flex;align-items:center;justify-content:center">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+          <span style="font-size:9px;color:#fff;background:rgba(0,0,0,.6);padding:1px 6px;border-radius:8px;backdrop-filter:blur(4px)">源照片</span>
+        </div>
+        <div style="position:absolute;top:12px;left:12px;z-index:10;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);padding:5px 12px;border-radius:20px">
+          <div style="width:8px;height:8px;background:#ff3b30;border-radius:50%;animation:pulse 1s infinite"></div>
+          <span style="font-size:11px;color:#fff;font-weight:500">AI数字人出镜</span>
+        </div>`:'';
+      const aiBadge=!isDigitalHuman?`
+        <div style="position:absolute;top:12px;left:12px;z-index:10;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:11px;color:#fff;display:flex;align-items:center;gap:4px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          AI生成视频
+        </div>`:'';
+      const pulseStyle='<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}</style>';
+      rc.innerHTML=pulseStyle+`
+        <div style="width:100%;position:relative;border-radius:16px;overflow:hidden;background:#000" id="video-wrap">
+          <video id="result-video" src="${videoUrl}" controls playsinline webkit-playsinline muted preload="auto" style="width:100%;border-radius:16px;background:#000;display:block"></video>
           <div id="video-loading" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;border-radius:16px;gap:12px">
             <div class="spinner" style="width:36px;height:36px;border-width:3px;border-color:rgba(255,255,255,.2);border-top-color:#fff"></div>
             <p style="color:#aaa;font-size:13px">视频加载中...</p>
           </div>
-          <button id="play-overlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);cursor:pointer">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff" style="margin-left:4px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <button id="play-overlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,.7);backdrop-filter:blur(12px);align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.3);cursor:pointer;z-index:10">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff" style="margin-left:5px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </button>
-          ${hasMedia?`<div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:11px;color:#fff;display:flex;align-items:center;gap:4px;z-index:5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            AI生成视频
-          </div>`:''}
+          ${refPhotoHtml}
+          ${aiBadge}
+          <div style="position:absolute;bottom:12px;left:12px;display:flex;gap:6px;z-index:10">
+            <span style="font-size:10px;color:#fff;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);padding:3px 8px;border-radius:8px">Seedance 2.0</span>
+            <span style="font-size:10px;color:#fff;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);padding:3px 8px;border-radius:8px">HD</span>
+          </div>
         </div>`;
-      // Handle video playback
+      // Handle playback
       setTimeout(()=>{
         const v=document.getElementById('result-video');
         const ld=document.getElementById('video-loading');
@@ -657,14 +723,21 @@ function handleGenerate(){
           v.addEventListener('pause',()=>{po&&(po.style.display='flex');});
           v.addEventListener('playing',()=>{ld&&(ld.style.display='none');po&&(po.style.display='none');});
           v.addEventListener('error',()=>{
-            // If all sources fail, show simulated video with animated poster
-            showSimulatedVideo(rc,hasMedia);
+            // Try next source
+            const idx=humanVideos.indexOf(videoUrl);
+            if(idx<humanVideos.length-1){
+              v.src=humanVideos[idx+1];
+              v.load();
+              v.play().catch(()=>{});
+            } else {
+              showSimulatedVideo(rc,hasMedia);
+            }
           });
           if(po){
-            po.addEventListener('click',()=>{v.play();v.muted=false;po.style.display='none';});
+            po.addEventListener('click',()=>{v.muted=false;v.play();po.style.display='none';});
           }
         }
-      },100);
+      },200);
     } else {
       // Image result
       const sampleImgs=[
@@ -674,9 +747,9 @@ function handleGenerate(){
         'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=800&fit=crop',
       ];
       const resultImg=sampleImgs[Math.floor(Math.random()*sampleImgs.length)];
-      rc.innerHTML='<img src="'+resultImg+'" alt="generated">';
+      rc.innerHTML='<img src="'+resultImg+'" alt="generated" style="width:100%;border-radius:16px">';
     }
-  },3000);
+  }
 }
 function backFromResult(){navigateTo('generator');}
 function regenFromResult(){
