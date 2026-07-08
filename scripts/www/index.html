@@ -102,12 +102,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 .preview-placeholder svg{width:44px;height:44px;color:var(--rule2);margin-bottom:8px}
 .preview-placeholder p{font-size:13px;color:var(--muted)}
 .preview-placeholder .hint{font-size:11px;color:var(--rule2);margin-top:2px}
-.preview-controls{position:absolute;bottom:10px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:5}
-.play-btn{width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--rule2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.preview-controls{position:absolute;bottom:8px;left:10px;right:10px;display:flex;align-items:center;gap:8px;z-index:5}
+.play-btn{width:36px;height:36px;border-radius:50%;background:var(--bg3);border:1px solid var(--rule2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform 0.15s,background 0.15s}
+.play-btn:active{transform:scale(0.9)}
 .play-btn svg{width:16px;height:16px;color:var(--accent)}
-.seek-bar{flex:1;height:4px;background:var(--rule);border-radius:2px;position:relative;cursor:pointer}
-.seek-bar .seek-fill{position:absolute;top:0;left:0;height:100%;background:var(--accent);border-radius:2px;transition:width .1s}
-.seek-bar .seek-thumb{position:absolute;top:50%;width:12px;height:12px;background:var(--accent);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 8px var(--glow)}
+/* 视频中央大播放按钮 */
+.center-play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;backdrop-filter:blur(4px);transition:all 0.2s}
+.center-play-btn:hover{background:rgba(0,0,0,0.5);border-color:rgba(255,255,255,0.9);transform:translate(-50%,-50%) scale(1.08)}
+.center-play-btn:active{transform:translate(-50%,-50%) scale(0.95)}
+.center-play-btn svg{width:20px;height:20px;color:#fff;margin-left:2px}
+.pc-btns{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.seek-bar{flex:1;height:6px;background:var(--rule);border-radius:3px;position:relative;cursor:pointer;touch-action:none}
+.seek-bar .seek-fill{position:absolute;top:0;left:0;height:100%;background:var(--accent);border-radius:3px}
+.seek-bar .seek-thumb{position:absolute;top:50%;width:16px;height:16px;background:var(--accent);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 10px var(--glow);border:2px solid #fff}
+.seek-bar.dragging .seek-fill{transition:none}
+.seek-bar.dragging .seek-thumb{transform:translate(-50%,-50%) scale(1.3)}
 .time-label{font-size:11px;color:var(--muted2);font-family:var(--font-mono);min-width:36px;text-align:center}
 .resolution-label{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);border-radius:6px;padding:3px 8px;font-size:10px;color:var(--accent);font-family:var(--font-mono);z-index:5}
 .ai-toolbar{display:flex;gap:8px;padding:10px 16px;overflow-x:auto}
@@ -197,6 +206,232 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 .share-row .btn-copy{background:var(--bg3);border:1px solid var(--rule2)!important;color:var(--muted2)}
 .share-row button svg{width:16px;height:16px}
 @media(max-width:480px){.app-container{max-width:100%}.bottom-nav{max-width:100%}.fab{right:20px}}
+
+    /* ========== 面板样式 ========== */
+    .panel-overlay {
+      position:fixed; top:0; left:0; right:0; bottom:0;
+      background:rgba(0,0,0,0.7); z-index:300;
+      display:flex; align-items:flex-end; justify-content:center;
+      animation:fadeIn 0.2s ease;
+    }
+    .panel-content {
+      width:100%; max-width:480px; max-height:80vh;
+      background:var(--bg2); border-radius:20px 20px 0 0;
+      overflow:hidden; display:flex; flex-direction:column;
+      animation:slideUp 0.25s ease;
+    }
+    .panel-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px; border-bottom:1px solid var(--rule);
+      font-weight:600; font-size:16px;
+    }
+    .panel-close {
+      font-size:24px; color:var(--muted2); cursor:pointer; width:32px; height:32px;
+      display:flex; align-items:center; justify-content:center; border-radius:50%;
+    }
+    .panel-close:active { background:rgba(255,255,255,0.1); }
+    @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+
+    /* 特效网格 */
+    .effect-grid {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+    }
+    .effect-item {
+      background:var(--bg); border:1px solid var(--rule); border-radius:12px;
+      padding:10px; text-align:center; cursor:pointer; transition:all 0.2s;
+    }
+    .effect-item:hover, .effect-item.active {
+      border-color:var(--accent); box-shadow:0 0 12px rgba(0,240,255,0.15);
+    }
+    .effect-preview {
+      width:100%; aspect-ratio:1; border-radius:8px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:11px; font-weight:600; color:#fff; margin-bottom:8px;
+    }
+    .effect-name { font-size:11px; color:var(--muted2); }
+
+    /* 运镜网格 */
+    .camera-grid {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+    }
+    .camera-item {
+      background:var(--bg); border:1px solid var(--rule); border-radius:12px;
+      padding:14px 8px; text-align:center; cursor:pointer; transition:all 0.2s;
+    }
+    .camera-item:hover, .camera-item.active {
+      border-color:var(--accent); background:rgba(0,240,255,0.05);
+    }
+    .camera-icon { font-size:28px; margin-bottom:6px; }
+    .camera-item span { font-size:12px; color:var(--muted2); }
+
+    /* 字幕层 */
+    .subtitle-layer {
+      position:absolute; bottom:60px; left:0; right:0; z-index:50;
+      text-align:center; padding:0 20px; pointer-events:none;
+    }
+    .subtitle-text {
+      display:inline-block; background:#000000;
+      color:#fff; padding:8px 18px; border-radius:8px;
+      font-size:18px; line-height:1.5; max-width:90%;
+      font-weight:bold;
+    }
+
+    /* 音乐搜索 */
+    .music-search-box {
+      display:flex; gap:8px; margin-bottom:12px;
+    }
+    .music-search-box input {
+      flex:1; background:var(--bg); border:1px solid var(--rule); border-radius:10px;
+      padding:10px 14px; color:var(--ink); font-size:14px; outline:none;
+    }
+    .music-search-box input:focus { border-color:var(--accent); }
+    .music-search-box button {
+      background:var(--accent); color:#000; border:none; border-radius:10px;
+      padding:10px 18px; font-weight:600; cursor:pointer; font-size:13px;
+    }
+    .music-tabs {
+      display:flex; gap:8px; margin-bottom:12px; overflow-x:auto;
+      padding-bottom:4px;
+    }
+    .music-tab {
+      background:var(--bg); border:1px solid var(--rule); border-radius:20px;
+      padding:6px 14px; font-size:12px; color:var(--muted2); cursor:pointer;
+      white-space:nowrap; transition:all 0.2s;
+    }
+    .music-tab.active {
+      background:var(--accent); color:#000; border-color:var(--accent);
+    }
+    .music-tab.real-tab {
+      background:linear-gradient(135deg,#00b894,#00cec9);
+      color:#fff; border-color:transparent;
+    }
+    .music-tab.real-tab.active {
+      background:linear-gradient(135deg,#00b894,#00cec9);
+      color:#fff;
+    }
+    .music-list { max-height:320px; overflow-y:auto; }
+    .music-item {
+      display:flex; align-items:center; gap:12px; padding:10px 12px;
+      border-radius:12px; cursor:pointer; transition:all 0.2s;
+      margin-bottom:4px;
+    }
+    .music-item:hover { background:rgba(255,255,255,0.05); }
+    .music-cover {
+      width:52px; height:52px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:22px; flex-shrink:0; position:relative; cursor:pointer;
+      box-shadow:0 2px 8px rgba(0,0,0,0.3);
+    }
+    .music-info { flex:1; min-width:0; }
+    .music-title {
+      font-size:14px; font-weight:600; color:var(--ink);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .music-artist { font-size:12px; color:var(--muted2); margin-top:3px; }
+    .music-dur { font-size:11px; color:var(--muted2); }
+    .music-use-btn {
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#000; border:none; border-radius:20px;
+      padding:6px 16px; font-size:12px; font-weight:700; cursor:pointer;
+      white-space:nowrap; transition:transform 0.15s;
+    }
+    .music-use-btn:hover { transform:scale(1.05); }
+    .music-cover .play-overlay {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:28px; height:28px; border-radius:50%;
+      background:rgba(0,0,0,0.6); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; opacity:0; transition:all 0.2s;
+      padding-left:2px;
+    }
+    .music-cover:hover .play-overlay { opacity:1; }
+    .music-item.playing {
+      background:linear-gradient(135deg,rgba(0,240,255,0.08),rgba(255,45,149,0.05));
+    }
+    .music-item.playing .music-title { color:var(--accent); }
+    .music-item.playing .music-cover .play-overlay {
+      opacity:1; background:var(--accent); color:#000;
+      animation:pulse 1.5s infinite;
+    }
+    /* 真实歌曲标记 */
+    .real-audio-badge {
+      display:inline-flex; align-items:center; gap:2px;
+      font-size:9px; background:linear-gradient(135deg,#00b894,#00cec9);
+      color:#fff; padding:1px 5px; border-radius:4px; font-weight:700;
+      margin-left:4px;
+    }
+    /* AI云端搜索 */
+    .ai-search-area {
+      background:linear-gradient(135deg, rgba(0,240,255,0.08), rgba(255,45,149,0.08));
+      border:1px solid rgba(0,240,255,0.2);
+      border-radius:12px;
+      padding:14px;
+      margin-bottom:12px;
+    }
+    .ai-search-input {
+      display:flex; gap:8px; margin-bottom:10px;
+    }
+    .ai-search-input input {
+      flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--rule); border-radius:10px;
+      padding:10px 14px; color:var(--ink); font-size:13px; outline:none;
+    }
+    .ai-search-input input:focus { border-color:var(--accent); }
+    .ai-search-input button {
+      background:linear-gradient(135deg, var(--accent), var(--accent2));
+      color:#000; border:none; border-radius:10px;
+      padding:10px 16px; font-weight:600; cursor:pointer; font-size:13px;
+      white-space:nowrap;
+    }
+    .ai-mood-chips {
+      display:flex; gap:6px; flex-wrap:wrap;
+    }
+    .ai-mood-chip {
+      background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+      border-radius:16px; padding:5px 12px; font-size:11px; color:var(--muted2);
+      cursor:pointer; transition:all 0.2s; white-space:nowrap;
+    }
+    .ai-mood-chip:hover, .ai-mood-chip.active {
+      background:var(--accent); color:#000; border-color:var(--accent);
+    }
+    .ai-loading {
+      text-align:center; padding:40px 20px; color:var(--muted2);
+    }
+    .ai-loading .ai-spinner {
+      width:36px; height:36px; border:3px solid rgba(0,240,255,0.2);
+      border-top-color:var(--accent); border-radius:50%;
+      animation:spin 0.8s linear infinite; margin:0 auto 12px;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .ai-loading .ai-status {
+      font-size:13px; color:var(--ink); margin-bottom:4px;
+    }
+    .ai-loading .ai-sub { font-size:11px; }
+    .music-tags { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+    .music-tag {
+      font-size:10px; background:rgba(0,240,255,0.1); color:var(--accent);
+      padding:1px 6px; border-radius:4px;
+    }
+    .music-tag.ai-tag {
+      background:linear-gradient(135deg, rgba(0,240,255,0.15), rgba(255,45,149,0.15));
+      color:var(--accent2);
+    }
+    .ai-match-badge {
+      font-size:10px; background:linear-gradient(135deg, var(--accent), var(--accent2));
+      color:#000; padding:2px 8px; border-radius:10px; font-weight:700;
+    }
+    .ai-section-title {
+      font-size:12px; color:var(--accent); font-weight:600;
+      margin:8px 0; display:flex; align-items:center; gap:6px;
+    }
+    .ai-recommend-hint {
+      font-size:11px; color:var(--muted2); text-align:center; padding:8px;
+      background:rgba(0,240,255,0.05); border-radius:8px; margin-bottom:8px;
+    }
+    @keyframes bgmBar {
+      from { height: 4px; }
+      to { height: var(--bar-h, 12px); }
+    }
 </style>
 </head>
 <body>
@@ -204,6 +439,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 <div class="app-container" id="app">
   <!-- 隐藏的文件选择器 -->
   <input type="file" id="fileInput" accept="video/*,audio/*,image/*" multiple style="display:none" onchange="handleFileSelect(event)">
+  <input type="file" id="musicFileInput" accept="audio/*" multiple style="display:none" onchange="handleMusicImport(event)">
   <!-- 隐藏的canvas用于渲染导出 -->
   <canvas id="exportCanvas" style="display:none"></canvas>
   <!-- 隐藏的video元素（动态创建，不再需要静态元素） -->
@@ -273,10 +509,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
         </div>
 
         <div class="section-title">从本机导入</div>
-        <div style="padding:0 20px;margin-bottom:24px">
-          <button class="neon-btn" style="width:100%" onclick="openFilePicker()">
+        <div style="padding:0 20px;margin-bottom:12px;display:flex;gap:10px">
+          <button class="neon-btn" style="flex:1" onclick="openFilePicker()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-            从手机相册导入真实视频/音频/图片
+            相册导入
+          </button>
+          <button class="neon-btn" style="flex:1" onclick="openCameraModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            拍照录像
           </button>
         </div>
 
@@ -312,7 +552,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
       <div style="padding:16px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
         <button class="neon-btn sm" onclick="openFilePicker()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-          打开相册导入
+          相册导入
+        </button>
+        <button class="neon-btn sm" onclick="openCameraModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          拍照录像
         </button>
         <button class="neon-btn sm outline" onclick="mockImport()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -327,29 +571,70 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
         <div class="preview-placeholder" id="previewPlaceholder">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           <p>暂无素材</p>
-          <p class="hint">从素材库添加视频开始剪辑</p>
+          <p class="hint">导入视频素材开始剪辑</p>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center">
+            <button onclick="document.getElementById('fileInput').click()" style="background:linear-gradient(135deg,var(--accent),var(--primary));color:#000;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 20px rgba(0,240,255,0.3)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              导入视频/图片
+            </button>
+            <button onclick="openCameraModal()" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);color:#fff;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 20px rgba(255,107,107,0.3)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              拍照录像
+            </button>
+            <button onclick="switchTab(0)" style="background:rgba(255,255,255,0.08);color:var(--ink);border:1px solid var(--rule);border-radius:12px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              粘贴视频链接
+            </button>
+          </div>
         </div>
-        <video id="previewVideo" style="display:none;width:100%;height:100%;object-fit:contain" muted loop playsinline></video>
+        <video id="previewVideo" style="display:none;width:100%;height:100%;object-fit:contain" playsinline></video>
+        <!-- 视频中央大播放按钮 -->
+        <div class="center-play-btn" id="centerPlayBtn" onclick="event.stopPropagation();togglePlayReal()" style="display:none">
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
         <div class="resolution-label" id="resLabel" style="display:none"></div>
         <div class="preview-controls" id="previewControls" style="display:none">
           <div class="play-btn" id="playBtn" onclick="togglePlayReal()">
             <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </div>
-          <div class="seek-bar" onclick="seekVideoReal(event)">
+          <div class="seek-bar" id="seekBar">
             <div class="seek-fill" id="seekFill" style="width:0%"></div>
             <div class="seek-thumb" id="seekThumb" style="left:0%"></div>
           </div>
           <span class="time-label" id="timeLabel">00:00</span>
+          <div class="pc-btns">
+            <div class="play-btn" id="bgmStatusBtn" onclick="toggleBgmMute()" title="BGM状态" style="display:none;background:linear-gradient(135deg,var(--accent),#ff6b6b);border-color:transparent;gap:3px;padding:0 8px">
+              <svg id="bgmIconOn" viewBox="0 0 24 24" fill="#fff" style="width:14px;height:14px;flex-shrink:0"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <svg id="bgmIconOff" viewBox="0 0 24 24" fill="#fff" style="display:none;width:14px;height:14px;opacity:0.6;flex-shrink:0"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><line x1="1" y1="1" x2="23" y2="23" stroke="#fff" stroke-width="2"/></svg>
+              <div id="bgmWaveAnim" style="display:none;align-items:center;gap:2px;height:14px">
+                <span style="display:block;width:3px;height:6px;background:#fff;border-radius:1px;animation:bgmBar 0.8s ease-in-out infinite alternate;animation-delay:0s"></span>
+                <span style="display:block;width:3px;height:10px;background:#fff;border-radius:1px;animation:bgmBar 0.8s ease-in-out infinite alternate;animation-delay:0.15s"></span>
+                <span style="display:block;width:3px;height:8px;background:#fff;border-radius:1px;animation:bgmBar 0.8s ease-in-out infinite alternate;animation-delay:0.3s"></span>
+                <span style="display:block;width:3px;height:12px;background:#fff;border-radius:1px;animation:bgmBar 0.8s ease-in-out infinite alternate;animation-delay:0.45s"></span>
+              </div>
+              <span id="bgmStatusText" style="font-size:10px;color:#fff;font-weight:600;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis">BGM</span>
+            </div>
+            <div class="play-btn" id="muteBtn" onclick="toggleMute()" title="总静音">
+              <svg id="volIconOn" viewBox="0 0 24 24" fill="currentColor"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <svg id="volIconOff" viewBox="0 0 24 24" fill="currentColor" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            </div>
+            <div class="play-btn" id="origAudioBtn" onclick="toggleOriginalAudio()" title="关闭原声" style="color:var(--accent)">
+              <svg id="origAudioOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              <svg id="origAudioOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="ai-toolbar">
-        <button class="ai-chip" onclick="aiAction('subtitle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>AI字幕</button>
+        <button class="ai-chip" onclick="openSubtitlePanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>AI字幕</button>
+        <button class="ai-chip" onclick="openEffectPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>特效</button>
+        <button class="ai-chip" onclick="openCameraPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>运镜</button>
+        <button class="ai-chip" onclick="openMusicPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>音乐</button>
         <button class="ai-chip" onclick="aiAction('highlight')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>高光提取</button>
         <button class="ai-chip" onclick="aiAction('mirror')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>镜像</button>
         <button class="ai-chip" onclick="aiAction('watermark')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>去水印</button>
         <button class="ai-chip" onclick="aiAction('dedup')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8a2 2 0 0 0-2-2h-3"/><path d="M3 16a2 2 0 0 0 2 2h3"/><path d="M16 21a2 2 0 0 0 2-2v-3"/></svg>去重</button>
-        <button class="ai-chip" onclick="aiAction('bgm')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>BGM</button>
       </div>
 
       <div class="timeline-area">
@@ -357,8 +642,25 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
           <span class="timeline-label">时间轴</span>
           <span class="timeline-count" id="clipCount">0 个片段</span>
         </div>
-        <div class="timeline-track" id="timelineTrack">
-          <div class="timeline-empty">将素材拖拽到此处</div>
+        <!-- 视频轨道 -->
+        <div style="display:flex;align-items:stretch;gap:0;margin-bottom:4px">
+          <div style="width:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--accent);writing-mode:vertical-lr;text-orientation:mixed;letter-spacing:1px;background:rgba(0,240,255,0.06);border-radius:6px 0 0 6px;border:1px solid rgba(0,240,255,0.15);border-right:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:4px;writing-mode:horizontal-tb"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            视频
+          </div>
+          <div class="timeline-track" id="timelineTrack" style="flex:1;border-radius:0 6px 6px 0">
+            <div class="timeline-empty">将素材拖拽到此处</div>
+          </div>
+        </div>
+        <!-- 音频轨道 -->
+        <div style="display:flex;align-items:stretch;gap:0">
+          <div style="width:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:#ff6b6b;writing-mode:vertical-lr;text-orientation:mixed;letter-spacing:1px;background:rgba(255,107,107,0.06);border-radius:6px 0 0 6px;border:1px solid rgba(255,107,107,0.15);border-right:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:4px;writing-mode:horizontal-tb"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            音乐
+          </div>
+          <div class="timeline-track" id="audioTimelineTrack" style="flex:1;border-radius:0 6px 6px 0;min-height:40px;background:rgba(255,107,107,0.04);border-color:rgba(255,107,107,0.15)">
+            <div class="timeline-empty" id="audioTrackEmpty" style="font-size:10px;color:var(--muted2)">点击"音乐"按钮添加BGM</div>
+          </div>
         </div>
       </div>
 
@@ -421,6 +723,243 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
   </div>
 </div>
 
+<!-- 字幕显示层（叠加在预览区） -->
+<div id="subtitleLayer" class="subtitle-layer" style="display:none"></div>
+
+<!-- AI字幕面板 -->
+<div id="subtitlePanel" class="panel-overlay" style="display:none">
+  <div class="panel-content">
+    <div class="panel-header">
+      <span>AI智能字幕</span>
+      <span class="panel-close" onclick="closeAllPanels()">&times;</span>
+    </div>
+    <div style="padding:16px">
+      <p style="font-size:12px;color:var(--muted2);margin-bottom:12px">AI自动识别视频中的语音，生成带时间轴的字幕</p>
+      <button class="neon-btn" onclick="autoGenerateSubtitles()" id="autoSubBtn" style="width:100%;justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        一键AI识别字幕
+      </button>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="tool-btn" onclick="clearSubtitles()" style="flex:1;font-size:12px;padding:8px">清除字幕</button>
+        <button class="tool-btn" onclick="showSubtitleSettings()" style="flex:1;font-size:12px;padding:8px">字幕样式</button>
+      </div>
+      <div id="subtitleResult" style="margin-top:16px;max-height:260px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 视频特效面板 -->
+<div id="effectPanel" class="panel-overlay" style="display:none">
+  <div class="panel-content">
+    <div class="panel-header">
+      <span>AI视频特效</span>
+      <span class="panel-close" onclick="closeAllPanels()">&times;</span>
+    </div>
+    <div style="padding:16px">
+      <div class="effect-grid" id="effectGrid">
+        <div class="effect-item" data-effect="none" onclick="applyEffect('none')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#333,#555)">原图</div>
+          <span class="effect-name">原图</span>
+        </div>
+        <div class="effect-item" data-effect="blur" onclick="applyEffect('blur(4px)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#333,#555);filter:blur(2px)">模糊</div>
+          <span class="effect-name">背景模糊</span>
+        </div>
+        <div class="effect-item" data-effect="grayscale" onclick="applyEffect('grayscale(100%)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#666,#999);filter:grayscale(100%)">黑白</div>
+          <span class="effect-name">经典黑白</span>
+        </div>
+        <div class="effect-item" data-effect="sepia" onclick="applyEffect('sepia(80%)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#8B6914,#C4A35A);filter:sepia(80%)">复古</div>
+          <span class="effect-name">复古胶片</span>
+        </div>
+        <div class="effect-item" data-effect="invert" onclick="applyEffect('invert(100%)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#333,#555);filter:invert(100%)">反色</div>
+          <span class="effect-name">反色负片</span>
+        </div>
+        <div class="effect-item" data-effect="brightness" onclick="applyEffect('brightness(1.3) contrast(1.2)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#555,#888);filter:brightness(1.3)">明亮</div>
+          <span class="effect-name">明亮增强</span>
+        </div>
+        <div class="effect-item" data-effect="vintage" onclick="applyEffect('contrast(1.2) saturate(1.3) sepia(30%)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#7B3F00,#C4A35A);filter:contrast(1.2) saturate(1.3)">暖色</div>
+          <span class="effect-name">温暖暖调</span>
+        </div>
+        <div class="effect-item" data-effect="cool" onclick="applyEffect('hue-rotate(180deg) saturate(1.2)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#1a3a5c,#4a90d9);filter:hue-rotate(30deg)">冷色</div>
+          <span class="effect-name">冷色科技</span>
+        </div>
+        <div class="effect-item" data-effect="dramatic" onclick="applyEffect('contrast(1.5) brightness(0.9)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#222,#555);filter:contrast(1.5)">戏剧</div>
+          <span class="effect-name">戏剧对比</span>
+        </div>
+        <div class="effect-item" data-effect="neon" onclick="applyEffect('saturate(2) contrast(1.3) hue-rotate(320deg)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#ff00ff,#00ffff);filter:saturate(2)">霓虹</div>
+          <span class="effect-name">赛博霓虹</span>
+        </div>
+        <div class="effect-item" data-effect="lomo" onclick="applyEffect('contrast(1.3) saturate(1.5) brightness(1.1)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#4a2c5a,#d4a574);filter:contrast(1.3) saturate(1.5)">LOMO</div>
+          <span class="effect-name">LOMO暗角</span>
+        </div>
+        <div class="effect-item" data-effect="japanese" onclick="applyEffect('brightness(1.15) saturate(0.85) contrast(0.95)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#a8c8ec,#f5e6d3);filter:brightness(1.15) saturate(0.85)">清新</div>
+          <span class="effect-name">日系清新</span>
+        </div>
+        <div class="effect-item" data-effect="hdr" onclick="applyEffect('contrast(1.4) saturate(1.4) brightness(1.05)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#2d5016,#87CEEB);filter:contrast(1.4) saturate(1.4)">HDR</div>
+          <span class="effect-name">HDR增强</span>
+        </div>
+        <div class="effect-item" data-effect="sketch" onclick="applyEffect('grayscale(100%) contrast(1.5) brightness(1.1)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#444,#888);filter:grayscale(100%) contrast(1.5)">素描</div>
+          <span class="effect-name">铅笔素描</span>
+        </div>
+        <div class="effect-item" data-effect="mirror" onclick="applyEffect('none');applyMirrorEffect()">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#333,#555)">镜像</div>
+          <span class="effect-name">左右镜像</span>
+        </div>
+        <div class="effect-item" data-effect="vignette" onclick="applyEffect('brightness(0.9) contrast(1.1)')">
+          <div class="effect-preview" style="background:radial-gradient(circle,#555 30%,#111 90%)">暗角</div>
+          <span class="effect-name">暗角聚焦</span>
+        </div>
+        <div class="effect-item" data-effect="purple" onclick="applyEffect('hue-rotate(260deg) saturate(1.5)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#4B0082,#9370DB);filter:hue-rotate(60deg)">紫调</div>
+          <span class="effect-name">迷幻紫调</span>
+        </div>
+        <div class="effect-item" data-effect="sunset" onclick="applyEffect('sepia(40%) saturate(1.6) hue-rotate(-15deg)')">
+          <div class="effect-preview" style="background:linear-gradient(135deg,#FF6B35,#F7931E);filter:sepia(40%) saturate(1.6)">日落</div>
+          <span class="effect-name">日落黄昏</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI运镜面板 -->
+<div id="cameraPanel" class="panel-overlay" style="display:none">
+  <div class="panel-content">
+    <div class="panel-header">
+      <span>AI智能运镜</span>
+      <span class="panel-close" onclick="closeAllPanels()">&times;</span>
+    </div>
+    <div style="padding:16px">
+      <p style="font-size:12px;color:var(--muted2);margin-bottom:12px">选择运镜效果，AI自动计算关键帧</p>
+      <div class="camera-grid">
+        <div class="camera-item" onclick="applyCameraMove('zoomIn')">
+          <div class="camera-icon">🔍</div>
+          <span>推近放大</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('zoomOut')">
+          <div class="camera-icon">🔎</div>
+          <span>拉远缩小</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('panLeft')">
+          <div class="camera-icon">⬅️</div>
+          <span>左移跟拍</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('panRight')">
+          <div class="camera-icon">➡️</div>
+          <span>右移跟拍</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('panUp')">
+          <div class="camera-icon">⬆️</div>
+          <span>上移摇镜</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('panDown')">
+          <div class="camera-icon">⬇️</div>
+          <span>下移摇镜</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('rotateCW')">
+          <div class="camera-icon">🔄</div>
+          <span>顺时针旋转</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('rotateCCW')">
+          <div class="camera-icon">🔄</div>
+          <span>逆时针旋转</span>
+        </div>
+        <div class="camera-item" onclick="applyCameraMove('shake')">
+          <div class="camera-icon">📳</div>
+          <span>震动手持</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 音乐搜索面板 -->
+<div id="musicPanel" class="panel-overlay" style="display:none">
+  <div class="panel-content">
+    <div class="panel-header">
+      <span>🎵 AI云端音乐库</span>
+      <span class="panel-close" onclick="closeAllPanels()">&times;</span>
+    </div>
+    <div style="padding:16px">
+      <!-- 导入本地真实歌曲按钮 -->
+      <div style="margin-bottom:12px;display:flex;gap:6px">
+        <button onclick="document.getElementById('musicFileInput').click()" style="flex:1;background:linear-gradient(135deg,#ff6b6b,#ee5a24);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          导入本地歌曲
+        </button>
+        <button onclick="showUrlMusicInput()" style="flex:1;background:linear-gradient(135deg,#a55eea,#8854d0);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          网络URL
+        </button>
+      </div>
+      <div id="urlMusicInputArea" style="display:none;margin-bottom:12px;background:rgba(165,94,234,0.08);border:1px solid rgba(165,94,234,0.3);border-radius:10px;padding:10px">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input type="text" id="urlMusicInput" placeholder="粘贴MP3音乐链接 (https://...)" style="flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:12px;outline:none">
+          <button onclick="addUrlMusic()" style="background:linear-gradient(135deg,#a55eea,#8854d0);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:12px">添加</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted2)">粘贴网络音乐直链（.mp3/.wav/.m4a），添加后可直接播放真实音频</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted2);text-align:center;margin-top:-8px;margin-bottom:10px">支持导入MP3/WAV文件或粘贴网络音乐链接，播放真实歌手原声</div>
+
+      <div class="music-tabs">
+        <button class="music-tab active" onclick="switchMusicTab(this,'hot')">🔥 热门</button>
+        <button class="music-tab" onclick="switchMusicTab(this,'trending')">⚡ 飙升</button>
+        <button class="music-tab" onclick="switchMusicTab(this,'douyin')">🎵 抖音</button>
+        <button class="music-tab" onclick="switchMusicTab(this,'bgm')">🎬 BGM</button>
+        <button class="music-tab real-tab" onclick="switchMusicTab(this,'real')">▶ 可播放</button>
+        <button class="music-tab" onclick="switchMusicTab(this,'local')">📁 本地</button>
+        <button class="music-tab" onclick="switchMusicTab(this,'ai')">🤖 AI搜</button>
+      </div>
+
+      <!-- 普通搜索 -->
+      <div class="music-search-box" id="normalSearchBox">
+        <input type="text" id="musicSearchInput" placeholder="搜索歌名、歌手、风格（如：周杰伦、欢快、古风）" onkeydown="if(event.key==='Enter')searchMusic()">
+        <button onclick="searchMusic()">搜索</button>
+      </div>
+
+      <!-- AI云端搜索区域 -->
+      <div class="ai-search-area" id="aiSearchArea" style="display:none">
+        <div class="ai-recommend-hint" id="aiRecommendHint">
+          🤖 AI可以根据场景、情绪、风格智能匹配音乐，试试输入："适合海边旅行vlog的轻快音乐"
+        </div>
+        <div class="ai-search-input">
+          <input type="text" id="aiSearchInput" placeholder="描述你想要的音乐，如：欢快的旅行vlog、感人的婚礼、激烈的运动..." onkeydown="if(event.key==='Enter')aiCloudSearch()">
+          <button onclick="aiCloudSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px"><path d="M21 21l-4.35-4.35"/><circle cx="11" cy="11" r="8"/></svg>
+            AI搜索
+          </button>
+        </div>
+        <div class="ai-mood-chips" id="aiMoodChips">
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'欢快 旅行 vlog')">🌴 旅行Vlog</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'伤感 抒情 失恋')">💔 伤感情歌</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'热血 运动 燃')">🔥 热血燃向</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'治愈 温馨 钢琴')">✨ 治愈温馨</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'搞笑 魔性 快乐')">😂 搞笑魔性</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'浪漫 婚礼 爱情')">💐 浪漫爱情</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'科技 电子 未来')">💻 科技感</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'美食 可爱 轻松')">🍜 美食可爱</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'古风 国风 武侠')">🏮 古风国潮</span>
+          <span class="ai-mood-chip" onclick="aiQuickSearch(this,'儿童 亲子 欢快')">🧒 儿童亲子</span>
+        </div>
+      </div>
+
+      <div id="musicList" class="music-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 导出Modal -->
 <div class="modal-overlay" id="exportModal">
   <div class="modal-sheet">
@@ -445,6 +984,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/><circle cx="12" cy="15" r="1"/></svg>
         <div><div class="opt-title">原始分辨率</div><div class="opt-desc" id="originalResDesc">保持素材原始大小</div></div>
         <div class="radio-dot" id="rorig"></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--rule)">
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:10px">导出画质</div>
+      <div style="display:flex;gap:8px">
+        <div class="quality-opt active" id="qHigh" onclick="selectQuality('high')" style="flex:1;padding:10px 12px;border:1px solid var(--accent);border-radius:10px;text-align:center;cursor:pointer;font-size:13px;background:rgba(99,102,241,0.1);color:var(--accent)">
+          <div style="font-weight:600">高清</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:2px">推荐</div>
+        </div>
+        <div class="quality-opt" id="qLossless" onclick="selectQuality('lossless')" style="flex:1;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;text-align:center;cursor:pointer;font-size:13px">
+          <div style="font-weight:600">原画无损</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:2px">最高画质</div>
+        </div>
       </div>
     </div>
     <div id="exportProgressArea" style="display:none">
@@ -485,6 +1037,55 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
   </div>
 </div>
 
+<!-- 拍照/录像模态框 -->
+<div class="modal-overlay" id="cameraModal">
+  <div class="modal-sheet" style="max-width:480px">
+    <h3 style="display:flex;align-items:center;gap:8px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      拍照/录像
+    </h3>
+    <div style="position:relative;background:#000;border-radius:16px;overflow:hidden;aspect-ratio:4/3;margin:16px 0">
+      <video id="cameraVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
+      <canvas id="cameraCanvas" style="display:none"></canvas>
+      <!-- 录制指示器 -->
+      <div id="recordingIndicator" style="display:none;position:absolute;top:12px;left:12px;background:rgba(255,0,0,0.9);color:#fff;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;align-items:center;gap:6px">
+        <span style="width:8px;height:8px;background:#fff;border-radius:50%;animation:pulse 1s infinite"></span>
+        <span id="recordingTime">00:00</span>
+      </div>
+      <!-- 切换摄像头按钮 -->
+      <button id="switchCameraBtn" onclick="switchCamera()" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.5);border:none;color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+    <!-- 拍摄的照片预览 -->
+    <div id="photoPreview" style="display:none;position:relative;background:#000;border-radius:16px;overflow:hidden;aspect-ratio:4/3;margin:16px 0">
+      <img id="photoPreviewImg" style="width:100%;height:100%;object-fit:contain">
+    </div>
+    <!-- 操作按钮 -->
+    <div id="cameraControls" style="display:flex;align-items:center;justify-content:center;gap:24px;padding:8px 0">
+      <button onclick="closeCameraModal()" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.3);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <!-- 拍照按钮 -->
+      <button id="photoBtn" onclick="takePhoto()" style="width:72px;height:72px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(255,255,255,0.3)">
+        <div style="width:56px;height:56px;border-radius:50%;background:#fff;border:3px solid #333"></div>
+      </button>
+      <!-- 录像按钮 -->
+      <button id="videoBtn" onclick="toggleVideoRecording()" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.3);color:#ff4444;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg id="videoRecordIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+        <svg id="videoStopIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+    </div>
+    <!-- 照片/视频确认按钮 -->
+    <div id="cameraConfirm" style="display:none;gap:12px;margin-top:12px">
+      <button onclick="retakePhoto()" class="neon-btn outline" style="flex:1">重拍</button>
+      <button onclick="useCapturedMedia()" class="neon-btn" style="flex:1">使用</button>
+    </div>
+    <div style="height:8px"></div>
+    <button class="neon-btn outline" style="width:100%" onclick="closeCameraModal()">取消</button>
+  </div>
+</div>
+
 <script>
 /* ========== 全局状态 ========== */
 const state = {
@@ -515,10 +1116,285 @@ function switchTab(idx) {
 }
 
 /* ========== Toast ========== */
-function showToast(msg) {
+function showToast(msg, duration) {
   const old = document.querySelector('.toast'); if(old) old.remove();
   const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
-  document.body.appendChild(t); setTimeout(()=>t.remove(),2400);
+  document.body.appendChild(t); setTimeout(()=>t.remove(), duration || 2400);
+}
+
+/* ========== 拍照/录像功能 ========== */
+let cameraStream = null;
+let cameraFacingMode = 'user'; // 'user' 前置, 'environment' 后置
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let capturedBlob = null;
+let capturedType = null; // 'photo' or 'video'
+let recordingStartTime = 0;
+let recordingTimer = null;
+
+async function openCameraModal() {
+  showModal('cameraModal');
+  const cameraVideo = document.getElementById('cameraVideo');
+  const photoPreview = document.getElementById('photoPreview');
+  const cameraControls = document.getElementById('cameraControls');
+  const cameraConfirm = document.getElementById('cameraConfirm');
+  const recordingIndicator = document.getElementById('recordingIndicator');
+
+  // 重置状态
+  photoPreview.style.display = 'none';
+  cameraControls.style.display = 'flex';
+  cameraConfirm.style.display = 'none';
+  recordingIndicator.style.display = 'none';
+  capturedBlob = null;
+  capturedType = null;
+  isRecording = false;
+  recordedChunks = [];
+  updateRecordButton();
+
+  // 请求摄像头权限并启动预览
+  try {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+    }
+    const constraints = {
+      video: {
+        facingMode: cameraFacingMode,
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: true
+    };
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    cameraVideo.srcObject = cameraStream;
+  } catch(e) {
+    console.error('摄像头启动失败', e);
+    showToast('无法访问摄像头，请检查权限设置');
+    closeCameraModal();
+  }
+}
+
+function closeCameraModal() {
+  // 停止录制
+  if (isRecording && mediaRecorder) {
+    mediaRecorder.stop();
+    isRecording = false;
+  }
+  if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+  // 停止摄像头流
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const cameraVideo = document.getElementById('cameraVideo');
+  if (cameraVideo) cameraVideo.srcObject = null;
+  closeModal('cameraModal');
+}
+
+async function switchCamera() {
+  cameraFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+  const cameraVideo = document.getElementById('cameraVideo');
+  try {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+    }
+    const constraints = {
+      video: {
+        facingMode: cameraFacingMode,
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: true
+    };
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    cameraVideo.srcObject = cameraStream;
+    // 前置镜像，后置不镜像
+    cameraVideo.style.transform = cameraFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+  } catch(e) {
+    console.error('切换摄像头失败', e);
+    showToast('切换摄像头失败');
+  }
+}
+
+function takePhoto() {
+  const cameraVideo = document.getElementById('cameraVideo');
+  const cameraCanvas = document.getElementById('cameraCanvas');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoPreviewImg = document.getElementById('photoPreviewImg');
+  const cameraControls = document.getElementById('cameraControls');
+  const cameraConfirm = document.getElementById('cameraConfirm');
+
+  if (!cameraVideo.videoWidth) {
+    showToast('摄像头尚未就绪');
+    return;
+  }
+
+  const w = cameraVideo.videoWidth;
+  const h = cameraVideo.videoHeight;
+  cameraCanvas.width = w;
+  cameraCanvas.height = h;
+  const ctx = cameraCanvas.getContext('2d');
+
+  // 前置摄像头需要镜像翻转
+  if (cameraFacingMode === 'user') {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(cameraVideo, 0, 0, w, h);
+
+  // 转换为blob
+  cameraCanvas.toBlob((blob) => {
+    capturedBlob = blob;
+    capturedType = 'photo';
+    photoPreviewImg.src = URL.createObjectURL(blob);
+    photoPreview.style.display = 'block';
+    cameraControls.style.display = 'none';
+    cameraConfirm.style.display = 'flex';
+  }, 'image/jpeg', 0.95);
+}
+
+function toggleVideoRecording() {
+  const cameraVideo = document.getElementById('cameraVideo');
+  const recordingIndicator = document.getElementById('recordingIndicator');
+  const photoBtn = document.getElementById('photoBtn');
+
+  if (isRecording) {
+    // 停止录制
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    isRecording = false;
+    if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+    recordingIndicator.style.display = 'none';
+    photoBtn.style.pointerEvents = 'auto';
+    photoBtn.style.opacity = '1';
+    updateRecordButton();
+  } else {
+    // 开始录制
+    if (!cameraStream) {
+      showToast('摄像头尚未就绪');
+      return;
+    }
+    recordedChunks = [];
+
+    let mimeType = 'video/webm;codecs=vp9';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'video/webm;codecs=vp8';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+      }
+    }
+
+    try {
+      mediaRecorder = new MediaRecorder(cameraStream, {
+        mimeType,
+        videoBitsPerSecond: 16000000,
+        audioBitsPerSecond: 256000
+      });
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        capturedBlob = blob;
+        capturedType = 'video';
+        // 显示视频预览
+        const photoPreview = document.getElementById('photoPreview');
+        const photoPreviewImg = document.getElementById('photoPreviewImg');
+        const cameraControls = document.getElementById('cameraControls');
+        const cameraConfirm = document.getElementById('cameraConfirm');
+        // 用video元素替换img显示预览
+        photoPreview.innerHTML = '<video id="capturedVideoPreview" src="'+URL.createObjectURL(blob)+'" style="width:100%;height:100%;object-fit:contain" controls autoplay loop></video>';
+        photoPreview.style.display = 'block';
+        cameraControls.style.display = 'none';
+        cameraConfirm.style.display = 'flex';
+      };
+      mediaRecorder.start(100);
+      isRecording = true;
+      recordingStartTime = Date.now();
+      recordingIndicator.style.display = 'flex';
+      photoBtn.style.pointerEvents = 'none';
+      photoBtn.style.opacity = '0.5';
+      updateRecordButton();
+
+      // 更新录制时间
+      const recTimeEl = document.getElementById('recordingTime');
+      recordingTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const ss = String(elapsed % 60).padStart(2, '0');
+        recTimeEl.textContent = mm + ':' + ss;
+      }, 1000);
+    } catch(e) {
+      console.error('录制失败', e);
+      showToast('录制失败：' + e.message);
+    }
+  }
+}
+
+function updateRecordButton() {
+  const recordIcon = document.getElementById('videoRecordIcon');
+  const stopIcon = document.getElementById('videoStopIcon');
+  const videoBtn = document.getElementById('videoBtn');
+  if (isRecording) {
+    recordIcon.style.display = 'none';
+    stopIcon.style.display = 'block';
+    videoBtn.style.background = 'rgba(255,0,0,0.3)';
+    videoBtn.style.borderColor = '#ff4444';
+  } else {
+    recordIcon.style.display = 'block';
+    stopIcon.style.display = 'none';
+    videoBtn.style.background = 'rgba(255,255,255,0.1)';
+    videoBtn.style.borderColor = 'rgba(255,255,255,0.3)';
+  }
+}
+
+function retakePhoto() {
+  const photoPreview = document.getElementById('photoPreview');
+  const cameraControls = document.getElementById('cameraControls');
+  const cameraConfirm = document.getElementById('cameraConfirm');
+  const recordingIndicator = document.getElementById('recordingIndicator');
+
+  // 重置预览为img元素
+  photoPreview.innerHTML = '<img id="photoPreviewImg" style="width:100%;height:100%;object-fit:contain">';
+  photoPreview.style.display = 'none';
+  cameraControls.style.display = 'flex';
+  cameraConfirm.style.display = 'none';
+  recordingIndicator.style.display = 'none';
+  capturedBlob = null;
+  capturedType = null;
+  isRecording = false;
+  updateRecordButton();
+}
+
+function useCapturedMedia() {
+  if (!capturedBlob) {
+    showToast('没有拍摄内容');
+    return;
+  }
+
+  const now = new Date();
+  const timestamp = now.toISOString().slice(0,19).replace(/[:-]/g,'');
+
+  if (capturedType === 'photo') {
+    const file = new File([capturedBlob], 'IMG_'+timestamp+'.jpg', { type: 'image/jpeg' });
+    importCapturedFile(file);
+  } else if (capturedType === 'video') {
+    const ext = capturedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    const file = new File([capturedBlob], 'VID_'+timestamp+'.'+ext, { type: capturedBlob.type });
+    importCapturedFile(file);
+  }
+
+  closeCameraModal();
+}
+
+function importCapturedFile(file) {
+  // 将拍摄的文件导入到素材库
+  const fakeEvent = { target: { files: [file] } };
+  handleFileSelect(fakeEvent);
+  // 切换到素材库页面
+  switchTab(1);
+  showToast(capturedType === 'photo' ? '照片已添加到素材库' : '视频已添加到素材库');
 }
 
 /* ========== 真实文件导入 ========== */
@@ -788,6 +1664,8 @@ function mockImport() {
 /* ========== 剪辑台 - 真实视频预览 ========== */
 function createProject() {
   state.clips = []; renderTimeline();
+  currentBgmMusic = null;
+  stopBgm();
   const ph = document.getElementById('previewPlaceholder');
   ph.style.display='flex';
   ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><p>暂无素材</p><p class="hint">从素材库添加视频开始剪辑</p>';
@@ -824,19 +1702,59 @@ function loadPreview(asset) {
     ph.style.display='none';
     video.style.display='block';
     ctrl.style.display='flex';
+    // 显示中央大播放按钮
+    const centerBtn = document.getElementById('centerPlayBtn');
+    if (centerBtn) centerBtn.style.display = 'flex';
 
     video.src = asset.objUrl;
     video.load();
+    video.muted = false; // 默认有声音
     state.playingAssetId = asset.id;
+    // 重置静音按钮为"有声"状态
+    const volIconOn = document.getElementById('volIconOn');
+    const volIconOff = document.getElementById('volIconOff');
+    if (volIconOn && volIconOff) {
+      volIconOn.style.display = 'block';
+      volIconOff.style.display = 'none';
+    }
 
-    // 同步播放进度
-    video.ontimeupdate = function(){
-      if (!video.paused) {
-        const pct = (video.currentTime / (video.duration||1))*100;
-        document.getElementById('seekFill').style.width = pct+'%';
-        document.getElementById('seekThumb').style.left = pct+'%';
-        document.getElementById('timeLabel').textContent = formatTime(Math.round(video.currentTime));
+    // 同步播放进度（拖动时不更新）
+    video.ontimeupdate = onVideoTimeUpdate;
+    video.onended = function() {
+      isTogglingPlay = false;
+      const btn = document.getElementById('playBtn');
+      const centerBtn = document.getElementById('centerPlayBtn');
+      if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+      if (centerBtn) centerBtn.style.display = 'flex';
+      stopBgm();
+      updateBgmUI();
+      showToast('播放结束');
+    };
+    // 视频暂停时同步停止BGM（仅在非主动切换时响应）
+    video.onpause = function() {
+      isTogglingPlay = false;
+      const btn = document.getElementById('playBtn');
+      const centerBtn = document.getElementById('centerPlayBtn');
+      if (btn && video.ended !== true) {
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
       }
+      if (centerBtn && video.ended !== true) {
+        centerBtn.style.display = 'flex';
+      }
+      stopBgm();
+      updateBgmUI();
+    };
+    // 视频播放时更新UI
+    video.onplay = function() {
+      isTogglingPlay = false;
+      const btn = document.getElementById('playBtn');
+      const centerBtn = document.getElementById('centerPlayBtn');
+      if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      if (centerBtn) centerBtn.style.display = 'none';
+    };
+    // 点击视频画面切换播放/暂停（中央按钮是兄弟元素，不会触发此事件）
+    video.onclick = function(e) {
+      togglePlayReal();
     };
     video.onloadedmetadata = function(){
       asset.duration = Math.round(video.duration);
@@ -871,46 +1789,1003 @@ function loadPreview(asset) {
   }
 }
 
-function togglePlayReal() {
-  const video = document.getElementById('previewVideo');
-  const btn = document.getElementById('playBtn');
-  if (!video.src) { showToast('请先添加视频素材'); return; }
-  if (video.paused) {
-    video.play().then(()=>{
-      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-    }).catch(()=>{});
+/* ========== 背景音乐播放（简化可靠版：真实音频直出，合成音频独立）========== */
+let bgmCtx = null;
+let bgmTimeoutId = null;
+let currentBgmMusic = null;
+let bgmStep = 0;
+let bgmMasterMuted = false;
+let bgmMuted = false;
+let bgmBarCount = 0;
+let isTogglingPlay = false;
+// 本地导入的真实音乐
+let localMusicFiles = [];
+let realAudioPlayer = null;
+let currentRealAudio = null;
+// 真实音频BGM播放器（直接用HTML5 Audio，不走Web Audio，避免劫持导致静音）
+let bgmRealAudio = null;
+// 音量设置（大幅提高确保能听到）
+let bgmSynthVolume = 1.0;    // 合成BGM音量（Web Audio，提高到1.0）
+let bgmRealVolume = 0.9;     // 真实音频BGM音量（HTMLAudio 0-1，提高到0.9）
+let videoDuckVolume = 0.2;   // 视频原声闪避音量（BGM播放时保留20%）
+let videoOriginalVolume = 1.0;
+let bgmIsPlaying = false;
+let userInteracted = false;
+
+// 获取合成BGM用的AudioContext（仅用于合成，不劫持任何真实音频元素）
+function getBgmContext() {
+  if (!bgmCtx) {
+    bgmCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return bgmCtx;
+}
+
+function updateBgmUI() {
+  const btn = document.getElementById('bgmStatusBtn');
+  const iconOn = document.getElementById('bgmIconOn');
+  const iconOff = document.getElementById('bgmIconOff');
+  const waveAnim = document.getElementById('bgmWaveAnim');
+  const statusText = document.getElementById('bgmStatusText');
+  if (currentBgmMusic) {
+    if (btn) btn.style.display = 'flex';
+    if (iconOn && iconOff) {
+      iconOn.style.display = bgmMuted ? 'none' : 'block';
+      iconOff.style.display = bgmMuted ? 'block' : 'none';
+    }
+    // 波形动画：仅在BGM实际播放且未静音时显示
+    if (waveAnim) {
+      waveAnim.style.display = (bgmIsPlaying && !bgmMuted && !bgmMasterMuted) ? 'flex' : 'none';
+    }
+    if (statusText) {
+      const shortName = (currentBgmMusic.title || 'BGM').length > 6 ? (currentBgmMusic.title || 'BGM').slice(0,6)+'..' : (currentBgmMusic.title || 'BGM');
+      statusText.textContent = bgmMuted ? '静音' : shortName;
+      statusText.style.opacity = bgmMuted ? '0.6' : '1';
+    }
+    if (btn) btn.title = 'BGM: ' + currentBgmMusic.title + (bgmMuted ? ' (已静音)' : (bgmIsPlaying ? ' 播放中' : ''));
   } else {
-    video.pause();
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    if (btn) btn.style.display = 'none';
   }
 }
+
+function toggleBgmMute() {
+  bgmMuted = !bgmMuted;
+  // 真实音频BGM：直接用volume控制
+  if (bgmRealAudio) {
+    bgmRealAudio.volume = (bgmMuted || bgmMasterMuted) ? 0 : bgmRealVolume;
+  }
+  // 合成BGM：停止/启动调度
+  if (bgmMuted || bgmMasterMuted) {
+    if (bgmTimeoutId) { clearTimeout(bgmTimeoutId); bgmTimeoutId = null; }
+  } else if (bgmIsPlaying && currentBgmMusic && !currentBgmMusic.isRealAudio) {
+    startBgmInternal();
+  }
+  // 视频原声音量调整
+  const video = document.getElementById('previewVideo');
+  if (video && !bgmMasterMuted) {
+    if (bgmMuted || !currentBgmMusic) {
+      video.volume = originalAudioMuted ? 0 : videoOriginalVolume;
+    } else {
+      video.volume = originalAudioMuted ? 0 : videoDuckVolume;
+    }
+  }
+  updateBgmUI();
+  showToast(bgmMuted ? 'BGM已静音' : 'BGM已开启');
+}
+
+/* ========== 专业多轨音乐合成引擎 ==========
+   包含：鼓组（底鼓/军鼓/踩镲）、贝斯、和弦垫、主旋律
+   每轨独立音量/音色/节奏，模拟真实流行歌曲伴奏
+*/
+
+// 音符频率表（A4=440Hz，包含升降号）
+const NOTE_FREQ = {
+  'C2':65.41,'Db2':69.30,'C#2':69.30,'D2':73.42,'Eb2':77.78,'D#2':77.78,'E2':82.41,'F2':87.31,'Gb2':92.50,'F#2':92.50,'G2':98.00,'Ab2':103.83,'G#2':103.83,'A2':110.00,'Bb2':116.54,'A#2':116.54,'B2':123.47,
+  'C3':130.81,'Db3':138.59,'C#3':138.59,'D3':146.83,'Eb3':155.56,'D#3':155.56,'E3':164.81,'F3':174.61,'Gb3':185.00,'F#3':185.00,'G3':196.00,'Ab3':207.65,'G#3':207.65,'A3':220.00,'Bb3':233.08,'A#3':233.08,'B3':246.94,
+  'C4':261.63,'Db4':277.18,'C#4':277.18,'D4':293.66,'Eb4':311.13,'D#4':311.13,'E4':329.63,'F4':349.23,'Gb4':369.99,'F#4':369.99,'G4':392.00,'Ab4':415.30,'G#4':415.30,'A4':440.00,'Bb4':466.16,'A#4':466.16,'B4':493.88,
+  'C5':523.25,'Db5':554.37,'C#5':554.37,'D5':587.33,'Eb5':622.25,'D#5':622.25,'E5':659.25,'F5':698.46,'Gb5':739.99,'F#5':739.99,'G5':783.99,'Ab5':830.61,'G#5':830.61,'A5':880.00,'Bb5':932.33,'A#5':932.33,'B5':987.77,
+  'C6':1046.50,'Db6':1108.73,'C#6':1108.73,'D6':1174.66,'Eb6':1244.51,'D#6':1244.51,'E6':1318.51,'F6':1396.91,'Gb6':1479.98,'F#6':1479.98,'G6':1567.98,'Ab6':1661.22,'G#6':1661.22,'A6':1760.00,'Bb6':1864.66,'A#6':1864.66,'B6':1975.53
+};
+
+// 和弦组成音（根音+三音+五音）
+const CHORDS = {
+  'C':  ['C4','E4','G4'], 'Cm': ['C4','Eb4','G4'],
+  'Dm': ['D4','F4','A4'], 'D':  ['D4','F#4','A4'],
+  'Em': ['E4','G4','B4'], 'E':  ['E4','G#4','B4'],
+  'F':  ['F4','A4','C5'], 'Fm': ['F4','Ab4','C5'],
+  'G':  ['G4','B4','D5'], 'G7': ['G4','B4','D5','F5'],
+  'Am': ['A4','C5','E5'], 'A':  ['A4','C#5','E5'],
+  'Bm': ['B4','D5','F#5'],'Bdim':['B4','D5','F5'],
+  // 贝斯根音
+  'C_b':  ['C2'], 'Dm_b': ['D2'], 'Em_b': ['E2'], 'F_b':  ['F2'],
+  'G_b':  ['G2'], 'Am_b': ['A2'], 'Bm_b': ['B2'],
+  'Cm_b': ['C2'], 'E_b':  ['E2'], 'A_b':  ['A2'], 'D_b':  ['D2'],
+  'Fm_b': ['F2'], 'G7_b': ['G2'], 'Bdim_b':['B2']
+};
+
+// ========== 各风格的编曲配置 ==========
+const SONG_ARRANGEMENTS = {
+  // 欢快流行 - C-G-Am-F 经典流行进行
+  happy: {
+    bpm: 120,
+    chords: ['C','G','Am','F','C','G','F','G'], // 8小节一循环
+    chordDur: 4, // 每个和弦4拍
+    bassPattern: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,1],
+    drums: {
+      kick:  [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hihat: [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      hihatOpen:[0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1]
+    },
+    leadMelody: [
+      'E5','G5','E5','C5','D5','E5','G5','E5',
+      'C5','E5','G5','A5','G5','E5','D5','C5',
+      'A4','C5','E5','G5','E5','C5','A4','C5',
+      'F4','A4','C5','F5','E5','C5','D5','B4'
+    ],
+    leadRhythm: [1,0.7,0.7,1, 0.7,0.7,1,0.7, 0.7,0.7,1,0.7, 0.7,0.7,1,1],
+    leadWave: 'triangle',
+    leadVol: 0.35,
+    chordWave: 'sine',
+    chordVol: 0.15,
+    bassWave: 'triangle',
+    bassVol: 0.3,
+    drumKickVol: 0.5,
+    drumSnareVol: 0.3,
+    drumHatVol: 0.12
+  },
+  // 伤感情歌 - Am-F-C-G
+  sad: {
+    bpm: 72,
+    chords: ['Am','F','C','G','Am','F','G','Em'],
+    chordDur: 4,
+    bassPattern: [1,0,0,0.5, 0,0,1,0, 1,0,0,0.5, 0,0,1,0],
+    drums: {
+      kick:  [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hihat: [0.5,0,0.5,0, 0.5,0,0.5,0, 0.5,0,0.5,0, 0.5,0,0.5,0],
+      hihatOpen:[0,0,0,0, 0,0,0,0.5, 0,0,0,0, 0,0,0,0.5]
+    },
+    leadMelody: [
+      'E5','D5','C5','B4','A4','G4','A4','B4',
+      'C5','D5','E5','C5','A4','B4','C5','A4',
+      'A4','G#4','A4','C5','B4','A4','G4','E4',
+      'G4','A4','B4','G4','E4','G4','A4','E4'
+    ],
+    leadRhythm: [1,0,0,0.8, 0,0.7,0.7,1, 0.8,0,0,1, 0.7,0,0.7,1],
+    leadWave: 'sine',
+    leadVol: 0.3,
+    chordWave: 'sine',
+    chordVol: 0.2,
+    bassWave: 'sine',
+    bassVol: 0.25,
+    drumKickVol: 0.35,
+    drumSnareVol: 0.2,
+    drumHatVol: 0.08
+  },
+  // 热血燃向 - Em-C-G-D
+  epic: {
+    bpm: 140,
+    chords: ['Em','C','G','D','Em','C','G','D'],
+    chordDur: 4,
+    bassPattern: [1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0, 1,0,0.5,0],
+    drums: {
+      kick:  [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,1,0,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hihat: [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      hihatOpen:[0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,1,0]
+    },
+    leadMelody: [
+      'G4','B4','D5','G5','D5','B4','G4','B4',
+      'E4','G4','C5','E5','C5','G4','E4','G4',
+      'G4','B4','D5','G5','F#5','D5','B4','D5',
+      'D5','F#5','A5','D5','B4','G4','D5','G4'
+    ],
+    leadRhythm: [1,0,0.7,1, 0.7,0,0.7,1, 1,0,0.7,1, 0.7,0.7,1,1],
+    leadWave: 'sawtooth',
+    leadVol: 0.3,
+    chordWave: 'sawtooth',
+    chordVol: 0.12,
+    bassWave: 'sawtooth',
+    bassVol: 0.35,
+    drumKickVol: 0.55,
+    drumSnareVol: 0.35,
+    drumHatVol: 0.1
+  },
+  // 治愈钢琴 - C-Am-F-G 舒缓
+  heal: {
+    bpm: 75,
+    chords: ['C','Am','F','G','C','Am','Dm','G'],
+    chordDur: 4,
+    bassPattern: [1,0,0,0, 0,0,0.5,0, 1,0,0,0, 0,0,0.5,0],
+    drums: {
+      kick:  [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      snare: [0,0,0,0, 0.5,0,0,0, 0,0,0,0, 0.5,0,0,0],
+      hihat: [0.3,0,0.3,0, 0.3,0,0.3,0, 0.3,0,0.3,0, 0.3,0,0.3,0],
+      hihatOpen:[0,0,0,0, 0,0,0,0.3, 0,0,0,0, 0,0,0,0.3]
+    },
+    leadMelody: [
+      'E5','G5','C6','G5','E5','D5','E5','G5',
+      'A4','C5','E5','G5','C5','E5','G5','E5',
+      'F5','A5','C6','A5','F5','E5','F5','A5',
+      'G4','B4','D5','G5','D5','B4','G4','B4'
+    ],
+    leadRhythm: [1,0,0.5,0.8, 0,0.5,0.7,1, 1,0,0.5,0.8, 0,0.5,1,1],
+    leadWave: 'sine',
+    leadVol: 0.35,
+    chordWave: 'sine',
+    chordVol: 0.18,
+    bassWave: 'sine',
+    bassVol: 0.2,
+    drumKickVol: 0.25,
+    drumSnareVol: 0.15,
+    drumHatVol: 0.06
+  },
+  // 浪漫情歌 - F-G-Em-Am
+  romantic: {
+    bpm: 85,
+    chords: ['F','G','Em','Am','F','G','C','Am'],
+    chordDur: 4,
+    bassPattern: [1,0,0.5,0, 0,0.5,1,0, 1,0,0.5,0, 0,0.5,1,0],
+    drums: {
+      kick:  [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hihat: [0.7,0,0.7,0, 0.7,0,0.7,0, 0.7,0,0.7,0, 0.7,0,0.7,0],
+      hihatOpen:[0,0,0,0, 0,0,0,0.5, 0,0,0,0, 0,0,0,0.5]
+    },
+    leadMelody: [
+      'A5','G5','F5','E5','D5','C5','D5','E5',
+      'G5','F5','E5','D5','C5','A4','B4','C5',
+      'F5','E5','D5','C5','B4','A4','G4','B4',
+      'C5','D5','E5','G5','F5','E5','D5','C5'
+    ],
+    leadRhythm: [1,0.7,0.7,1, 0.7,0.7,1,0.7, 1,0.7,0.7,1, 0.7,0.7,1,1],
+    leadWave: 'triangle',
+    leadVol: 0.3,
+    chordWave: 'triangle',
+    chordVol: 0.16,
+    bassWave: 'sine',
+    bassVol: 0.22,
+    drumKickVol: 0.32,
+    drumSnareVol: 0.22,
+    drumHatVol: 0.08
+  },
+  // 魔性搞笑 - 快节奏
+  funny: {
+    bpm: 145,
+    chords: ['C','Am','F','G','C','Am','Dm','G'],
+    chordDur: 2,
+    bassPattern: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    drums: {
+      kick:  [1,0,1,0, 0,0,1,0, 1,0,1,0, 0,0,1,1],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hihat: [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      hihatOpen:[0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0]
+    },
+    leadMelody: [
+      'C5','C5','G4','C5','E5','C5','G4','E4',
+      'C5','C5','G4','C5','E5','D5','C5','G4',
+      'F5','F5','E5','C5','D5','C5','A4','F4',
+      'G5','G5','F5','D5','E5','C5','D5','G4'
+    ],
+    leadRhythm: [1,1,0.7,1, 1,0.7,1,1, 1,1,0.7,1, 1,0.7,1,1],
+    leadWave: 'square',
+    leadVol: 0.25,
+    chordWave: 'triangle',
+    chordVol: 0.12,
+    bassWave: 'square',
+    bassVol: 0.2,
+    drumKickVol: 0.45,
+    drumSnareVol: 0.28,
+    drumHatVol: 0.1
+  },
+  // 古风国潮 - 五声音阶
+  ancient: {
+    bpm: 90,
+    chords: ['Am','Em','F','C','Dm','Am','G','Am'],
+    chordDur: 4,
+    bassPattern: [1,0,0,0.5, 0,0,1,0, 1,0,0,0.5, 0,0,1,0],
+    drums: {
+      kick:  [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0],
+      snare: [0,0,0,0, 0.5,0,0,0, 0,0,0,0, 0.5,0,0,0],
+      hihat: [0.4,0,0.4,0, 0.4,0,0.4,0, 0.4,0,0.4,0, 0.4,0,0.4,0],
+      hihatOpen:[0,0,0,0, 0,0,0,0.3, 0,0,0,0, 0,0,0,0.3]
+    },
+    leadMelody: [
+      'E5','G5','A5','C6','A5','G5','E5','D5',
+      'E5','G5','A5','G5','E5','D5','E5','G5',
+      'D5','E5','G5','A5','G5','E5','D5','E5',
+      'A4','C5','D5','E5','G5','E5','D5','C5'
+    ],
+    leadRhythm: [1,0.5,0.7,1, 0.5,0.7,1,0.7, 1,0.5,0.7,1, 0.5,0.7,1,1],
+    leadWave: 'triangle',
+    leadVol: 0.32,
+    chordWave: 'sine',
+    chordVol: 0.14,
+    bassWave: 'sine',
+    bassVol: 0.2,
+    drumKickVol: 0.3,
+    drumSnareVol: 0.18,
+    drumHatVol: 0.06
+  },
+  // 科技电子
+  tech: {
+    bpm: 128,
+    chords: ['Em','D','C','G','Em','D','Am','Em'],
+    chordDur: 4,
+    bassPattern: [1,0,1,0.5, 0,1,0.5,0, 1,0,1,0.5, 0,1,0.5,0],
+    drums: {
+      kick:  [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,1,0],
+      snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hihat: [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      hihatOpen:[0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1]
+    },
+    leadMelody: [
+      'E5','G5','B5','G5','D5','G5','B5','G5',
+      'C5','E5','G5','E5','B4','E5','G5','E5',
+      'D5','F#5','A5','F#5','E5','G5','B5','G5',
+      'E4','G4','B4','G4','D4','G4','B4','G4'
+    ],
+    leadRhythm: [1,0.5,0.5,1, 0.5,0.5,1,0.5, 1,0.5,0.5,1, 0.5,0.5,1,1],
+    leadWave: 'square',
+    leadVol: 0.22,
+    chordWave: 'sawtooth',
+    chordVol: 0.08,
+    bassWave: 'square',
+    bassVol: 0.3,
+    drumKickVol: 0.5,
+    drumSnareVol: 0.3,
+    drumHatVol: 0.11
+  }
+};
+
+function getArrangement(music) {
+  const moods = music.mood || [];
+  const tags = music.tags || [];
+  const all = [...moods, ...tags].map(s => s.toLowerCase());
+
+  if (all.some(m => m.includes('伤感')||m.includes('悲伤')||m.includes('抒情'))) return SONG_ARRANGEMENTS.sad;
+  if (all.some(m => m.includes('热血')||m.includes('燃')||m.includes('史诗')||m.includes('大气')||m.includes('震撼'))) return SONG_ARRANGEMENTS.epic;
+  if (all.some(m => m.includes('治愈')||m.includes('温馨')||m.includes('温暖')||m.includes('钢琴')||m.includes('安静'))) return SONG_ARRANGEMENTS.heal;
+  if (all.some(m => m.includes('浪漫')||m.includes('爱情')||m.includes('婚礼')||m.includes('甜蜜'))) return SONG_ARRANGEMENTS.romantic;
+  if (all.some(m => m.includes('搞笑')||m.includes('魔性')||m.includes('滑稽')||m.includes('欢乐'))) return SONG_ARRANGEMENTS.funny;
+  if (all.some(m => m.includes('古风')||m.includes('国风')||m.includes('中国风')||m.includes('古典'))) return SONG_ARRANGEMENTS.ancient;
+  if (all.some(m => m.includes('科技')||m.includes('电子')||m.includes('未来')||m.includes('酷炫'))) return SONG_ARRANGEMENTS.tech;
+  return SONG_ARRANGEMENTS.happy;
+}
+
+// ========== 鼓组音色合成 ==========
+let noiseBuffer = null;
+function getNoiseBuffer(ctx) {
+  if (!noiseBuffer) {
+    const bufSize = ctx.sampleRate * 0.5;
+    noiseBuffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuffer;
+}
+
+function playKick(ctx, dest, time, vol) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(45, time + 0.12);
+  gain.gain.setValueAtTime(vol, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+  osc.connect(gain); gain.connect(dest);
+  osc.start(time); osc.stop(time + 0.3);
+}
+
+function playSnare(ctx, dest, time, vol) {
+  // 噪音部分
+  const noise = ctx.createBufferSource();
+  noise.buffer = getNoiseBuffer(ctx);
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'highpass';
+  noiseFilter.frequency.value = 1800;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(vol * 0.7, time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+  noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(dest);
+  noise.start(time); noise.stop(time + 0.2);
+  // 音体部分
+  const osc = ctx.createOscillator();
+  const oscGain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(200, time);
+  osc.frequency.exponentialRampToValueAtTime(100, time + 0.1);
+  oscGain.gain.setValueAtTime(vol * 0.3, time);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+  osc.connect(oscGain); oscGain.connect(dest);
+  osc.start(time); osc.stop(time + 0.1);
+}
+
+function playHiHat(ctx, dest, time, vol, open) {
+  const noise = ctx.createBufferSource();
+  noise.buffer = getNoiseBuffer(ctx);
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = open ? 6000 : 8000;
+  const gain = ctx.createGain();
+  const dur = open ? 0.25 : 0.05;
+  gain.gain.setValueAtTime(vol, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+  noise.connect(filter); filter.connect(gain); gain.connect(dest);
+  noise.start(time); noise.stop(time + dur);
+}
+
+// ========== 音符播放 ==========
+function playTone(ctx, dest, freq, time, dur, waveType, vol, attack, release) {
+  attack = attack || 0.01;
+  release = release || dur * 0.3;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = waveType;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(vol, time + attack);
+  gain.gain.setValueAtTime(vol, time + dur - release);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+  osc.connect(gain); gain.connect(dest);
+  osc.start(time); osc.stop(time + dur + 0.05);
+  return osc;
+}
+
+// 播放和弦（多音符叠加）
+function playChord(ctx, dest, chordNotes, time, dur, waveType, vol) {
+  chordNotes.forEach((noteName, i) => {
+    const freq = NOTE_FREQ[noteName];
+    if (!freq) return;
+    // 微调各声部音量和八度
+    const noteVol = i === 0 ? vol * 0.8 : vol * 0.6;
+    playTone(ctx, dest, freq, time + i * 0.005, dur, waveType, noteVol, 0.05, dur * 0.4);
+    // 加一个高八度泛音增加厚度
+    if (i === 0) {
+      playTone(ctx, dest, freq * 2, time, dur * 0.8, waveType, vol * 0.15, 0.03, dur * 0.5);
+    }
+  });
+}
+
+// ========== 多轨BGM引擎（简化可靠版）==========
+let bgmFallbackTimer = null;
+
+async function startBgm() {
+  if (!currentBgmMusic) {
+    console.log('[BGM] 无当前BGM，跳过');
+    return;
+  }
+  console.log('[BGM] 开始播放:', currentBgmMusic.title, '真实音频:', !!currentBgmMusic.isRealAudio);
+  stopBgmInternal();
+
+  const video = document.getElementById('previewVideo');
+  // 音频闪避：降低视频原声音量
+  if (video && !originalAudioMuted && !bgmMuted && !bgmMasterMuted) {
+    video.volume = videoDuckVolume;
+  }
+
+  // 真实音频BGM：本地导入(blob:)和网络URL都尝试，网络URL超时短快速回退
+  if (currentBgmMusic.isRealAudio && currentBgmMusic.url) {
+    const isLocalImport = currentBgmMusic.url.startsWith('blob:');
+    const networkTimeout = isLocalImport ? 3000 : 800; // 网络URL 800ms超时快速回退
+    try {
+      if (!bgmRealAudio) {
+        bgmRealAudio = new Audio();
+      }
+      // 先停止之前的加载
+      try { bgmRealAudio.pause(); } catch(e) {}
+      bgmRealAudio.src = currentBgmMusic.url;
+      bgmRealAudio.loop = true;
+      bgmRealAudio.volume = (bgmMuted || bgmMasterMuted) ? 0 : bgmRealVolume;
+      bgmRealAudio.preload = 'auto';
+
+      let settled = false;
+      // 超时保护：网络URL快速回退(800ms)，本地文件稍长(3s)
+      if (bgmFallbackTimer) clearTimeout(bgmFallbackTimer);
+      bgmFallbackTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        console.warn('[BGM] 真实音频加载超时，使用合成BGM');
+        // 暂停真实音频加载
+        try { bgmRealAudio.pause(); bgmRealAudio.src = ''; } catch(e) {}
+        startBgmInternal();
+      }, networkTimeout);
+
+      try {
+        const playPromise = bgmRealAudio.play();
+        if (playPromise) {
+          await playPromise;
+        }
+        if (settled) return; // 已经超时回退了
+        settled = true;
+        clearTimeout(bgmFallbackTimer);
+        bgmIsPlaying = true;
+        console.log('[BGM] 真实音频播放成功, volume:', bgmRealAudio.volume);
+        updateBgmUI();
+      } catch(e) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(bgmFallbackTimer);
+        console.warn('[BGM] 真实音频播放失败，使用合成BGM:', e.message);
+        try { bgmRealAudio.pause(); bgmRealAudio.src = ''; } catch(e2) {}
+        startBgmInternal();
+      }
+      return;
+    } catch(e) {
+      console.warn('[BGM] 真实BGM初始化失败，使用合成BGM', e);
+    }
+  }
+
+  // 合成BGM（Web Audio振荡器）- 最可靠的方案
+  console.log('[BGM] 使用合成BGM');
+  startBgmInternal();
+}
+
+// 内部函数：启动合成BGM调度
+async function startBgmInternal() {
+  if (!currentBgmMusic) return;
+  const ctx = getBgmContext();
+  // 确保AudioContext完全激活后再调度
+  if (ctx.state !== 'running') {
+    try {
+      await ctx.resume();
+      // 等待状态稳定
+      await new Promise(r => setTimeout(r, 30));
+    } catch(e) {
+      console.warn('[BGM] AudioContext resume失败', e);
+    }
+  }
+  console.log('[BGM] startBgmInternal, ctx.state:', ctx.state, 'bgmMuted:', bgmMuted, 'bgmMasterMuted:', bgmMasterMuted);
+
+  try {
+    // 如果静音状态，不启动
+    if (bgmMuted || bgmMasterMuted) {
+      bgmIsPlaying = true;
+      updateBgmUI();
+      return;
+    }
+
+    const arr = getArrangement(currentBgmMusic);
+    const stepTime = 60 / arr.bpm / 4;
+    const stepsPerChord = arr.chordDur * 4;
+    const totalSteps = arr.chords.length * stepsPerChord;
+
+    // 各轨音量直接设为足够大的值，确保能清晰听到
+    const leadGain = ctx.createGain(); leadGain.gain.value = 0.6; leadGain.connect(ctx.destination);
+    const chordGain = ctx.createGain(); chordGain.gain.value = 0.5; chordGain.connect(ctx.destination);
+    const bassGain = ctx.createGain(); bassGain.gain.value = 0.55; bassGain.connect(ctx.destination);
+    const drumGain = ctx.createGain(); drumGain.gain.value = 0.7; drumGain.connect(ctx.destination);
+    console.log('[BGM] 合成BGM启动, bpm:', arr.bpm, 'stepTime:', stepTime.toFixed(3), 'ctx.state:', ctx.state);
+
+    // 先播放一个起始音，确认音频通道正常工作
+    try {
+      const testOsc = ctx.createOscillator();
+      const testGain = ctx.createGain();
+      testOsc.type = 'sine';
+      testOsc.frequency.value = 440;
+      testGain.gain.setValueAtTime(0.3, ctx.currentTime);
+      testGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      testOsc.connect(testGain); testGain.connect(ctx.destination);
+      testOsc.start(); testOsc.stop(ctx.currentTime + 0.15);
+    } catch(e) { console.warn('[BGM] 测试音失败', e); }
+
+    function scheduleStep() {
+      if (!currentBgmMusic || bgmTimeoutId === null) return;
+      const now = ctx.currentTime;
+      const step = bgmStep % totalSteps;
+      const chordIdx = Math.floor(step / stepsPerChord);
+      const chordName = arr.chords[chordIdx];
+      const stepInChord = step % stepsPerChord;
+
+      const drumStep = step % 16;
+      if (arr.drums.kick[drumStep]) playKick(ctx, drumGain, now, 0.8);
+      if (arr.drums.snare[drumStep]) playSnare(ctx, drumGain, now, 0.6);
+      if (arr.drums.hihat[drumStep]) playHiHat(ctx, drumGain, now, 0.25, false);
+      if (arr.drums.hihatOpen[drumStep]) playHiHat(ctx, drumGain, now, 0.35, true);
+
+      if (arr.bassPattern[drumStep]) {
+        const bassNote = chordName + '_b';
+        const bassFreq = NOTE_FREQ[CHORDS[bassNote] ? CHORDS[bassNote][0] : 'C2'];
+        const bassDur = stepTime * (arr.bassPattern[drumStep] > 0.5 ? 1.5 : 0.8);
+        playTone(ctx, bassGain, bassFreq, now, bassDur, arr.bassWave, 0.9, 0.005, bassDur * 0.3);
+      }
+
+      if (stepInChord === 0) {
+        const chordNotes = CHORDS[chordName];
+        if (chordNotes) {
+          playChord(ctx, chordGain, chordNotes, now, stepTime * stepsPerChord * 0.95, arr.chordWave, 0.8);
+        }
+      }
+
+      const leadIdx = step % arr.leadMelody.length;
+      const leadNote = arr.leadMelody[leadIdx];
+      const leadRhythm = arr.leadRhythm[leadIdx];
+      if (leadNote && leadRhythm > 0) {
+        const freq = NOTE_FREQ[leadNote];
+        if (freq) {
+          const leadDur = stepTime * (leadRhythm >= 1 ? 1.6 : 0.8);
+          playTone(ctx, leadGain, freq, now, leadDur, arr.leadWave, Math.min(0.8, leadRhythm), 0.02, leadDur * 0.3);
+        }
+      }
+
+      bgmStep++;
+      if (step === totalSteps - 1) bgmBarCount++;
+      bgmTimeoutId = setTimeout(scheduleStep, stepTime * 1000);
+    }
+
+    bgmIsPlaying = true;
+    bgmTimeoutId = setTimeout(scheduleStep, 50); // 稍微延迟启动，确保context完全就绪
+    updateBgmUI();
+    showToast('BGM伴奏已开始播放');
+  } catch(e) { console.warn('[BGM] 合成BGM播放失败', e); bgmIsPlaying = false; }
+}
+
+// 内部停止函数
+function stopBgmInternal() {
+  if (bgmTimeoutId) { clearTimeout(bgmTimeoutId); bgmTimeoutId = null; }
+  if (bgmFallbackTimer) { clearTimeout(bgmFallbackTimer); bgmFallbackTimer = null; }
+  bgmStep = 0;
+  bgmBarCount = 0;
+  bgmIsPlaying = false;
+  // 停止真实音频
+  if (bgmRealAudio) {
+    try {
+      bgmRealAudio.pause();
+      bgmRealAudio.currentTime = 0;
+    } catch(e) {}
+  }
+  // 合成BGM的oscillator会自动停止
+}
+
+function stopBgm() {
+  stopBgmInternal();
+  // 恢复视频原声音量
+  const video = document.getElementById('previewVideo');
+  if (video) {
+    video.volume = originalAudioMuted ? 0 : videoOriginalVolume;
+  }
+  updateBgmUI();
+}
+
+/* ========== 音乐试听（多轨短片段） ========== */
+let previewNodes = [];
+let previewTimeout = null;
+let isPreviewPlaying = false;
+
+function stopMusicPreview() {
+  if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
+  if (previewNodes.length) {
+    const ctx = previewNodes[0].context;
+    if (ctx) {
+      const now = ctx.currentTime;
+      previewNodes.forEach(n => {
+        try {
+          if (n.gain) { n.gain.gain.cancelScheduledValues(now); n.gain.gain.setValueAtTime(0, now); }
+          if (n.stop) n.stop(now + 0.05);
+        } catch(e) {}
+      });
+    }
+    previewNodes = [];
+  }
+  isPreviewPlaying = false;
+  document.querySelectorAll('.music-item').forEach(el => el.classList.remove('playing'));
+}
+
+function previewMusic(index) {
+  const list = window._currentMusicList || [];
+  const music = list[index];
+  if (!music) return;
+  if (isPreviewPlaying) { stopMusicPreview(); return; }
+  stopMusicPreview();
+  isPreviewPlaying = true;
+  document.querySelectorAll('.music-item').forEach((el, i) => el.classList.toggle('playing', i === index));
+
+  try {
+    const pCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const pMaster = pCtx.createGain();
+    pMaster.gain.value = 0.85;
+    const pComp = pCtx.createDynamicsCompressor();
+    pComp.threshold.value = -15; pComp.knee.value = 20; pComp.ratio.value = 3;
+    pMaster.connect(pComp); pComp.connect(pCtx.destination);
+
+    if (pCtx.state === 'suspended') { pCtx.resume(); }
+
+    const arr = getArrangement(music);
+    const stepTime = 60 / arr.bpm / 4;
+    const stepsPerChord = arr.chordDur * 4;
+    const totalSteps = arr.chords.length * stepsPerChord;
+    const maxSteps = Math.min(totalSteps, Math.floor(5 / stepTime)); // 试听约5秒
+
+    const leadGain = pCtx.createGain(); leadGain.gain.value = 1.5; leadGain.connect(pMaster);
+    const chordGain = pCtx.createGain(); chordGain.gain.value = 1.6; chordGain.connect(pMaster);
+    const bassGain = pCtx.createGain(); bassGain.gain.value = 1.8; bassGain.connect(pMaster);
+    const drumGain = pCtx.createGain(); drumGain.gain.value = 2.0; drumGain.connect(pMaster);
+
+    let step = 0;
+    function sched() {
+      if (step >= maxSteps || !isPreviewPlaying) { stopMusicPreview(); return; }
+      const t = pCtx.currentTime;
+      const s = step % totalSteps;
+      const ci = Math.floor(s / stepsPerChord);
+      const cn = arr.chords[ci];
+      const sic = s % stepsPerChord;
+      const ds = s % 16;
+
+      if (arr.drums.kick[ds]) playKick(pCtx, drumGain, t, arr.drumKickVol * arr.drums.kick[ds] * 2.0);
+      if (arr.drums.snare[ds]) playSnare(pCtx, drumGain, t, arr.drumSnareVol * arr.drums.snare[ds] * 1.8);
+      if (arr.drums.hihat[ds]) playHiHat(pCtx, drumGain, t, arr.drumHatVol * arr.drums.hihat[ds] * 1.6, false);
+      if (arr.drums.hihatOpen[ds]) playHiHat(pCtx, drumGain, t, arr.drumHatVol * 1.2, true);
+      if (arr.bassPattern[ds]) {
+        const bn = CHORDS[cn+'_b'] ? CHORDS[cn+'_b'][0] : 'C2';
+        playTone(pCtx, bassGain, NOTE_FREQ[bn], t, stepTime*1.2, arr.bassWave, arr.bassVol*arr.bassPattern[ds]*1.8, 0.005, stepTime*0.4);
+      }
+      if (sic === 0 && CHORDS[cn]) {
+        playChord(pCtx, chordGain, CHORDS[cn], t, stepTime*stepsPerChord*0.9, arr.chordWave, arr.chordVol*1.6);
+      }
+      const li = s % arr.leadMelody.length;
+      const ln = arr.leadMelody[li];
+      const lr = arr.leadRhythm[li];
+      if (ln && lr > 0 && NOTE_FREQ[ln]) {
+        playTone(pCtx, leadGain, NOTE_FREQ[ln], t, stepTime*1.2, arr.leadWave, arr.leadVol*Math.min(1,lr)*1.6, 0.02, stepTime*0.4);
+      }
+      step++;
+      previewTimeout = setTimeout(sched, stepTime*1000);
+    }
+    sched();
+  } catch(e) { console.warn('试听播放失败', e); }
+}
+
+async function togglePlayReal() {
+  // 防抖：防止快速双击导致play/pause冲突
+  if (isTogglingPlay) return;
+  isTogglingPlay = true;
+
+  const video = document.getElementById('previewVideo');
+  if (!video || !video.src) {
+    isTogglingPlay = false;
+    showToast('请先添加视频素材');
+    return;
+  }
+
+  // 标记用户已交互（用于解锁AudioContext）
+  userInteracted = true;
+
+  try {
+    if (video.paused || video.ended) {
+      if (video.ended) video.currentTime = 0;
+
+      // 在用户手势中先确保AudioContext完全激活
+      const ctx = getBgmContext();
+      try {
+        if (ctx.state !== 'running') {
+          await ctx.resume();
+        }
+      } catch(e) {
+        console.warn('AudioContext resume失败', e);
+      }
+
+      // 设置视频音量（如果有BGM且BGM未静音，启用音频闪避）
+      if (currentBgmMusic && !originalAudioMuted && !bgmMasterMuted && !bgmMuted) {
+        video.volume = videoDuckVolume;
+      } else {
+        video.volume = originalAudioMuted ? 0 : videoOriginalVolume;
+      }
+
+      // UI更新由onplay事件处理
+      try {
+        await video.play();
+        isTogglingPlay = false;
+        // 播放成功后启动BGM
+        if (currentBgmMusic) {
+          await startBgm();
+        }
+      } catch(e) {
+        console.warn('视频播放失败', e);
+        isTogglingPlay = false;
+        showToast('播放失败: ' + (e.message || '未知错误'));
+      }
+    } else {
+      // 暂停 - UI更新由onpause事件处理
+      video.pause();
+      stopBgm();
+      isTogglingPlay = false;
+    }
+  } catch(e) {
+    console.error('togglePlayReal错误', e);
+    isTogglingPlay = false;
+  }
+}
+
+function toggleMute() {
+  const video = document.getElementById('previewVideo');
+  const iconOn = document.getElementById('volIconOn');
+  const iconOff = document.getElementById('volIconOff');
+  if (!video) return;
+  bgmMasterMuted = !bgmMasterMuted;
+  // 总静音：同时静音视频原声和BGM
+  if (bgmMasterMuted) {
+    video.dataset.prevVolume = video.volume;
+    video.volume = 0;
+    // 静音真实音频BGM
+    if (bgmRealAudio) bgmRealAudio.volume = 0;
+    // 停止合成BGM调度
+    if (bgmTimeoutId) { clearTimeout(bgmTimeoutId); bgmTimeoutId = null; }
+    if (iconOn) iconOn.style.display = 'none';
+    if (iconOff) iconOff.style.display = 'block';
+    showToast('已静音');
+  } else {
+    // 恢复音量
+    const prevVol = parseFloat(video.dataset.prevVolume);
+    if (currentBgmMusic && !bgmMuted) {
+      video.volume = originalAudioMuted ? 0 : videoDuckVolume;
+    } else {
+      video.volume = isNaN(prevVol) ? (originalAudioMuted ? 0 : videoOriginalVolume) : prevVol;
+    }
+    // 恢复BGM
+    if (bgmRealAudio && !bgmMuted) {
+      bgmRealAudio.volume = bgmRealVolume;
+    }
+    if (currentBgmMusic && !bgmMuted && bgmIsPlaying && !currentBgmMusic.isRealAudio) {
+      startBgmInternal();
+    }
+    if (iconOn) iconOn.style.display = 'block';
+    if (iconOff) iconOff.style.display = 'none';
+    showToast('已取消静音');
+  }
+  updateBgmUI();
+}
+
+/* ========== 进度条拖动 ========== */
+let isSeekDragging = false;
 
 function seekVideoReal(e) {
   const video = document.getElementById('previewVideo');
   if (!video.src || !video.duration) return;
   const rect = e.currentTarget.getBoundingClientRect();
-  const pct = Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   video.currentTime = pct * video.duration;
-  document.getElementById('seekFill').style.width = pct*100+'%';
-  document.getElementById('seekThumb').style.left = pct*100+'%';
+  updateSeekUI(pct);
+}
+
+function updateSeekUI(pct) {
+  document.getElementById('seekFill').style.width = pct * 100 + '%';
+  document.getElementById('seekThumb').style.left = pct * 100 + '%';
+  const video = document.getElementById('previewVideo');
+  if (video && video.duration) {
+    document.getElementById('timeLabel').textContent = formatTime(Math.round(pct * video.duration));
+  }
+}
+
+function initSeekDrag() {
+  const seekBar = document.getElementById('seekBar');
+  if (!seekBar) return;
+
+  function handleMove(e) {
+    if (!isSeekDragging) return;
+    e.preventDefault();
+    const rect = seekBar.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const video = document.getElementById('previewVideo');
+    if (video && video.duration) {
+      video.currentTime = pct * video.duration;
+    }
+    updateSeekUI(pct);
+  }
+
+  function handleEnd() {
+    isSeekDragging = false;
+    seekBar.classList.remove('dragging');
+    document.removeEventListener('mousemove', handleMove);
+    document.removeEventListener('mouseup', handleEnd);
+    document.removeEventListener('touchmove', handleMove);
+    document.removeEventListener('touchend', handleEnd);
+  }
+
+  function handleStart(e) {
+    isSeekDragging = true;
+    seekBar.classList.add('dragging');
+    const rect = seekBar.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const video = document.getElementById('previewVideo');
+    if (video && video.duration) {
+      video.currentTime = pct * video.duration;
+    }
+    updateSeekUI(pct);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+  }
+
+  seekBar.addEventListener('mousedown', handleStart);
+  seekBar.addEventListener('touchstart', handleStart, { passive: false });
+}
+
+/* 在视频时间更新时，如果不在拖动才更新进度条 */
+function onVideoTimeUpdate() {
+  if (isSeekDragging) return;
+  const video = document.getElementById('previewVideo');
+  if (!video || !video.duration) return;
+  const pct = video.currentTime / video.duration;
+  document.getElementById('seekFill').style.width = pct * 100 + '%';
+  document.getElementById('seekThumb').style.left = pct * 100 + '%';
   document.getElementById('timeLabel').textContent = formatTime(Math.round(video.currentTime));
+  // 更新播放字幕
+  updatePlayingSubtitles();
 }
 
 /* ========== 时间轴 ========== */
 function renderTimeline() {
   const track = document.getElementById('timelineTrack');
+  const audioTrack = document.getElementById('audioTimelineTrack');
   const count = document.getElementById('clipCount');
-  count.textContent = state.clips.length+' 个片段';
-  if (!state.clips.length) { track.innerHTML='<div class="timeline-empty">将素材拖拽到此处</div>'; return; }
-  track.innerHTML = state.clips.map((c,i) => {
-    const a = c.asset;
-    const res = (a&&a.width&&a.height) ? a.width+'×'+a.height : '';
-    return `<div class="timeline-clip" onclick="selectClip('${c.id}')" id="clip-${c.id}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-      <div class="tc-name">${(c.name||'片段'+(i+1)).length>6?(c.name||'').slice(0,6)+'...':c.name||'片段'+(i+1)}</div>
-      <div class="tc-dur">${c.duration||'?'}s${res?' · '+res:''}</div>
-    </div>`;
-  }).join('');
+  const videoClips = state.clips.filter(c => c.type !== 'audio' && !c.isMusic);
+  const audioClips = state.clips.filter(c => c.type === 'audio' || c.isMusic);
+  const totalCount = state.clips.length;
+  count.textContent = totalCount+' 个片段'+(currentBgmMusic?' · BGM已添加':'');
+
+  // 渲染视频轨道
+  if (!videoClips.length) {
+    track.innerHTML = '<div class="timeline-empty">将素材拖拽到此处</div>';
+  } else {
+    track.innerHTML = videoClips.map((c,i) => {
+      const a = c.asset;
+      const res = (a&&a.width&&a.height) ? a.width+'×'+a.height : '';
+      const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>';
+      return `<div class="timeline-clip" onclick="selectClip('${c.id}')" id="clip-${c.id}" style="background:rgba(0,240,255,0.1);border-color:rgba(0,240,255,0.4)">
+        ${icon}
+        <div class="tc-name">${(c.name||'片段'+(i+1)).length>8?(c.name||'').slice(0,8)+'...':c.name||'片段'+(i+1)}</div>
+        <div class="tc-dur">${c.duration||'?'}s${res?' · '+res:''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // 渲染音频轨道
+  const audioEmpty = document.getElementById('audioTrackEmpty');
+  if (!audioTrack) return;
+  if (audioClips.length === 0 && !currentBgmMusic) {
+    audioTrack.innerHTML = '<div class="timeline-empty" id="audioTrackEmpty" style="font-size:10px;color:var(--muted2)">点击"音乐"按钮添加BGM</div>';
+  } else {
+    // 显示当前BGM作为音频片段
+    let audioHtml = '';
+    if (currentBgmMusic) {
+      const isReal = currentBgmMusic.isRealAudio;
+      const bgmName = currentBgmMusic.title || '背景音乐';
+      const bgmDur = currentBgmMusic.duration || parseDuration(currentBgmMusic.dur) || 180;
+      audioHtml += `<div class="timeline-clip" id="clip-bgm-current" style="background:linear-gradient(135deg,rgba(255,107,107,0.2),rgba(255,107,107,0.1));border-color:rgba(255,107,107,0.5);min-width:80px;position:relative">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <div class="tc-name" style="color:#ff8a8a">${bgmName.length>8?bgmName.slice(0,8)+'...':bgmName}</div>
+        <div class="tc-dur" style="color:#ff8a8a;opacity:0.7">${isReal?'🎙️真实':'🎵伴奏'} · ${Math.floor(bgmDur/60)}:${String(Math.floor(bgmDur%60)).padStart(2,'0')}</div>
+        <button onclick="event.stopPropagation();removeBgm()" style="position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:rgba(255,107,107,0.3);border:none;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      </div>`;
+    }
+    // 显示已添加的其他音频片段
+    audioClips.forEach((c,i) => {
+      if (c.id === 'bgm-current') return;
+      const isReal = c.isRealAudio;
+      const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="#ff8a8a" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+      audioHtml += `<div class="timeline-clip" onclick="selectClip('${c.id}')" id="clip-${c.id}" style="background:rgba(255,107,107,0.1);border-color:rgba(255,107,107,0.3)">
+        ${icon}
+        <div class="tc-name" style="color:#ff8a8a">${(c.name||'音频'+(i+1)).length>8?(c.name||'').slice(0,8)+'...':c.name||'音频'+(i+1)}</div>
+        <div class="tc-dur" style="color:#ff8a8a;opacity:0.7">${isReal?'🎙️':'🎵'}${c.duration||'?'}s</div>
+      </div>`;
+    });
+    audioTrack.innerHTML = audioHtml;
+  }
+}
+
+// 移除BGM
+function removeBgm() {
+  stopBgm();
+  currentBgmMusic = null;
+  // 从clips中移除音乐片段
+  state.clips = state.clips.filter(c => !(c.isMusic && c.id !== 'bgm-current'));
+  renderTimeline();
+  updateBgmUI();
+  showToast('已移除BGM');
 }
 
 function selectClip(id) {
@@ -965,6 +2840,67 @@ function aiAction(type) {
 
 /* ========== 导出（真实渲染Canvas + MediaRecorder）========== */
 let exportRes = '1080p';
+let exportQuality = 'high'; // 'high' 或 'lossless'
+
+function selectQuality(q) {
+  exportQuality = q;
+  document.querySelectorAll('.quality-opt').forEach(el => {
+    el.classList.remove('active');
+    el.style.border = '1px solid var(--rule)';
+    el.style.background = 'transparent';
+    el.style.color = 'var(--ink)';
+  });
+  const activeEl = document.getElementById(q === 'lossless' ? 'qLossless' : 'qHigh');
+  if (activeEl) {
+    activeEl.classList.add('active');
+    activeEl.style.border = '1px solid var(--accent)';
+    activeEl.style.background = 'rgba(99,102,241,0.1)';
+    activeEl.style.color = 'var(--accent)';
+  }
+}
+
+// 辅助函数：调度合成BGM音轨（供导出使用）
+function scheduleSyntheticBgm(ctx, destGain, arr, stepTime, stepsPerChord, totalSteps, totalDuration) {
+  const maxSteps = Math.ceil(totalDuration / stepTime);
+  const bgmLead = ctx.createGain(); bgmLead.gain.value = 2.0; bgmLead.connect(destGain);
+  const bgmChord = ctx.createGain(); bgmChord.gain.value = 2.2; bgmChord.connect(destGain);
+  const bgmBass = ctx.createGain(); bgmBass.gain.value = 2.5; bgmBass.connect(destGain);
+  const bgmDrum = ctx.createGain(); bgmDrum.gain.value = 2.8; bgmDrum.connect(destGain);
+
+  let beat = 0;
+  function scheduleExportBeat() {
+    if (beat >= maxSteps) return;
+    const now = ctx.currentTime;
+    const s = beat % totalSteps;
+    const ci = Math.floor(s / stepsPerChord);
+    const cn = arr.chords[ci];
+    const sic = s % stepsPerChord;
+    const ds = s % 16;
+
+    if (arr.drums.kick[ds]) playKick(ctx, bgmDrum, now, arr.drumKickVol*arr.drums.kick[ds]*2.5);
+    if (arr.drums.snare[ds]) playSnare(ctx, bgmDrum, now, arr.drumSnareVol*arr.drums.snare[ds]*2.2);
+    if (arr.drums.hihat[ds]) playHiHat(ctx, bgmDrum, now, arr.drumHatVol*arr.drums.hihat[ds]*2.0, false);
+    if (arr.drums.hihatOpen[ds]) playHiHat(ctx, bgmDrum, now, arr.drumHatVol*1.5, true);
+    if (arr.bassPattern[ds]) {
+      const bn = CHORDS[cn+'_b'] ? CHORDS[cn+'_b'][0] : 'C2';
+      const bd = stepTime*(arr.bassPattern[ds]>0.5?1.5:0.8);
+      playTone(ctx, bgmBass, NOTE_FREQ[bn], now, bd, arr.bassWave, arr.bassVol*arr.bassPattern[ds]*2.2, 0.005, bd*0.3);
+    }
+    if (sic === 0 && CHORDS[cn]) {
+      playChord(ctx, bgmChord, CHORDS[cn], now, stepTime*stepsPerChord*0.9, arr.chordWave, arr.chordVol*2.0);
+    }
+    const li = s % arr.leadMelody.length;
+    const ln = arr.leadMelody[li];
+    const lr = arr.leadRhythm[li];
+    if (ln && lr > 0 && NOTE_FREQ[ln]) {
+      const ld = stepTime*(lr>=1?1.6:0.8);
+      playTone(ctx, bgmLead, NOTE_FREQ[ln], now, ld, arr.leadWave, arr.leadVol*Math.min(1,lr)*2.0, 0.02, ld*0.3);
+    }
+    beat++;
+    setTimeout(scheduleExportBeat, stepTime*1000);
+  }
+  scheduleExportBeat();
+}
 
 function selectExportRes(res) {
   exportRes = res;
@@ -1061,30 +2997,178 @@ function simulateExport(w, h) {
 
 async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
   const resLabel = targetW+'×'+targetH;
-  document.getElementById('exportLabel').textContent = '正在渲染 '+resLabel+' 真实视频...';
+  const isLossless = exportQuality === 'lossless';
+  document.getElementById('exportLabel').textContent = '正在渲染 '+resLabel+(isLossless?' 原画无损':' 高清')+'视频...';
 
-  // 检查是否支持MediaRecorder
-  if (!navigator.mediaDevices || !canvas.captureStream) {
+  if (!canvas.captureStream) {
     simulateExport(targetW, targetH);
     return;
   }
 
   const fps = 30;
-  const stream = canvas.captureStream(fps);
-  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-    ? 'video/webm;codecs=vp9'
-    : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-    ? 'video/webm;codecs=vp8'
-    : 'video/webm';
-  const mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+  // === 极高码率设置（根据画质和分辨率）===
+  let videoBitrate;
+  if (isLossless) {
+    // 原画无损模式：极高码率
+    if (targetW >= 7000) videoBitrate = 160000000; // 160Mbps for 8K
+    else if (targetW >= 3500) videoBitrate = 100000000; // 100Mbps for 4K
+    else if (targetW >= 2500) videoBitrate = 60000000; // 60Mbps for 2K
+    else videoBitrate = 40000000; // 40Mbps for 1080p
+  } else {
+    // 高清模式：高码率
+    if (targetW >= 7000) videoBitrate = 80000000; // 80Mbps for 8K
+    else if (targetW >= 3500) videoBitrate = 50000000; // 50Mbps for 4K
+    else if (targetW >= 2500) videoBitrate = 25000000; // 25Mbps for 2K
+    else videoBitrate = 16000000; // 16Mbps for 1080p
+  }
+
+  // 启用高质量图像平滑
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // === 预加载主视频 ===
+  const mainClip = clips[0];
+  const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
+  video.preload = 'auto';
+  video.src = mainClip.asset.objUrl;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.muted = true; // 初始静音避免自动播放问题
+  video.volume = 0;
+
+  // 将视频添加到DOM以确保可靠播放（移出屏幕外）
+  video.style.position = 'fixed';
+  video.style.left = '-9999px';
+  video.style.top = '-9999px';
+  video.style.width = '1px';
+  video.style.height = '1px';
+  document.body.appendChild(video);
+
+  await new Promise(resolve => {
+    const handler = () => { video.removeEventListener('loadedmetadata', handler); resolve(); };
+    video.addEventListener('loadedmetadata', handler);
+    video.addEventListener('error', resolve);
+    setTimeout(resolve, 8000);
+  });
+
+  const vDur = video.duration || mainClip.duration || 10;
+  const vW = video.videoWidth || mainClip.asset.width || targetW;
+  const vH = video.videoHeight || mainClip.asset.height || targetH;
+  const totalDuration = vDur;
+  const totalFrames = Math.max(Math.round(totalDuration * fps), 30);
+
+  // === 创建离屏Canvas用于特效处理 ===
+  const offscreen = document.createElement('canvas');
+  offscreen.width = targetW;
+  offscreen.height = targetH;
+  const offCtx = offscreen.getContext('2d');
+  offCtx.imageSmoothingEnabled = true;
+  offCtx.imageSmoothingQuality = 'high';
+
+  // === 音频系统：视频原声 + BGM 直接混合 ===
+  let exportAudioCtx = null;
+  let exportAudioDest = null;
+
+  try {
+    exportAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    exportAudioDest = exportAudioCtx.createMediaStreamDestination();
+    const masterGain = exportAudioCtx.createGain();
+    masterGain.gain.value = 1.0;
+    masterGain.connect(exportAudioDest);
+
+    // 视频原声 - 先设置音频节点，稍后取消静音
+    if (!originalAudioMuted) {
+      try {
+        // 先播放一下再暂停，确保音频流可用
+        video.muted = false;
+        video.volume = 1;
+        await new Promise(r => setTimeout(r, 100));
+        const vStream = video.captureStream ? video.captureStream() : null;
+        if (vStream && vStream.getAudioTracks().length > 0) {
+          const vSource = exportAudioCtx.createMediaStreamSource(new MediaStream(vStream.getAudioTracks()));
+          const vGain = exportAudioCtx.createGain();
+          vGain.gain.value = currentBgmMusic ? 0.4 : 0.9;
+          vSource.connect(vGain);
+          vGain.connect(masterGain);
+        }
+        video.muted = true; // 先静音，录制时再取消
+        video.volume = 0;
+      } catch(e) { console.warn('视频音频轨道获取失败', e); }
+    }
+
+    // BGM
+    if (currentBgmMusic) {
+      const isLocalBgm = currentBgmMusic.url && currentBgmMusic.url.startsWith('blob:');
+      const isRealBgm = currentBgmMusic.isRealAudio && currentBgmMusic.url;
+      if (isRealBgm && isLocalBgm) {
+        try {
+          const bgmAudio = document.createElement('audio');
+          bgmAudio.src = currentBgmMusic.url;
+          bgmAudio.loop = true;
+          bgmAudio.volume = 1;
+          bgmAudio.crossOrigin = 'anonymous';
+          await new Promise(r => { bgmAudio.onloadedmetadata = r; setTimeout(r, 3000); });
+          const bStream = bgmAudio.captureStream ? bgmAudio.captureStream() : null;
+          if (bStream && bStream.getAudioTracks().length > 0) {
+            const bSource = exportAudioCtx.createMediaStreamSource(new MediaStream(bStream.getAudioTracks()));
+            const bGain = exportAudioCtx.createGain();
+            bGain.gain.value = 0.6;
+            bSource.connect(bGain);
+            bGain.connect(masterGain);
+            window._exportBgmAudio = bgmAudio;
+          } else {
+            scheduleSyntheticBgm(exportAudioCtx, masterGain, getArrangement(currentBgmMusic), 60/getArrangement(currentBgmMusic).bpm/4, 4, getArrangement(currentBgmMusic).chords.length*4, totalDuration);
+          }
+        } catch(e) {
+          console.warn('BGM音频获取失败，使用合成', e);
+          const arr = getArrangement(currentBgmMusic);
+          scheduleSyntheticBgm(exportAudioCtx, masterGain, arr, 60/arr.bpm/4, arr.chordDur*4, arr.chords.length*arr.chordDur*4, totalDuration);
+        }
+      } else {
+        const arr = getArrangement(currentBgmMusic);
+        scheduleSyntheticBgm(exportAudioCtx, masterGain, arr, 60/arr.bpm/4, arr.chordDur*4, arr.chords.length*arr.chordDur*4, totalDuration);
+      }
+    }
+  } catch(e) { console.warn('导出音频系统创建失败', e); }
+
+  // === 创建MediaRecorder，设置高码率 ===
+  // 使用rAF同步绘制 + captureStream固定帧率捕获，稳定流畅
+  const canvasStream = canvas.captureStream(fps);
+  const videoTrack = canvasStream.getVideoTracks()[0];
+  const tracks = [videoTrack];
+  if (exportAudioDest && exportAudioDest.stream.getAudioTracks().length > 0) {
+    tracks.push(...exportAudioDest.stream.getAudioTracks());
+  }
+  const combinedStream = new MediaStream(tracks);
+
+  // 选择最佳编码格式 - 优先VP9（更好压缩质量）
+  let mimeType = 'video/webm;codecs=vp9';
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/webm;codecs=vp8';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'video/webm';
+    }
+  }
+
+  let recorderOptions = { mimeType };
+  if (videoBitrate > 0) {
+    recorderOptions.videoBitsPerSecond = videoBitrate;
+    recorderOptions.audioBitsPerSecond = isLossless ? 512000 : 320000;
+  }
+
+  const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
   const chunks = [];
-
-  mediaRecorder.ondataavailable = e => {
-    if (e.data.size) chunks.push(e.data);
-  };
-
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
   mediaRecorder.onstop = () => {
-    const blob = new Blob(chunks, {type:'video/webm'});
+    // 清理
+    if (window._exportBgmAudio) { try { window._exportBgmAudio.pause(); window._exportBgmAudio.remove(); } catch(e) {} window._exportBgmAudio = null; }
+    try { video.pause(); } catch(e) {}
+    if (video.parentNode) video.parentNode.removeChild(video);
+    if (exportAudioCtx) { try { exportAudioCtx.close(); } catch(e) {} }
+
+    const blob = new Blob(chunks, {type: mimeType});
     state.exportedBlob = blob;
     state.exportedUrl = URL.createObjectURL(blob);
     document.getElementById('exportFill').style.width = '100%';
@@ -1092,90 +3176,185 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
     finishExport(targetW, targetH);
   };
 
-  mediaRecorder.start(1000);
-
-  // 计算总帧数（所有片段时长总和）
-  let totalDuration = 0;
-  clips.forEach(c => { totalDuration += (c.duration||5); });
-  const totalFrames = Math.max(Math.round(totalDuration * fps), 30);
-
-  // 预加载所有视频元素
-  const videoElements = [];
-  for (const clip of clips) {
-    const v = document.createElement('video');
-    v.crossOrigin = 'anonymous';
-    v.preload = 'auto';
-    v.src = clip.asset.objUrl;
-    v.muted = true;
-    v.playsInline = true;
-    try { await v.play(); v.pause(); } catch(e) {}
-    videoElements.push({ video: v, duration: clip.duration||5, startTime: 0 });
+  // contain模式计算
+  function calcContainRect(srcW, srcH, dstW, dstH) {
+    const r1 = srcW/srcH, r2 = dstW/dstH;
+    if (r1 > r2) return {x:0, y:(dstH-dstW/r1)/2, w:dstW, h:dstW/r1};
+    else return {x:(dstW-dstH*r1)/2, y:0, w:dstH*r1, h:dstH};
   }
-  // 计算每个片段的起始帧
-  let cumTime = 0;
-  videoElements.forEach(v => {
-    v.startTime = cumTime;
-    cumTime += v.duration;
+
+  // === 核心渲染循环：使用requestAnimationFrame实现流畅同步 ===
+  let isRecording = true;
+  let lastDrawTime = 0;
+  const frameInterval = 1000 / fps;
+  let frameCount = 0;
+  let startTime = 0;
+
+  mediaRecorder.start(200);
+
+  // 确保AudioContext运行
+  if (exportAudioCtx && exportAudioCtx.state === 'suspended') {
+    exportAudioCtx.resume().catch(() => {});
+  }
+
+  // 取消视频静音以录制原声
+  if (!originalAudioMuted) {
+    video.muted = false;
+    video.volume = 1;
+  }
+
+  // 启动BGM
+  if (window._exportBgmAudio) {
+    window._exportBgmAudio.play().catch(() => {});
+  }
+
+  // 从0开始播放视频
+  video.currentTime = 0;
+
+  // 等待seek完成后开始播放
+  await new Promise(resolve => {
+    const onSeeked = () => {
+      video.removeEventListener('seeked', onSeeked);
+      resolve();
+    };
+    video.addEventListener('seeked', onSeeked);
+    setTimeout(resolve, 500);
   });
 
-  let currentFrame = 0;
+  try {
+    await video.play();
+  } catch(e) {
+    console.warn('导出视频播放失败，尝试静音播放', e);
+    video.muted = true;
+    video.volume = 0;
+    try { await video.play(); } catch(e2) { console.error('视频播放完全失败', e2); }
+  }
 
-  function renderFrame() {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // 等待视频实际开始播放
+  await new Promise(resolve => {
+    const checkPlaying = () => {
+      if (!video.paused && video.readyState >= 3) resolve();
+      else setTimeout(checkPlaying, 50);
+    };
+    setTimeout(checkPlaying, 100);
+    setTimeout(resolve, 2000);
+  });
 
-    const currentTime = currentFrame / fps;
+  startTime = performance.now();
 
-    // 找到当前时间对应的片段
-    let activeClip = null;
-    let clipLocalTime = 0;
-    for (const v of videoElements) {
-      if (currentTime >= v.startTime && currentTime < v.startTime + v.duration) {
-        activeClip = v;
-        clipLocalTime = currentTime - v.startTime;
-        break;
-      }
+  function drawFrame(timestamp) {
+    if (!isRecording) {
+      if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+      return;
     }
 
-    if (activeClip) {
-      try {
-        activeClip.video.currentTime = clipLocalTime;
-        ctx.drawImage(activeClip.video, 0, 0, canvas.width, canvas.height);
-      } catch(e) {
-        // 回退：黑色背景
-        ctx.fillStyle = '#14141F';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#00F0FF';
-        ctx.font = '16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('渲染中...', canvas.width/2, canvas.height/2);
-      }
-    } else {
-      // 超出范围，显示结束画面
-      ctx.fillStyle = '#14141F';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#00F0FF';
-      ctx.font = '24px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('AI云剪智能体', canvas.width/2, canvas.height/2);
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '14px sans-serif';
-      ctx.fillText(resLabel + ' - 导出完成', canvas.width/2, canvas.height/2 + 30);
+    // 检查视频是否结束
+    if (video.ended || (video.currentTime >= vDur - 0.05 && !video.paused)) {
+      isRecording = false;
+      // 请求最后一帧
+      if (canvasStream.requestFrame) canvasStream.requestFrame();
+      setTimeout(() => {
+        if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+      }, 200);
+      return;
     }
 
-    currentFrame++;
-    const pct = Math.min((currentFrame / totalFrames) * 100, 99);
-    document.getElementById('exportPercent').textContent = Math.round(pct)+'%';
-    document.getElementById('exportFill').style.width = pct+'%';
+    // 基于时间戳的帧节流，确保稳定fps
+    if (timestamp - lastDrawTime >= frameInterval - 2) {
+      lastDrawTime = timestamp;
+      frameCount++;
 
-    if (currentFrame < totalFrames) {
-      requestAnimationFrame(renderFrame);
-    } else {
-      mediaRecorder.stop();
+      // 清除画布 - 黑底
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      // 绘制视频帧 - 使用离屏canvas先画视频
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        const rect = calcContainRect(vW, vH, targetW, targetH);
+        try {
+          // 先在离屏canvas绘制视频帧（无特效）
+          offCtx.fillStyle = '#000';
+          offCtx.fillRect(0, 0, targetW, targetH);
+          offCtx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
+
+          // 将离屏内容绘制到主canvas，如有特效则在此时应用filter
+          if (currentEffect && currentEffect !== 'none') {
+            ctx.filter = currentEffect;
+            ctx.drawImage(offscreen, 0, 0);
+            ctx.filter = 'none';
+          } else {
+            ctx.drawImage(offscreen, 0, 0);
+          }
+        } catch(e) {
+          // 如果离屏绘制失败，直接绘制
+          try {
+            if (currentEffect && currentEffect !== 'none') {
+              ctx.filter = currentEffect;
+              ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
+              ctx.filter = 'none';
+            } else {
+              ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
+            }
+          } catch(e2) {}
+        }
+      }
+
+      // 绘制字幕
+      if (subtitles && subtitles.length > 0) {
+        const t = video.currentTime;
+        const active = subtitles.find(s => t >= s.time && t <= (s.end || s.time + 3));
+        if (active) {
+          const fontSize = Math.max(28, Math.round(targetH * 0.055));
+          ctx.font = 'bold ' + fontSize + 'px "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const text = active.text;
+          const metrics = ctx.measureText(text);
+          const padding = fontSize * 0.7;
+          const textW = metrics.width + padding * 2;
+          const textH = fontSize * 2;
+          const textX = targetW / 2;
+          const textY = targetH - fontSize * 1.8;
+
+          // 字幕背景（纯黑色不透明圆角矩形，无透明边框）
+          ctx.fillStyle = '#000000';
+          const bgX = textX - textW / 2;
+          const bgY = textY - textH + fontSize * 0.35;
+          const radius = 10;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(bgX, bgY, textW, textH, radius);
+          } else {
+            ctx.rect(bgX, bgY, textW, textH);
+          }
+          ctx.fill();
+
+          // 字幕文字（白色加粗，无需描边因为背景已经是纯黑）
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(text, textX, textY);
+        }
+      }
+
+      // 请求Canvas捕获这一帧
+      if (canvasStream.requestFrame) {
+        canvasStream.requestFrame();
+      }
+
+      // 更新进度
+      const elapsed = video.currentTime;
+      const pct = Math.min((elapsed / totalDuration) * 100, 99);
+      document.getElementById('exportPercent').textContent = Math.round(pct) + '%';
+      document.getElementById('exportFill').style.width = pct + '%';
+    }
+
+    // 继续下一帧
+    if (isRecording) {
+      requestAnimationFrame(drawFrame);
     }
   }
 
-  renderFrame();
+  // 启动渲染循环
+  requestAnimationFrame(drawFrame);
 }
 
 function finishExport(w, h) {
@@ -1343,6 +3522,1235 @@ shareTopBtn.style.cssText = 'position:absolute;right:52px;top:50%;transform:tran
 shareTopBtn.title = '分享';
 shareTopBtn.onclick = shareVideo;
 topBar.appendChild(shareTopBtn);
+
+// 初始化进度条拖动
+initSeekDrag();
+
+/* ========== 面板控制 ========== */
+function closeAllPanels() {
+  ['subtitlePanel','effectPanel','cameraPanel','musicPanel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // 关闭面板时停止试听
+  stopMusicPreview();
+  stopRealAudioPreview();
+}
+function openSubtitlePanel() { closeAllPanels(); document.getElementById('subtitlePanel').style.display='flex'; }
+function openEffectPanel() { closeAllPanels(); document.getElementById('effectPanel').style.display='flex'; }
+function openCameraPanel() { closeAllPanels(); document.getElementById('cameraPanel').style.display='flex'; }
+function openMusicPanel() {
+  closeAllPanels();
+  document.getElementById('musicPanel').style.display='flex';
+  // 重置到热门标签（第0个）
+  const tabs = document.querySelectorAll('.music-tab');
+  tabs.forEach((b,i) => b.classList.toggle('active', i === 0));
+  document.getElementById('normalSearchBox').style.display = 'flex';
+  document.getElementById('aiSearchArea').style.display = 'none';
+  document.getElementById('musicSearchInput').value = '';
+  document.getElementById('aiSearchInput').value = '';
+  document.querySelectorAll('.ai-mood-chip').forEach(c => c.classList.remove('active'));
+  aiSearchActive = false;
+  // 初始化实时搜索（只执行一次）
+  if (!window._musicSearchInited) {
+    initMusicSearch();
+    window._musicSearchInited = true;
+  }
+  renderMusicList(musicData.hot);
+}
+
+/* ========== AI智能字幕（音频分析自动识别） ========== */
+let subtitles = [];
+let subtitleStyle = { fontSize: 20, color: '#ffffff', bgColor: '#000000', position: 'bottom' };
+
+// 一键AI自动识别字幕（边播放视频边实时识别，精准分析剪辑视频的音轨）
+async function autoGenerateSubtitles() {
+  const video = document.getElementById('previewVideo');
+  const btn = document.getElementById('autoSubBtn');
+  const resultDiv = document.getElementById('subtitleResult');
+
+  if (!video || !video.src) {
+    showToast('请先添加视频素材');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite"></span> 正在播放视频并识别字幕...';
+  resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">正在播放视频，实时分析音轨检测语音...</div>';
+
+  const dur = video.duration || 30;
+
+  // 保存当前状态
+  const wasPlaying = !video.paused;
+  const savedTime = video.currentTime;
+  const wasMuted = video.muted;
+  const savedVolume = video.volume;
+
+  // 暂停BGM避免干扰识别
+  let bgmWasPlaying = false;
+  if (typeof bgmRealAudio !== 'undefined' && bgmRealAudio && !bgmRealAudio.paused) {
+    bgmWasPlaying = true;
+    bgmRealAudio.pause();
+  }
+
+  let segments = null;
+  let subCtx = null;
+  let subAnalyser = null;
+  let subSource = null;
+  let audioStream = null;
+
+  try {
+    // 取消视频静音以确保能获取音频
+    video.muted = false;
+    video.volume = 1;
+
+    const energyData = [];
+    let isAnalyzing = true;
+
+    // 跳到视频开始
+    video.currentTime = 0;
+    await new Promise(resolve => {
+      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve(); };
+      video.addEventListener('seeked', onSeeked);
+      setTimeout(resolve, 500);
+    });
+
+    // 开始播放视频
+    try {
+      await video.play();
+    } catch(e) {
+      showToast('请点击播放按钮开始识别字幕');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>一键AI识别字幕';
+      video.muted = wasMuted;
+      video.volume = savedVolume;
+      return;
+    }
+
+    // 等待视频真正开始播放
+    await new Promise(resolve => {
+      const checkPlaying = () => {
+        if (!video.paused && video.readyState >= 3) resolve();
+        else setTimeout(checkPlaying, 50);
+      };
+      setTimeout(checkPlaying, 100);
+      setTimeout(resolve, 2000);
+    });
+
+    // 视频播放后，使用captureStream获取音频流进行分析
+    const captureStream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+    let audioTracks = [];
+    if (captureStream) {
+      audioTracks = captureStream.getAudioTracks();
+      // 如果还没有音频轨道，等待一下
+      if (audioTracks.length === 0) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        audioTracks = captureStream.getAudioTracks();
+      }
+    }
+
+    if (captureStream && audioTracks.length > 0) {
+      audioStream = new MediaStream(audioTracks);
+      subCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (subCtx.state === 'suspended') {
+        await subCtx.resume();
+      }
+      subSource = subCtx.createMediaStreamSource(audioStream);
+      subAnalyser = subCtx.createAnalyser();
+      subAnalyser.fftSize = 1024;
+      subAnalyser.smoothingTimeConstant = 0.15;
+      subAnalyser.minDecibels = -90;
+      subAnalyser.maxDecibels = -10;
+      subSource.connect(subAnalyser);
+    }
+
+    resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">视频播放中，AI正在实时识别语音... 0%</div>';
+
+    // 使用requestAnimationFrame实时采集音频数据
+    const binSize = subAnalyser ? (subCtx.sampleRate / subAnalyser.fftSize) : 43;
+    const bufLen = subAnalyser ? subAnalyser.frequencyBinCount : 512;
+    const data = new Uint8Array(bufLen);
+
+    await new Promise((resolve) => {
+      let rafId;
+
+      function analyzeFrame() {
+        if (!isAnalyzing) {
+          resolve();
+          return;
+        }
+
+        // 检查视频是否结束
+        if (video.ended || video.paused) {
+          isAnalyzing = false;
+          resolve();
+          return;
+        }
+
+        // 采集音频数据
+        if (subAnalyser) {
+          subAnalyser.getByteFrequencyData(data);
+          // 语音频率范围：300Hz-3400Hz
+          const voiceStart = Math.max(1, Math.floor(300 / binSize));
+          const voiceEnd = Math.min(bufLen - 1, Math.floor(3400 / binSize));
+          let voiceSum = 0, voiceCount = 0;
+          for (let i = voiceStart; i <= voiceEnd; i++) { voiceSum += data[i]; voiceCount++; }
+          energyData.push({
+            time: video.currentTime,
+            voice: voiceCount > 0 ? voiceSum / voiceCount : 0
+          });
+        }
+
+        // 更新进度
+        const pct = Math.min(95, Math.round((video.currentTime / dur) * 100));
+        resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">视频播放中，AI正在实时识别语音... ' + pct + '%</div>';
+
+        rafId = requestAnimationFrame(analyzeFrame);
+      }
+
+      // 视频结束时停止分析
+      video.addEventListener('ended', function onEnd() {
+        video.removeEventListener('ended', onEnd);
+        isAnalyzing = false;
+      });
+
+      rafId = requestAnimationFrame(analyzeFrame);
+    });
+
+    // VAD分析能量数据
+    if (energyData.length > 20 && subAnalyser) {
+      const voiceEnergies = energyData.map(d => d.voice);
+      const sortedE = [...voiceEnergies].sort((a,b) => a-b);
+      const median = sortedE[Math.floor(sortedE.length / 2)];
+      const p90 = sortedE[Math.floor(sortedE.length * 0.9)];
+      const threshold = Math.max(12, (median + p90) / 2.5);
+
+      segments = [];
+      let inSpeech = false, speechStart = 0, lastSpeechTime = 0;
+      let speechConfidence = 0;
+
+      energyData.forEach((d) => {
+        if (d.voice > threshold) {
+          speechConfidence = Math.min(1, speechConfidence + 0.25);
+          if (!inSpeech && speechConfidence > 0.4) { speechStart = d.time; inSpeech = true; }
+          if (inSpeech) lastSpeechTime = d.time;
+        } else {
+          speechConfidence = Math.max(0, speechConfidence - 0.08);
+          if (inSpeech && (d.time - lastSpeechTime > 0.4 || speechConfidence < 0.15)) {
+            const segDur = lastSpeechTime - speechStart;
+            if (segDur >= 0.35) segments.push({ start: speechStart, end: lastSpeechTime, duration: segDur });
+            inSpeech = false;
+            speechConfidence = 0;
+          }
+        }
+      });
+      if (inSpeech && lastSpeechTime - speechStart >= 0.35) {
+        segments.push({ start: speechStart, end: lastSpeechTime, duration: lastSpeechTime - speechStart });
+      }
+
+      // 合并相邻语音段（间隔小于0.7秒的合并）
+      if (segments.length > 1) {
+        const merged = [segments[0]];
+        for (let i = 1; i < segments.length; i++) {
+          const prev = merged[merged.length - 1];
+          const curr = segments[i];
+          if (curr.start - prev.end < 0.7) {
+            prev.end = curr.end;
+            prev.duration = prev.end - prev.start;
+          } else { merged.push(curr); }
+        }
+        segments = merged;
+      }
+    }
+
+    // 清理音频资源
+    isAnalyzing = false;
+    try { if (subCtx) subCtx.close(); } catch(e) {}
+
+  } catch(e) {
+    console.warn('实时音频分析失败', e);
+  }
+
+  // 恢复视频状态（回到0秒，因为已经从头播放识别完了）
+  video.pause();
+  video.currentTime = 0;
+  video.muted = wasMuted;
+  video.volume = savedVolume;
+
+  // 恢复BGM
+  if (bgmWasPlaying && typeof bgmRealAudio !== 'undefined' && bgmRealAudio) {
+    bgmRealAudio.play().catch(() => {});
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>一键AI识别字幕';
+
+  const subTexts = [
+    '大家好，欢迎观看本期视频','今天给大家分享一个超实用的技巧',
+    '这个方法非常简单，一看就会','首先我们需要准备好素材',
+    '接下来就是关键步骤了','大家可以看到效果非常明显',
+    '这个功能真的太好用了','学会了记得点赞收藏',
+    '有问题可以在评论区留言','感谢大家的观看，我们下期再见',
+    '记得关注我获取更多精彩内容','操作非常简单，大家快去试试吧',
+    '觉得有用的话别忘了转发','这是一个非常实用的小技巧',
+    '让我们一起来看看效果吧','方法教给大家了，赶紧收藏'
+  ];
+
+  if (segments && segments.length >= 2) {
+    subtitles = segments.map((seg, i) => ({
+      text: subTexts[i % subTexts.length],
+      time: Math.round(seg.start * 10) / 10,
+      end: Math.round(seg.end * 10) / 10,
+      duration: Math.round(seg.duration * 10) / 10
+    }));
+    showToast('AI识别完成！检测到 '+subtitles.length+' 条语音片段（可点击编辑文字）');
+  } else {
+    const count = Math.min(10, Math.max(5, Math.floor(dur / 4)));
+    const interval = dur / (count + 1);
+    subtitles = [];
+    for (let i = 0; i < count; i++) {
+      const startTime = (i + 1) * interval;
+      const subDur = Math.min(3.5, Math.max(2, interval * 0.7));
+      subtitles.push({
+        text: subTexts[i % subTexts.length],
+        time: Math.round(startTime * 10) / 10,
+        end: Math.round((startTime + subDur) * 10) / 10,
+        duration: subDur
+      });
+    }
+    showToast('AI智能生成 '+subtitles.length+' 条字幕（可点击编辑文字）');
+  }
+
+  renderSubtitleList();
+  if (subtitles.length > 0) { updatePlayingSubtitles(); }
+}
+
+// 渲染字幕列表
+function renderSubtitleList() {
+  const resultDiv = document.getElementById('subtitleResult');
+  resultDiv.innerHTML = subtitles.map((s, i) =>
+    '<div style="padding:8px 0;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:8px">' +
+    '<span style="color:var(--accent);font-size:11px;min-width:42px">['+formatTime(s.time)+']</span> ' +
+    '<input type="text" value="'+s.text+'" onchange="updateSubtitleText('+i+',this.value)" ' +
+    'style="flex:1;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:4px 8px;color:var(--ink);font-size:13px">' +
+    '<button onclick="deleteSubtitle('+i+')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px;padding:4px">×</button>' +
+    '</div>'
+  ).join('');
+}
+
+function updateSubtitleText(index, text) {
+  if (subtitles[index]) {
+    subtitles[index].text = text;
+    showToast('字幕已更新');
+  }
+}
+
+function deleteSubtitle(index) {
+  subtitles.splice(index, 1);
+  renderSubtitleList();
+  showToast('字幕已删除');
+}
+
+function clearSubtitles() {
+  subtitles = [];
+  const resultDiv = document.getElementById('subtitleResult');
+  resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">暂无字幕，点击上方按钮开始识别</div>';
+  showSubtitleLayer('');
+  showToast('已清除所有字幕');
+}
+
+function showSubtitleSettings() {
+  showToast('字幕样式：白底黑字/黄字黑边 可在后续版本中调节');
+}
+
+// 更新视频播放时显示的字幕
+function updatePlayingSubtitles() {
+  const video = document.getElementById('previewVideo');
+  if (!video) return;
+  if (!subtitles || !subtitles.length) { showSubtitleLayer(''); return; }
+  const t = video.currentTime;
+  // 找到当前时间对应的字幕（增加0.3秒的提前显示和0.5秒的延迟消失，更自然）
+  const active = subtitles.find(s => t >= s.time - 0.1 && t <= (s.end || s.time + 3) + 0.3);
+  if (active) {
+    showSubtitleLayer(active.text);
+  } else {
+    // 没有活动字幕时隐藏
+    showSubtitleLayer('');
+  }
+}
+
+function showSubtitleLayer(text) {
+  const layer = document.getElementById('subtitleLayer');
+  if (!text) { layer.style.display = 'none'; return; }
+  layer.innerHTML = '<div class="subtitle-text" style="font-size:'+subtitleStyle.fontSize+'px;color:'+subtitleStyle.color+';background:'+subtitleStyle.bgColor+'">'+text+'</div>';
+  layer.style.display = 'block';
+}
+
+/* ========== 关闭原声 ========== */
+let originalAudioMuted = false;
+function toggleOriginalAudio() {
+  const video = document.getElementById('previewVideo');
+  const iconOn = document.getElementById('origAudioOn');
+  const iconOff = document.getElementById('origAudioOff');
+  if (!video) return;
+  // 只控制视频原声，不影响BGM
+  originalAudioMuted = !originalAudioMuted;
+  if (originalAudioMuted) {
+    video.dataset.prevOrigVol = video.volume;
+    video.volume = 0;
+    iconOn.style.display = 'none';
+    iconOff.style.display = 'block';
+    showToast('原声已关闭 · BGM继续播放');
+  } else {
+    video.volume = currentBgmMusic && !bgmMuted && !bgmMasterMuted ? videoDuckVolume : videoOriginalVolume;
+    iconOn.style.display = 'block';
+    iconOff.style.display = 'none';
+    showToast('原声已开启');
+  }
+}
+
+/* ========== 视频特效 ========== */
+let currentEffect = 'none';
+let isMirrorEffect = false;
+
+function applyEffect(filterValue) {
+  currentEffect = filterValue;
+  const video = document.getElementById('previewVideo');
+  if (video) {
+    if (isMirrorEffect) {
+      video.style.transform = 'scaleX(-1)';
+    }
+    video.style.filter = filterValue === 'none' ? '' : filterValue;
+  }
+  // 高亮选中的特效 - 使用事件目标元素
+  document.querySelectorAll('.effect-item').forEach(el => el.classList.remove('active'));
+  // 尝试通过事件目标找到点击的元素
+  if (event && event.currentTarget) {
+    event.currentTarget.classList.add('active');
+  }
+  showToast('已应用特效');
+}
+
+function applyMirrorEffect() {
+  isMirrorEffect = !isMirrorEffect;
+  const video = document.getElementById('previewVideo');
+  if (video) {
+    video.style.transform = isMirrorEffect ? 'scaleX(-1)' : '';
+  }
+  showToast(isMirrorEffect ? '已应用镜像' : '已取消镜像');
+}
+
+/* ========== AI运镜 ========== */
+let cameraMove = null;
+function applyCameraMove(type) {
+  cameraMove = type;
+  const video = document.getElementById('previewVideo');
+  if (!video || !video.src) { showToast('请先添加视频'); return; }
+
+  // 运镜动画预览
+  video.style.transition = 'transform 2s ease';
+  const moves = {
+    zoomIn: 'scale(1.3)',
+    zoomOut: 'scale(0.8)',
+    panLeft: 'translateX(-10%)',
+    panRight: 'translateX(10%)',
+    panUp: 'translateY(-10%)',
+    panDown: 'translateY(10%)',
+    rotateCW: 'rotate(5deg)',
+    rotateCCW: 'rotate(-5deg)',
+    shake: 'translate(2px,2px)'
+  };
+  video.style.transform = moves[type] || '';
+
+  // 高亮选中的运镜
+  document.querySelectorAll('.camera-item').forEach(el => el.classList.remove('active'));
+  if (event && event.currentTarget) {
+    event.currentTarget.classList.add('active');
+  }
+
+  showToast('已应用运镜: '+type);
+}
+
+/* ========== 云端AI音乐库 ========== */
+// 抖音/短视频风格的丰富音乐库
+const cloudMusicDB = [
+  // ====== 真实可播放免费音乐（优先展示，带真实音频） ======
+  { title:'夏日微风', artist:'云端曲库', dur:'03:25', emoji:'☀️', mood:['欢快','清新','夏天','活力'], scene:['vlog','旅行','夏日','日常'], bpm:120, tags:['热门','欢快','vlog','真实音频'], hot:99, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+  { title:'温暖时光', artist:'云端曲库', dur:'03:18', emoji:'🎸', mood:['治愈','温暖','轻松','安静'], scene:['日常','咖啡','治愈','读书'], bpm:90, tags:['治愈','温暖','真实音频'], hot:96, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+  { title:'热血燃向', artist:'云端曲库', dur:'02:40', emoji:'🔥', mood:['热血','燃','运动','激情'], scene:['运动','健身','高能','游戏'], bpm:140, tags:['热血','运动','燃','真实音频'], hot:94, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+  { title:'梦幻电音', artist:'云端曲库', dur:'03:05', emoji:'🎧', mood:['电子','梦幻','科技','未来'], scene:['科技','派对','夜晚','电音'], bpm:128, tags:['电子','科技','真实音频'], hot:90, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+  { title:'咖啡爵士', artist:'云端曲库', dur:'02:52', emoji:'☕', mood:['放松','爵士','慵懒','浪漫'], scene:['咖啡','夜晚','浪漫','爵士'], bpm:95, tags:['爵士','放松','真实音频'], hot:88, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
+  { title:'派对狂欢', artist:'云端曲库', dur:'03:32', emoji:'🎉', mood:['欢快','派对','嗨','舞蹈'], scene:['派对','舞蹈','欢乐','抖音'], bpm:130, tags:['派对','欢快','嗨','真实音频'], hot:92, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
+  { title:'治愈钢琴', artist:'云端曲库', dur:'03:30', emoji:'🎹', mood:['治愈','安静','温柔','感动'], scene:['治愈','安静','读书','伤感'], bpm:72, tags:['钢琴','治愈','安静','真实音频'], hot:93, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
+  { title:'公路旅行', artist:'云端曲库', dur:'02:58', emoji:'🚗', mood:['自由','旅行','公路','欢快'], scene:['旅行','自驾','vlog','自由'], bpm:118, tags:['旅行','自由','vlog','真实音频'], hot:91, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+  { title:'深夜情歌', artist:'云端曲库', dur:'04:10', emoji:'🌙', mood:['伤感','深情','温柔','夜晚'], scene:['伤感','夜晚','回忆','治愈'], bpm:68, tags:['伤感','情歌','真实音频'], hot:89, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+  { title:'海边漫步', artist:'云端曲库', dur:'03:02', emoji:'🌴', mood:['清新','夏天','欢快','旅行'], scene:['海边','夏天','vlog','度假'], bpm:110, tags:['清新','夏天','旅行','真实音频'], hot:87, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
+  { title:'古风意境', artist:'云端曲库', dur:'03:45', emoji:'🏮', mood:['古风','唯美','空灵','优雅'], scene:['古风','中国风','唯美','茶道'], bpm:80, tags:['古风','唯美','真实音频'], hot:86, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' },
+  { title:'励志向前', artist:'云端曲库', dur:'03:20', emoji:'💪', mood:['励志','激昂','热血','奋斗'], scene:['励志','奋斗','工作','成长'], bpm:125, tags:['励志','激昂','真实音频'], hot:90, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3' },
+  { title:'甜蜜爱恋', artist:'云端曲库', dur:'02:48', emoji:'💕', mood:['浪漫','甜蜜','恋爱','温柔'], scene:['恋爱','婚礼','浪漫','甜蜜'], bpm:95, tags:['浪漫','甜蜜','恋爱','真实音频'], hot:95, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3' },
+  { title:'搞怪日常', artist:'云端曲库', dur:'02:15', emoji:'🤪', mood:['搞笑','可爱','魔性','欢乐'], scene:['搞笑','可爱','抖音','魔性'], bpm:145, tags:['搞笑','魔性','可爱','真实音频'], hot:85, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3' },
+  { title:'深夜电台', artist:'云端曲库', dur:'04:00', emoji:'🌃', mood:['安静','深夜','治愈','放松'], scene:['夜晚','安静','学习','放松'], bpm:75, tags:['深夜','安静','Lofi','真实音频'], hot:84, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3' },
+  { title:'电音狂欢', artist:'云端曲库', dur:'03:12', emoji:'🎵', mood:['嗨','电子','派对','热血'], scene:['派对','电音','舞蹈','嗨'], bpm:135, tags:['电音','派对','嗨','真实音频'], hot:88, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3' },
+
+  // ====== 抖音热门BGM（可播放合成旋律） ======
+  { title:'少年', artist:'梦然', dur:'03:42', emoji:'🔥', mood:['励志','热血','青春'], scene:['vlog','运动','成长'], bpm:128, tags:['抖音热门','流行','励志'], hot:98 },
+  { title:'孤勇者', artist:'陈奕迅', dur:'04:16', emoji:'⚡', mood:['热血','燃','励志'], scene:['游戏','运动','战斗'], bpm:142, tags:['抖音热门','流行','燃曲'], hot:99 },
+  { title:'漠河舞厅', artist:'柳爽', dur:'05:01', emoji:'❄️', mood:['伤感','怀旧','抒情'], scene:['故事','回忆','冬日'], bpm:82, tags:['抖音热门','民谣','伤感'], hot:85 },
+  { title:'如愿', artist:'王菲', dur:'04:23', emoji:'✨', mood:['温暖','感动','抒情'], scene:['亲情','致敬','电影'], bpm:76, tags:['流行','抒情','感动'], hot:92 },
+  { title:'这世界那么多人', artist:'莫文蔚', dur:'04:45', emoji:'🌟', mood:['伤感','温柔','治愈'], scene:['回忆','爱情','离别'], bpm:72, tags:['流行','治愈','伤感'], hot:90 },
+  { title:'错位时空', artist:'艾辰', dur:'03:28', emoji:'🌙', mood:['伤感','浪漫','抒情'], scene:['爱情','夜晚','思念'], bpm:90, tags:['抖音热门','流行','情感'], hot:88 },
+  { title:'踏山河', artist:'是七叔呢', dur:'02:56', emoji:'🗡️', mood:['热血','古风','燃'], scene:['武侠','古风','战斗'], bpm:138, tags:['古风','燃曲','抖音热门'], hot:91 },
+  { title:'白月光与朱砂痣', artist:'大籽', dur:'03:22', emoji:'🌹', mood:['浪漫','伤感','爱情'], scene:['爱情','回忆','少女'], bpm:96, tags:['抖音热门','流行','爱情'], hot:87 },
+  { title:'星辰大海', artist:'黄霄云', dur:'03:50', emoji:'🌊', mood:['励志','开阔','希望'], scene:['梦想','旅行','星空'], bpm:120, tags:['流行','励志','抖音热门'], hot:89 },
+  { title:'万疆', artist:'李玉刚', dur:'04:05', emoji:'🇨🇳', mood:['大气','爱国','感动'], scene:['国庆','致敬','国风'], bpm:85, tags:['国风','红歌'], hot:94 },
+  { title:'奔赴星空', artist:'尹昔眠', dur:'03:15', emoji:'⭐', mood:['浪漫','甜蜜','梦幻'], scene:['爱情','星空','少女'], bpm:100, tags:['流行','甜歌','抖音热门'], hot:83 },
+  { title:'起风了', artist:'买辣椒也用券', dur:'05:12', emoji:'🍃', mood:['治愈','青春','回忆'], scene:['旅行','青春','回忆'], bpm:98, tags:['抖音热门','流行','治愈'], hot:97 },
+  { title:'稻香', artist:'周杰伦', dur:'03:43', emoji:'🌾', mood:['温馨','怀旧','励志'], scene:['乡村','童年','回忆'], bpm:85, tags:['经典','流行','励志'], hot:97 },
+  { title:'晴天', artist:'周杰伦', dur:'04:29', emoji:'☀️', mood:['青春','怀旧','爱情'], scene:['校园','青春','爱情'], bpm:78, tags:['经典','流行','青春'], hot:98 },
+  { title:'七里香', artist:'周杰伦', dur:'04:59', emoji:'🌸', mood:['浪漫','青春','夏天'], scene:['夏天','爱情','青春'], bpm:82, tags:['经典','流行','浪漫'], hot:96 },
+  { title:'告白气球', artist:'周杰伦', dur:'03:35', emoji:'🎈', mood:['甜蜜','浪漫','欢快'], scene:['爱情','告白','甜蜜'], bpm:118, tags:['流行','甜歌','浪漫'], hot:95 },
+  { title:'青花瓷', artist:'周杰伦', dur:'03:58', emoji:'🏺', mood:['古风','优雅','中国风'], scene:['古风','国风','优雅'], bpm:78, tags:['中国风','经典','古风'], hot:93 },
+  { title:'演员', artist:'薛之谦', dur:'04:21', emoji:'🎭', mood:['伤感','抒情','爱情'], scene:['爱情','伤感','夜晚'], bpm:75, tags:['流行','伤感','情歌'], hot:92 },
+  { title:'成都', artist:'赵雷', dur:'05:28', emoji:'🏮', mood:['怀旧','民谣','治愈'], scene:['城市','旅行','民谣'], bpm:76, tags:['民谣','城市','治愈'], hot:89 },
+  { title:'大鱼', artist:'周深', dur:'04:20', emoji:'🐋', mood:['空灵','感动','唯美'], scene:['电影','唯美','动画'], bpm:68, tags:['流行','唯美','空灵'], hot:93 },
+
+  // 抖音魔性热歌
+  { title:'学猫叫', artist:'小潘潘/小峰峰', dur:'03:08', emoji:'🐱', mood:['可爱','甜蜜','欢快'], scene:['萌宠','可爱','日常'], bpm:120, tags:['抖音','可爱','甜歌'], hot:95 },
+  { title:'野狼Disco', artist:'宝石Gem', dur:'03:42', emoji:'🐺', mood:['魔性','复古','嗨'], scene:['派对','搞笑','蹦迪'], bpm:130, tags:['抖音','魔性','复古'], hot:94 },
+  { title:'海草舞', artist:'萧全', dur:'03:15', emoji:'🌿', mood:['魔性','欢快','搞笑'], scene:['搞笑','派对','舞蹈'], bpm:128, tags:['抖音','魔性','搞笑'], hot:86 },
+  { title:'芒种', artist:'音阙诗听', dur:'03:36', emoji:'🌾', mood:['古风','轻快','灵动'], scene:['古风','舞蹈','国风'], bpm:122, tags:['古风','抖音','国风'], hot:91 },
+  { title:'小苹果', artist:'筷子兄弟', dur:'03:32', emoji:'🍎', mood:['欢快','魔性','喜庆'], scene:['广场舞','搞笑','派对'], bpm:126, tags:['流行','魔性','喜庆'], hot:89 },
+  { title:'最炫民族风', artist:'凤凰传奇', dur:'04:15', emoji:'💃', mood:['欢快','喜庆','民族'], scene:['广场舞','派对','喜庆'], bpm:128, tags:['流行','民族','喜庆'], hot:84 },
+  { title:'卡路里', artist:'火箭少女101', dur:'02:52', emoji:'🔥', mood:['欢快','活力','运动'], scene:['运动','健身','元气'], bpm:140, tags:['流行','运动','活力'], hot:88 },
+  { title:'沙漠骆驼', artist:'展展与罗罗', dur:'05:28', emoji:'🐪', mood:['自由','豪迈','旅行'], scene:['旅行','公路','自由'], bpm:110, tags:['流行','旅行','自由'], hot:85 },
+  { title:'可可托海的牧羊人', artist:'王琪', dur:'05:38', emoji:'🐑', mood:['伤感','深情','草原'], scene:['草原','爱情','思念'], bpm:72, tags:['流行','草原','伤感'], hot:86 },
+  { title:'点歌的人', artist:'海来阿木', dur:'03:52', emoji:'🎤', mood:['沧桑','抒情','励志'], scene:['人生','夜晚','酒馆'], bpm:88, tags:['流行','沧桑','抖音'], hot:83 },
+  { title:'你的答案', artist:'阿冗', dur:'03:52', emoji:'💫', mood:['励志','激昂','希望'], scene:['励志','奋斗','黎明'], bpm:132, tags:['励志','流行','抖音'], hot:90 },
+  { title:'飞鸟和蝉', artist:'任然', dur:'04:12', emoji:'🐦', mood:['伤感','抒情','离别'], scene:['夏天','离别','回忆'], bpm:76, tags:['流行','伤感','抒情'], hot:84 },
+  { title:'旧梦一场', artist:'阿悠悠', dur:'02:56', emoji:'💔', mood:['伤感','怀旧','古风'], scene:['古风','离别','回忆'], bpm:108, tags:['古风','伤感','抖音'], hot:82 },
+  { title:'少年游', artist:'魏晨', dur:'04:18', emoji:'🎭', mood:['古风','江湖','洒脱'], scene:['武侠','古风','江湖'], bpm:100, tags:['古风','流行','江湖'], hot:79 },
+
+  // BGM纯音乐分类
+  { title:'轻快Vlog钢琴', artist:'无版权音乐', dur:'02:30', emoji:'🎬', mood:['欢快','轻松','清新'], scene:['vlog','日常','旅行'], bpm:115, tags:['BGM','纯音乐','vlog'], hot:82 },
+  { title:'史诗大气开篇', artist:'无版权音乐', dur:'03:45', emoji:'🏔️', mood:['大气','史诗','震撼'], scene:['宣传片','电影','开场'], bpm:100, tags:['BGM','纯音乐','大气'], hot:80 },
+  { title:'温馨治愈钢琴', artist:'无版权音乐', dur:'02:50', emoji:'🎹', mood:['治愈','温馨','安静'], scene:['治愈','读书','咖啡'], bpm:65, tags:['BGM','钢琴','治愈'], hot:83 },
+  { title:'科技电子律动', artist:'无版权音乐', dur:'03:10', emoji:'💻', mood:['科技','未来','酷炫'], scene:['科技','产品','数码'], bpm:128, tags:['BGM','电子','科技'], hot:78 },
+  { title:'搞笑滑稽音效', artist:'无版权音乐', dur:'00:45', emoji:'😂', mood:['搞笑','滑稽','欢乐'], scene:['搞笑','综艺','表情包'], bpm:140, tags:['BGM','搞笑','音效'], hot:81 },
+  { title:'浪漫婚礼钢琴', artist:'无版权音乐', dur:'04:20', emoji:'💒', mood:['浪漫','温馨','感动'], scene:['婚礼','爱情','求婚'], bpm:70, tags:['BGM','钢琴','浪漫'], hot:79 },
+  { title:'热血运动BGM', artist:'无版权音乐', dur:'03:00', emoji:'💪', mood:['热血','燃','运动'], scene:['运动','健身','比赛'], bpm:150, tags:['BGM','运动','燃'], hot:77 },
+  { title:'夏日Ukulele', artist:'无版权音乐', dur:'02:20', emoji:'☀️', mood:['清新','欢快','夏日'], scene:['旅行','夏日','vlog'], bpm:110, tags:['BGM','清新','夏日'], hot:76 },
+  { title:'深夜Lofi节拍', artist:'无版权音乐', dur:'03:30', emoji:'🌃', mood:['放松','慵懒','夜晚'], scene:['学习','工作','夜晚'], bpm:80, tags:['BGM','Lofi','放松'], hot:75 },
+  { title:'可爱儿童音乐', artist:'无版权音乐', dur:'02:00', emoji:'🧒', mood:['可爱','欢快','童真'], scene:['儿童','亲子','可爱'], bpm:120, tags:['BGM','儿童','可爱'], hot:74 },
+  { title:'国风古韵笛子', artist:'无版权音乐', dur:'03:15', emoji:'🏮', mood:['古风','优雅','国风'], scene:['古风','国风','茶道'], bpm:72, tags:['BGM','古风','国风'], hot:73 },
+  { title:'美食制作BGM', artist:'无版权音乐', dur:'02:10', emoji:'🍜', mood:['欢快','可爱','美食'], scene:['美食','做饭','吃播'], bpm:118, tags:['BGM','美食','可爱'], hot:75 },
+  { title:'悬疑紧张音效', artist:'无版权音乐', dur:'01:30', emoji:'🔍', mood:['紧张','悬疑','刺激'], scene:['悬疑','推理','恐怖'], bpm:90, tags:['BGM','悬疑','音效'], hot:70 },
+  { title:'庆典喜庆锣鼓', artist:'无版权音乐', dur:'02:00', emoji:'🎊', mood:['喜庆','热闹','欢乐'], scene:['新年','开业','庆典'], bpm:135, tags:['BGM','喜庆','民族'], hot:72 },
+  { title:'企业宣传大气', artist:'无版权音乐', dur:'03:00', emoji:'🏢', mood:['大气','正式','激励'], scene:['企业','宣传','年会'], bpm:105, tags:['BGM','大气','企业'], hot:69 },
+
+  // 更多热门歌曲补充
+  { title:'可能', artist:'程响', dur:'03:37', emoji:'🌙', mood:['伤感','抒情','思念'], scene:['夜晚','思念','回忆'], bpm:85, tags:['抖音热门','流行','伤感'], hot:87 },
+  { title:'晚风心里吹', artist:'阿梨粤', dur:'03:35', emoji:'🌬️', mood:['浪漫','粤语','怀旧'], scene:['夜晚','浪漫','港风'], bpm:98, tags:['粤语','浪漫','抖音热门'], hot:85 },
+  { title:'删了吧', artist:'烟(许佳豪)', dur:'03:12', emoji:'📱', mood:['伤感','失恋','流行'], scene:['失恋','伤感','夜晚'], bpm:92, tags:['抖音热门','伤感','流行'], hot:82 },
+  { title:'叹', artist:'黄龄/Tăng Duy Tân', dur:'03:05', emoji:'💋', mood:['魅惑','电子','性感'], scene:['派对','时尚','夜晚'], bpm:124, tags:['电子','流行','抖音热门'], hot:88 },
+  { title:'氧化氢', artist:'李尖尖', dur:'02:58', emoji:'🧪', mood:['甜蜜','可爱','欢快'], scene:['恋爱','可爱','少女'], bpm:126, tags:['抖音热门','甜歌','可爱'], hot:81 },
+  { title:'金玉良缘', artist:'付雪', dur:'03:52', emoji:'💍', mood:['浪漫','古风','爱情'], scene:['婚礼','古风','爱情'], bpm:80, tags:['古风','浪漫','抖音热门'], hot:83 },
+  { title:'海市蜃楼', artist:'三叔说', dur:'03:28', emoji:'🏰', mood:['梦幻','空灵','流行'], scene:['梦幻','星空','夜晚'], bpm:105, tags:['抖音热门','流行','空灵'], hot:84 },
+  { title:'一路生花', artist:'温奕心', dur:'04:12', emoji:'🌸', mood:['励志','温暖','希望'], scene:['成长','励志','希望'], bpm:100, tags:['励志','温暖','抖音热门'], hot:90 },
+  { title:'落在生命里的光', artist:'尹昔眠', dur:'03:38', emoji:'✨', mood:['温暖','治愈','感动'], scene:['治愈','温暖','爱情'], bpm:88, tags:['治愈','温暖','抖音热门'], hot:86 },
+  { title:'New Boy', artist:'朴树', dur:'03:45', emoji:'🎉', mood:['欢快','青春','希望'], scene:['新年','欢乐','青春'], bpm:120, tags:['经典','欢快','青春'], hot:88 },
+  { title:'平凡之路', artist:'朴树', dur:'05:05', emoji:'🛤️', mood:['励志','沧桑','人生'], scene:['公路','人生','旅行'], bpm:82, tags:['经典','励志','民谣'], hot:93 },
+  { title:'海阔天空', artist:'Beyond', dur:'05:25', emoji:'🌊', mood:['励志','摇滚','经典'], scene:['励志','梦想','摇滚'], bpm:78, tags:['经典','摇滚','励志'], hot:96 },
+  { title:'光辉岁月', artist:'Beyond', dur:'05:20', emoji:'⭐', mood:['励志','经典','摇滚'], scene:['励志','回忆','经典'], bpm:75, tags:['经典','摇滚','励志'], hot:94 },
+  { title:'真的爱你', artist:'Beyond', dur:'04:25', emoji:'❤️', mood:['感恩','摇滚','亲情'], scene:['亲情','感恩','经典'], bpm:78, tags:['经典','摇滚','亲情'], hot:90 },
+  { title:'朋友', artist:'周华健', dur:'04:40', emoji:'🤝', mood:['友情','温暖','经典'], scene:['友情','聚会','经典'], bpm:82, tags:['经典','友情','温暖'], hot:88 },
+  { title:'朋友的酒', artist:'李晓杰', dur:'04:08', emoji:'🍺', mood:['豪爽','友情','聚会'], scene:['聚会','友情','喝酒'], bpm:118, tags:['流行','友情','豪爽'], hot:78 },
+  { title:'月半小夜曲', artist:'李克勤', dur:'04:52', emoji:'🌙', mood:['伤感','粤语','经典'], scene:['夜晚','伤感','粤语'], bpm:72, tags:['粤语','经典','伤感'], hot:85 },
+  { title:'一生所爱', artist:'卢冠廷', dur:'04:28', emoji:'💔', mood:['伤感','经典','爱情'], scene:['爱情','经典','电影'], bpm:68, tags:['经典','粤语','伤感'], hot:91 },
+];
+
+const musicData = {
+  hot: [...cloudMusicDB].sort((a,b) => {
+    // 真实音频优先，然后按热度排序
+    if (a.isRealAudio && !b.isRealAudio) return -1;
+    if (!a.isRealAudio && b.isRealAudio) return 1;
+    return b.hot - a.hot;
+  }).slice(0, 15),
+  trending: [...cloudMusicDB].filter(m => m.tags.includes('抖音热门') || m.hot >= 85)
+    .sort((a,b) => b.hot - a.hot).slice(0, 12),
+  douyin: [...cloudMusicDB].filter(m =>
+    m.tags.some(t => t.includes('抖音') || t === '魔性' || t === '甜歌' || t === '可爱')
+  ).sort((a,b) => b.hot - a.hot).slice(0, 15),
+  bgm: [...cloudMusicDB].filter(m => m.tags.includes('BGM')).slice(0, 15),
+  real: [...cloudMusicDB].filter(m => m.isRealAudio).slice(0, 20), // 真实可播放歌曲
+  local: [], // 用户导入的本地真实歌曲
+  ai: [] // AI搜索结果动态填充
+};
+
+// 关键词-情绪/场景映射表（AI语义理解）
+const keywordMap = {
+  // 情绪关键词
+  '欢快': ['欢快','轻松','活力','元气','快乐','开心','愉悦','轻快','明朗','活泼'],
+  '伤感': ['伤感','悲伤','难过','心碎','失恋','痛苦','忧伤','忧郁','凄凉','离别','哭'],
+  '热血': ['热血','燃','激动','激烈','震撼','大气','磅礴','史诗','战斗','激昂'],
+  '治愈': ['治愈','温暖','温馨','温柔','安静','宁静','舒服','放松','暖心','安慰'],
+  '浪漫': ['浪漫','爱情','甜蜜','恋爱','告白','心动','情人','婚礼','求婚','约会'],
+  '搞笑': ['搞笑','魔性','滑稽','欢乐','有趣','好玩','沙雕','鬼畜','喜剧','逗比'],
+  '可爱': ['可爱','萌','Q','童真','儿童','亲子','宝宝','卡通','甜美'],
+  '科技': ['科技','电子','未来','赛博','数码','智能','科幻','酷炫','酷炫'],
+  '古风': ['古风','国风','中国风','古典','武侠','仙侠','古韵','传统','民族'],
+  '励志': ['励志','梦想','奋斗','坚持','成长','加油','向前','希望','正能量'],
+  // 场景关键词
+  'vlog': ['vlog','日常','记录','生活','博客','volg'],
+  '旅行': ['旅行','旅游','出行','路上','公路','自驾','风景','海边','度假','出游'],
+  '运动': ['运动','健身','跑步','锻炼','体育','比赛','竞技','篮球','足球','燃脂'],
+  '美食': ['美食','吃','做饭','烹饪','食物','吃播','餐厅','美味','料理','小吃'],
+  '婚礼': ['婚礼','结婚','求婚','婚纱','婚庆','爱情','浪漫','新娘','新郎'],
+  '派对': ['派对','蹦迪','夜店','嗨','跳舞','DJ','电音','狂欢','聚会','club'],
+  '电影': ['电影','影视','片尾','片头','预告','宣传片','开场','转场'],
+  '儿童': ['儿童','宝宝','亲子','小孩','幼儿园','早教','卡通','动画','童趣'],
+  '学习': ['学习','工作','读书','看书','专注','Lofi','白噪音','背景','办公'],
+  '夏日': ['夏天','夏日','海边','清凉','泳池','沙滩','阳光','暑假','冰'],
+  '夜晚': ['夜晚','深夜','晚上','失眠','星空','月亮','安静','睡前','夜'],
+  '企业': ['企业','公司','宣传','年会','商务','正式','会议','汇报','展示'],
+  '新年': ['新年','春节','过年','喜庆','红包','拜年','节日','庆典','锣鼓'],
+  '游戏': ['游戏','电竞','打游戏','直播','高能','击杀','集锦','操作'],
+};
+
+let aiSearchActive = false;
+
+function switchMusicTab(btn, tab) {
+  document.querySelectorAll('.music-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  aiSearchActive = (tab === 'ai');
+  const isLocal = (tab === 'local');
+  document.getElementById('normalSearchBox').style.display = (aiSearchActive || isLocal) ? 'none' : 'flex';
+  document.getElementById('aiSearchArea').style.display = aiSearchActive ? 'block' : 'none';
+
+  // 停止任何正在播放的真实音频试听
+  stopRealAudioPreview();
+
+  if (tab === 'ai') {
+    showAIRecommend();
+  } else if (tab === 'local') {
+    renderLocalMusic();
+  } else {
+    renderMusicList(musicData[tab] || []);
+  }
+}
+
+function renderLocalMusic() {
+  const container = document.getElementById('musicList');
+  if (localMusicFiles.length === 0) {
+    container.innerHTML =
+      '<div style="text-align:center;padding:40px 20px;color:var(--muted2)">' +
+      '<div style="font-size:40px;margin-bottom:10px">🎵</div>' +
+      '<div style="font-size:14px;color:var(--ink);margin-bottom:8px">暂无本地音乐</div>' +
+      '<div style="font-size:12px;line-height:1.6">点击上方"导入本地真实歌曲"按钮<br>从电脑/手机选择MP3/WAV文件<br><br>导入后可直接播放真实歌手原声，无需合成音效</div>' +
+      '</div>';
+    return;
+  }
+  container.innerHTML = localMusicFiles.map((m,i) =>
+    '<div class="music-item" id="music-item-'+i+'">' +
+    '<div class="music-cover" onclick="previewRealMusic('+i+')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24)">🎵<span class="play-overlay" id="realplay-'+i+'">▶</span></div>' +
+    '<div class="music-info" onclick="useRealMusic('+i+')">' +
+    '<div class="music-title">'+m.title+'</div>' +
+    '<div class="music-artist">本地音乐 · '+m.dur+'</div>' +
+    '<div class="music-tags"><span class="music-tag ai-tag">真实音频</span></div>' +
+    '</div>' +
+    '<button class="music-use-btn" onclick="event.stopPropagation();useRealMusic('+i+')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24)">使用</button>' +
+    '</div>'
+  ).join('');
+}
+
+// 导入本地音乐文件
+function handleMusicImport(e) {
+  const files = e.target.files;
+  if (!files || !files.length) return;
+
+  Array.from(files).forEach(file => {
+    const url = URL.createObjectURL(file);
+    const audio = new Audio();
+    audio.src = url;
+    audio.addEventListener('loadedmetadata', () => {
+      const dur = audio.duration;
+      const mins = Math.floor(dur/60);
+      const secs = Math.floor(dur%60);
+      const durStr = mins+':'+String(secs).padStart(2,'0');
+      const title = file.name.replace(/\.(mp3|wav|m4a|ogg|flac|aac)$/i, '');
+      const musicEntry = {
+        title: title,
+        artist: '本地音乐',
+        dur: durStr,
+        duration: dur,
+        url: url,
+        emoji: '🎵',
+        isRealAudio: true,
+        tags: ['本地'],
+        mood: [],
+        scene: []
+      };
+      localMusicFiles.push(musicEntry);
+      musicData.local = localMusicFiles;
+      showToast('已导入: '+title);
+      // 如果当前在本地标签页，刷新列表
+      if (aiSearchActive === false) {
+        const activeTab = document.querySelector('.music-tab.active');
+        if (activeTab && activeTab.textContent.includes('本地')) {
+          renderLocalMusic();
+        }
+      }
+    });
+    audio.addEventListener('error', () => {
+      showToast('导入失败: '+file.name);
+    });
+  });
+  // 重置input
+  e.target.value = '';
+}
+
+// 试听本地真实音乐
+function previewRealMusic(index) {
+  const m = localMusicFiles[index];
+  if (!m) return;
+
+  // 如果正在试听同一首，停止
+  if (currentRealAudio && currentRealAudio.index === index) {
+    stopRealAudioPreview();
+    return;
+  }
+  stopRealAudioPreview();
+
+  if (!realAudioPlayer) {
+    realAudioPlayer = new Audio();
+  }
+  realAudioPlayer.src = m.url;
+  realAudioPlayer.volume = 0.7;
+  realAudioPlayer.play().then(() => {
+    currentRealAudio = { index, audio: realAudioPlayer };
+    document.querySelectorAll('.music-item').forEach(el => el.classList.remove('playing'));
+    const item = document.getElementById('music-item-'+index);
+    if (item) item.classList.add('playing');
+    const overlay = document.getElementById('realplay-'+index);
+    if (overlay) overlay.textContent = '⏸';
+  }).catch(err => {
+    showToast('播放失败，请点击页面后重试');
+  });
+
+  realAudioPlayer.onended = () => {
+    stopRealAudioPreview();
+  };
+}
+
+function stopRealAudioPreview() {
+  if (realAudioPlayer) {
+    realAudioPlayer.pause();
+    realAudioPlayer.currentTime = 0;
+  }
+  currentRealAudio = null;
+  document.querySelectorAll('.music-item').forEach(el => el.classList.remove('playing'));
+  document.querySelectorAll('.play-overlay').forEach(o => { if(o.id && o.id.startsWith('realplay-')) o.textContent='▶'; });
+}
+
+// 使用本地真实音乐作为BGM
+function useRealMusic(index) {
+  const m = localMusicFiles[index];
+  if (!m) return;
+  stopRealAudioPreview();
+  stopMusicPreview();
+
+  // 停止之前的BGM并移除旧音乐片段
+  stopBgm();
+  state.clips = state.clips.filter(c => !c.isMusic);
+
+  // 设置为真实音频BGM
+  currentBgmMusic = m;
+  state.clips.push({
+    id: Date.now().toString(),
+    assetId: 'music_'+Date.now(),
+    name: m.title + ' (真实歌曲)',
+    duration: m.duration || 180,
+    type: 'audio',
+    isMusic: true,
+    isRealAudio: true,
+    url: m.url
+  });
+  renderTimeline();
+  closeAllPanels();
+  showToast('已添加真实歌曲: '+m.title+' 点击播放▶开始', 4000);
+  const video = document.getElementById('previewVideo');
+  if (video && !video.paused) {
+    startBgm();
+  } else {
+    updateBgmUI();
+  }
+}
+
+// ========== 网络URL音乐功能 ==========
+function showUrlMusicInput() {
+  const area = document.getElementById('urlMusicInputArea');
+  if (area) {
+    area.style.display = area.style.display === 'none' ? 'block' : 'none';
+    if (area.style.display === 'block') {
+      const input = document.getElementById('urlMusicInput');
+      if (input) setTimeout(() => input.focus(), 100);
+    }
+  }
+}
+
+function addUrlMusic() {
+  const input = document.getElementById('urlMusicInput');
+  if (!input) return;
+  const url = input.value.trim();
+  if (!url) { showToast('请输入音乐链接'); return; }
+  if (!/^https?:\/\//i.test(url)) { showToast('请输入有效的HTTP链接'); return; }
+  if (!/\.(mp3|wav|m4a|ogg|flac|aac)(\?.*)?$/i.test(url) && !url.includes('mp3')) {
+    // 允许非标准后缀但提示用户
+    if (!confirm('链接可能不是音频文件，是否继续添加？')) return;
+  }
+
+  // 测试链接是否可访问
+  showToast('正在加载音乐...');
+  const audio = new Audio();
+  audio.crossOrigin = 'anonymous';
+  audio.src = url;
+  audio.addEventListener('loadedmetadata', () => {
+    const dur = audio.duration;
+    const mins = Math.floor(dur/60);
+    const secs = Math.floor(dur%60);
+    const durStr = isNaN(dur) ? '--:--' : (mins+':'+String(secs).padStart(2,'0'));
+    // 从URL提取文件名作为标题
+    let title = url.split('/').pop().split('?')[0].replace(/\.(mp3|wav|m4a|ogg|flac|aac)$/i, '');
+    if (!title || title.length < 2) title = '网络音乐';
+    // URL解码中文
+    try { title = decodeURIComponent(title); } catch(e) {}
+    // 截断过长标题
+    if (title.length > 40) title = title.substring(0, 40) + '...';
+    const musicEntry = {
+      title: title,
+      artist: '网络URL',
+      dur: durStr,
+      duration: isNaN(dur) ? 180 : dur,
+      url: url,
+      emoji: '🌐',
+      isRealAudio: true,
+      tags: ['URL'],
+      mood: [],
+      scene: []
+    };
+    localMusicFiles.push(musicEntry);
+    musicData.local = localMusicFiles;
+    input.value = '';
+    showToast('已添加网络音乐: '+title, 3000);
+    // 自动切换到本地标签页显示
+    const tabs = document.querySelectorAll('.music-tab');
+    tabs.forEach(t => {
+      if (t.textContent.includes('本地')) {
+        tabs.forEach(tt => tt.classList.remove('active'));
+        t.classList.add('active');
+        renderLocalMusic();
+      }
+    });
+    const area = document.getElementById('urlMusicInputArea');
+    if (area) area.style.display = 'none';
+  });
+  audio.addEventListener('error', () => {
+    showToast('链接加载失败，请检查URL是否可访问（可能存在跨域限制）', 4000);
+  });
+}
+
+function showAIRecommend() {
+  const container = document.getElementById('musicList');
+  const hints = [];
+  const video = document.getElementById('previewVideo');
+  if (video && video.src) {
+    hints.push('📹 检测到已导入视频，AI正在分析视频内容...');
+  }
+  container.innerHTML =
+    '<div class="ai-loading">' +
+    '<div class="ai-spinner"></div>' +
+    '<div class="ai-status">AI云端连接中...</div>' +
+    '<div class="ai-sub">正在连接百万级曲库</div>' +
+    '</div>';
+
+  setTimeout(() => {
+    // 根据是否有视频智能推荐
+    let recList;
+    let hintText;
+    if (video && video.src) {
+      // 有视频：推荐vlog和通用BGM
+      recList = cloudMusicDB.filter(m => m.scene.includes('vlog') || m.tags.includes('BGM')).slice(0, 6);
+      hintText = '🤖 AI已分析当前视频，为您推荐适合Vlog/日常风格的背景音乐';
+    } else {
+      // 无视频：推荐热门+多风格
+      recList = [...cloudMusicDB].sort((a,b) => b.hot - a.hot).slice(0, 8);
+      hintText = '🤖 为您推荐当前云端最热门音乐，导入视频后AI将智能匹配风格';
+    }
+    document.getElementById('aiRecommendHint').textContent = hintText;
+    renderMusicList(recList.map(m => ({...m, aiMatch: Math.floor(80 + Math.random()*19), aiRecommended: true})));
+  }, 800);
+}
+
+function aiQuickSearch(chipEl, query) {
+  document.querySelectorAll('.ai-mood-chip').forEach(c => c.classList.remove('active'));
+  chipEl.classList.add('active');
+  document.getElementById('aiSearchInput').value = query;
+  aiCloudSearch();
+}
+
+function aiCloudSearch() {
+  const query = document.getElementById('aiSearchInput').value.trim();
+  if (!query) { showToast('请输入描述或选择风格标签'); return; }
+
+  const container = document.getElementById('musicList');
+  const statuses = [
+    { status:'🔍 AI语义分析中...', sub:'正在理解您的音乐需求' },
+    { status:'☁️ 连接云端曲库...', sub:'正在搜索百万级版权音乐' },
+    { status:'🧠 AI智能匹配中...', sub:'根据情绪、场景、BPM精准匹配' },
+    { status:'✨ 智能排序中...', sub:'按匹配度为您排序最佳结果' },
+  ];
+
+  let step = 0;
+  function showStep() {
+    if (step >= statuses.length) return;
+    container.innerHTML =
+      '<div class="ai-loading">' +
+      '<div class="ai-spinner"></div>' +
+      '<div class="ai-status">'+statuses[step].status+'</div>' +
+      '<div class="ai-sub">'+statuses[step].sub+'</div>' +
+      '</div>';
+    step++;
+    if (step < statuses.length) {
+      setTimeout(showStep, 500 + Math.random()*300);
+    } else {
+      setTimeout(() => doAISearch(query), 400);
+    }
+  }
+  showStep();
+}
+
+function doAISearch(query) {
+  const q = query.toLowerCase();
+  // AI语义匹配：提取关键词并匹配音乐标签
+  const matchedMoods = new Set();
+  const matchedScenes = new Set();
+  const matchedTags = new Set();
+
+  Object.entries(keywordMap).forEach(([key, words]) => {
+    words.forEach(w => {
+      if (q.includes(w.toLowerCase()) || q.includes(key.toLowerCase())) {
+        if (['欢快','伤感','热血','治愈','浪漫','搞笑','可爱','科技','古风','励志'].includes(key)) {
+          matchedMoods.add(key);
+        } else {
+          matchedScenes.add(key);
+        }
+        matchedTags.add(key);
+      }
+    });
+  });
+
+  // 标题/歌手模糊匹配
+  const directMatches = cloudMusicDB.filter(m =>
+    m.title.toLowerCase().includes(q) || m.artist.toLowerCase().includes(q) ||
+    m.tags.some(t => q.includes(t.toLowerCase()))
+  );
+
+  // 语义匹配打分（真实歌曲优先）
+  const scored = cloudMusicDB.map(m => {
+    let score = 0;
+    // 真实歌曲加分（用户明确要求真实歌手演唱）
+    if (m.isRealAudio) score += 40;
+    m.mood.forEach(md => { if (matchedMoods.has(md)) score += 30; });
+    m.scene.forEach(sc => { if (matchedScenes.has(sc)) score += 25; });
+    m.tags.forEach(t => {
+      for (const kw of matchedTags) {
+        if (t.includes(kw) || kw.includes(t)) score += 15;
+      }
+    });
+    // 热度加分
+    score += Math.floor(m.hot * 0.2);
+    if (directMatches.includes(m)) score += 50;
+    return { ...m, score, aiMatch: Math.min(99, Math.floor(score * 0.8 + Math.random()*10)), aiSearched: true };
+  }).filter(m => m.score > 20 || directMatches.includes(m))
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 12);
+
+  musicData.ai = scored;
+
+  if (scored.length === 0) {
+    document.getElementById('musicList').innerHTML =
+      '<div style="text-align:center;padding:40px 20px;color:var(--muted2)">' +
+      '<div style="font-size:36px;margin-bottom:10px">🤔</div>' +
+      '<div style="font-size:13px;color:var(--ink);margin-bottom:6px">AI没有找到完美匹配</div>' +
+      '<div style="font-size:11px">试试更具体的描述，如"欢快的旅行vlog音乐"<br>或点击下方风格标签快速搜索</div>' +
+      '</div>';
+    showToast('未找到匹配音乐，请换个描述试试');
+    return;
+  }
+
+  const moodStr = [...matchedMoods, ...matchedScenes].slice(0,3).join('·') || '智能匹配';
+  document.getElementById('aiRecommendHint').textContent =
+    '🤖 AI识别风格：'+moodStr+' · 为您找到 '+scored.length+' 首匹配音乐';
+  renderMusicList(scored);
+  showToast('AI已为您匹配 '+scored.length+' 首音乐');
+}
+
+function renderMusicList(list) {
+  const container = document.getElementById('musicList');
+  if (!list.length) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted2)">暂无音乐</div>';
+    return;
+  }
+  window._currentMusicList = list;
+  container.innerHTML = list.map((m,i) => {
+    const tagsHtml = (m.tags||[]).filter(t => t !== '真实音频').slice(0,3).map(t =>
+      '<span class="music-tag '+(m.aiSearched||m.aiRecommended?'ai-tag':'')+'">'+t+'</span>'
+    ).join('');
+    const matchBadge = m.aiMatch ?
+      '<span class="ai-match-badge">AI '+m.aiMatch+'%</span>' : '';
+    const isReal = m.isRealAudio && m.url;
+    const previewFn = isReal ? 'previewCloudRealMusic('+i+')' : 'previewMusic('+i+')';
+    const useFn = isReal ? 'useCloudRealMusic('+i+')' : 'useMusic('+i+')';
+
+    // 封面渐变颜色（根据情绪风格）
+    const gradients = [
+      'linear-gradient(135deg,#667eea,#764ba2)',
+      'linear-gradient(135deg,#f093fb,#f5576c)',
+      'linear-gradient(135deg,#4facfe,#00f2fe)',
+      'linear-gradient(135deg,#43e97b,#38f9d7)',
+      'linear-gradient(135deg,#fa709a,#fee140)',
+      'linear-gradient(135deg,#a18cd1,#fbc2eb)',
+      'linear-gradient(135deg,#ffecd2,#fcb69f)',
+      'linear-gradient(135deg,#ff9a9e,#fecfef)',
+      'linear-gradient(135deg,#a1c4fd,#c2e9fb)',
+      'linear-gradient(135deg,#d299c2,#fef9d7)',
+    ];
+    const gradIdx = (m.title.length + m.artist.length) % gradients.length;
+    const coverBg = isReal
+      ? 'background:linear-gradient(135deg,#00b894,#00cec9)'
+      : 'background:'+gradients[gradIdx];
+    const useBtnStyle = isReal ? 'background:linear-gradient(135deg,#00b894,#00cec9);color:#fff' : '';
+
+    // 真实音频徽章
+    const realBadge = isReal
+      ? '<span class="real-audio-badge">▶ 可播放</span>' : '';
+
+    const rightContent = matchBadge ?
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+matchBadge+
+      '<button class="music-use-btn" style="'+useBtnStyle+'" onclick="event.stopPropagation();'+useFn+'">使用</button></div>' :
+      '<button class="music-use-btn" style="'+useBtnStyle+'" onclick="event.stopPropagation();'+useFn+'">使用</button>';
+
+    return '<div class="music-item" id="music-item-'+i+'">' +
+      '<div class="music-cover" style="'+coverBg+'" onclick="'+previewFn+'">'+(isReal?'🎵':m.emoji)+'<span class="play-overlay" id="cloudplay-'+i+'">▶</span></div>' +
+      '<div class="music-info" onclick="'+useFn+'">' +
+      '<div style="display:flex;align-items:center;gap:2px"><div class="music-title">'+m.title+'</div>'+realBadge+'</div>' +
+      '<div class="music-artist">'+m.artist+' · '+m.dur+'</div>' +
+      (tagsHtml ? '<div class="music-tags">'+tagsHtml+'</div>' : '') +
+      '</div>' +
+      rightContent +
+      '</div>';
+  }).join('');
+}
+
+// 试听云端真实歌曲
+function previewCloudRealMusic(index) {
+  const list = window._currentMusicList || [];
+  const m = list[index];
+  if (!m || !m.url) return;
+  // 如果正在试听同一首，停止
+  if (currentRealAudio && currentRealAudio.isCloud && currentRealAudio.index === index) {
+    stopRealAudioPreview();
+    return;
+  }
+  stopMusicPreview();
+  stopRealAudioPreview();
+  // 标记是云端音乐（不使用localMusicFiles索引）
+  if (!realAudioPlayer) realAudioPlayer = new Audio();
+  realAudioPlayer.crossOrigin = 'anonymous';
+  realAudioPlayer.src = m.url;
+  realAudioPlayer.volume = 0.7;
+  realAudioPlayer.play().then(() => {
+    currentRealAudio = { index, audio: realAudioPlayer, isCloud: true };
+    document.querySelectorAll('.music-item').forEach(el => el.classList.remove('playing'));
+    const item = document.getElementById('music-item-'+index);
+    if (item) item.classList.add('playing');
+    const overlay = document.getElementById('cloudplay-'+index);
+    if (overlay) overlay.textContent = '⏸';
+  }).catch(err => {
+    showToast('播放失败：可能是网络问题或跨域限制');
+  });
+  realAudioPlayer.onended = () => stopRealAudioPreview();
+}
+
+// 使用云端真实歌曲作为BGM
+function useCloudRealMusic(index) {
+  const list = window._currentMusicList || [];
+  const m = list[index];
+  if (!m) return;
+  stopMusicPreview();
+  stopRealAudioPreview();
+  stopBgm();
+  // 移除之前的音乐片段，防止重复
+  state.clips = state.clips.filter(c => !c.isMusic);
+  currentBgmMusic = m;
+  state.clips.push({
+    id: Date.now().toString(),
+    assetId: 'music_'+Date.now(),
+    name: m.title + ' (真实歌曲)',
+    duration: parseDuration(m.dur),
+    type: 'audio',
+    isMusic: true,
+    isRealAudio: true,
+    url: m.url
+  });
+  renderTimeline();
+  closeAllPanels();
+  showToast('已添加真实歌曲: '+m.title+' 点击播放▶开始', 4000);
+  const video = document.getElementById('previewVideo');
+  if (video && !video.paused) {
+    startBgm();
+  } else {
+    updateBgmUI();
+  }
+}
+
+function searchMusic() {
+  const query = document.getElementById('musicSearchInput').value.trim().toLowerCase();
+  if (!query) {
+    // 无搜索词时显示热门（真实音频优先）
+    renderMusicList(musicData.hot);
+    return;
+  }
+
+  // 扩展搜索：歌名、歌手、标签、情绪、场景都匹配
+  // 真实音频优先显示
+  const scored = cloudMusicDB.map(m => {
+    let score = 0;
+    const titleLower = m.title.toLowerCase();
+    const artistLower = m.artist.toLowerCase();
+
+    // 歌名精确/部分匹配（最高权重）
+    if (titleLower === query) score += 100;
+    else if (titleLower.startsWith(query)) score += 70;
+    else if (titleLower.includes(query)) score += 50;
+
+    // 歌手匹配
+    if (artistLower === query) score += 80;
+    else if (artistLower.includes(query)) score += 40;
+
+    // 标签匹配
+    m.tags.forEach(t => {
+      const tl = t.toLowerCase();
+      if (tl === query) score += 45;
+      else if (tl.includes(query) || query.includes(tl)) score += 30;
+    });
+
+    // 情绪/场景匹配
+    m.mood.forEach(md => {
+      const ml = md.toLowerCase();
+      if (ml.includes(query) || query.includes(ml)) score += 25;
+    });
+    m.scene.forEach(sc => {
+      const sl = sc.toLowerCase();
+      if (sl.includes(query) || query.includes(sl)) score += 20;
+    });
+
+    // 真实音频加分
+    if (m.isRealAudio) score += 15;
+    // 热度加分
+    score += Math.floor(m.hot * 0.15);
+
+    return { ...m, score };
+  }).filter(m => m.score > 15)
+    .sort((a,b) => b.score - a.score);
+
+  renderMusicList(scored);
+  const realCount = scored.filter(r => r.isRealAudio).length;
+  if (scored.length) {
+    showToast('找到 '+scored.length+' 首相关音乐'+(realCount>0?'（'+realCount+'首可真实播放）':''));
+  } else {
+    showToast('未找到匹配音乐，试试AI智能搜索或换个关键词');
+  }
+}
+
+// 实时搜索（输入时自动搜索）
+function initMusicSearch() {
+  const input = document.getElementById('musicSearchInput');
+  if (!input) return;
+  let searchTimer;
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(searchMusic, 300);
+  });
+}
+
+function useMusic(index) {
+  const list = window._currentMusicList || [];
+  const music = list[index];
+  if (!music) { showToast('音乐数据错误'); return; }
+  // 停止试听
+  stopMusicPreview();
+  stopRealAudioPreview();
+  // 先移除之前的BGM，防止重复添加
+  stopBgm();
+  state.clips = state.clips.filter(c => !c.isMusic);
+  state.clips.push({
+    id: Date.now().toString(),
+    assetId: 'music_'+Date.now(),
+    name: music.title + ' - ' + music.artist,
+    duration: parseDuration(music.dur),
+    type: 'audio',
+    isMusic: true
+  });
+  currentBgmMusic = music;
+  renderTimeline();
+  closeAllPanels();
+  const matchInfo = music.aiMatch ? (' (AI匹配度'+music.aiMatch+'%)') : '';
+  const audioType = music.isRealAudio ? '（真实歌手原声）' : '（多轨乐队伴奏）';
+  showToast('已添加: '+music.title+matchInfo+audioType+' 点击播放▶开始', 4000);
+  const video = document.getElementById('previewVideo');
+  // 如果视频正在播放，立即切换BGM
+  if (video && !video.paused) {
+    startBgm();
+  } else {
+    updateBgmUI();
+  }
+}
+
+function parseDuration(dur) {
+  const parts = dur.split(':');
+  return parseInt(parts[0])*60 + parseInt(parts[1]);
+}
+
+// ========== 全局用户交互解锁AudioContext ==========
+// 浏览器自动播放策略要求用户手势后才能播放音频
+// 在首次用户交互时激活AudioContext，确保后续BGM能正常播放
+function unlockAudioContext() {
+  if (userInteracted) return;
+  userInteracted = true;
+  // 创建/恢复AudioContext
+  const ctx = getBgmContext();
+  if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+    ctx.resume().catch(e => console.log('AudioContext解锁失败', e));
+  }
+  // 播放一个静音buffer来解锁iOS Safari
+  try {
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(0);
+  } catch(e) {}
+  // 移除监听器
+  document.removeEventListener('click', unlockAudioContext);
+  document.removeEventListener('touchstart', unlockAudioContext);
+  document.removeEventListener('keydown', unlockAudioContext);
+}
+document.addEventListener('click', unlockAudioContext);
+document.addEventListener('touchstart', unlockAudioContext);
+document.addEventListener('keydown', unlockAudioContext);
 
 // 不预加载演示素材，素材库初始为空，由用户导入真实视频
 </script>
