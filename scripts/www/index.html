@@ -442,6 +442,16 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
 
 /* 真人视频场景 */
 .scene-real{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f0f23 100%)}
+
+/* 真实媒体播放层 */
+.media-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;display:flex;align-items:center;justify-content:center;background:#000}
+.media-layer video,.media-layer img{width:100%;height:100%;object-fit:contain}
+.media-layer img.ken-burns{animation:kenburns 6s ease-in-out forwards}
+@keyframes kenburns{0%{transform:scale(1)}100%{transform:scale(1.15)}}
+.demo-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:4}
+.sound-indicator{position:absolute;top:14px;right:14px;z-index:25;width:32px;height:32px;background:rgba(0,0,0,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;backdrop-filter:blur(4px)}
+.sound-indicator.muted{opacity:.5}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -814,45 +824,53 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
         <div class="title" style="margin-right:40px">视频预览</div>
       </div>
       <div class="preview-video-wrap" id="video-wrap">
-        <!-- 多个视频场景帧，通过opacity切换避免闪烁 - 真人出镜版本 -->
-        <div class="video-scene scene-real active" id="scene-0">
-          <div class="scene-content">
-            <div class="scene-icon">🧑‍💼</div>
-            <div class="scene-title">大家好</div>
-            <div class="scene-desc">龙河影像 · 专业婚礼摄影</div>
+        <!-- 真实媒体播放层 - 用户上传的视频/图片 -->
+        <div class="media-layer" id="media-layer">
+          <!-- 动态生成的video/img元素将放在这里 -->
+        </div>
+        <!-- 演示场景层（无素材时显示） -->
+        <div class="demo-layer" id="demo-layer">
+          <div class="video-scene scene-real active" id="demo-scene-0">
+            <div class="scene-content">
+              <div class="scene-icon">🧑‍💼</div>
+              <div class="scene-title">大家好</div>
+              <div class="scene-desc">龙河影像 · 专业婚礼摄影</div>
+            </div>
+          </div>
+          <div class="video-scene scene-real" id="demo-scene-1">
+            <div class="scene-content">
+              <div class="scene-icon">💒</div>
+              <div class="scene-title">婚礼摄影服务介绍</div>
+              <div class="scene-desc">专业团队 · 用心记录</div>
+            </div>
+          </div>
+          <div class="video-scene scene-real" id="demo-scene-2">
+            <div class="scene-content">
+              <div class="scene-icon">📸</div>
+              <div class="scene-title">十年专业经验</div>
+              <div class="scene-desc">千对新人的信赖选择</div>
+            </div>
+          </div>
+          <div class="video-scene scene-real" id="demo-scene-3">
+            <div class="scene-content">
+              <div class="scene-icon">💍</div>
+              <div class="scene-title">定格美好瞬间</div>
+              <div class="scene-desc">记录人生最幸福时刻</div>
+            </div>
+          </div>
+          <div class="video-scene scene-real" id="demo-scene-4">
+            <div class="scene-content">
+              <div class="scene-icon">🎁</div>
+              <div class="scene-title">开业特惠进行中</div>
+              <div class="scene-desc">立即预约 · 享专属优惠</div>
+            </div>
           </div>
         </div>
-        <div class="video-scene scene-real" id="scene-1">
-          <div class="scene-content">
-            <div class="scene-icon">💒</div>
-            <div class="scene-title">婚礼摄影服务介绍</div>
-            <div class="scene-desc">专业团队 · 用心记录</div>
-          </div>
-        </div>
-        <div class="video-scene scene-real" id="scene-2">
-          <div class="scene-content">
-            <div class="scene-icon">📸</div>
-            <div class="scene-title">十年专业经验</div>
-            <div class="scene-desc">千对新人的信赖选择</div>
-          </div>
-        </div>
-        <div class="video-scene scene-real" id="scene-3">
-          <div class="scene-content">
-            <div class="scene-icon">💍</div>
-            <div class="scene-title">定格美好瞬间</div>
-            <div class="scene-desc">记录人生最幸福时刻</div>
-          </div>
-        </div>
-        <div class="video-scene scene-real" id="scene-4">
-          <div class="scene-content">
-            <div class="scene-icon">🎁</div>
-            <div class="scene-title">开业特惠进行中</div>
-            <div class="scene-desc">立即预约 · 享专属优惠</div>
-          </div>
-        </div>
+        <!-- 声音图标 -->
+        <div class="sound-indicator" id="sound-ind" onclick="toggleMute()">🔊</div>
         <!-- 字幕叠加 -->
         <div class="preview-subtitle-overlay">
-          <div class="preview-subtitle" id="preview-sub">专业婚礼摄影，记录美好瞬间</div>
+          <div class="preview-subtitle" id="preview-sub">大家好，我是龙河影像的摄影师</div>
         </div>
         <!-- 播放按钮 -->
         <div class="preview-play-btn" id="play-btn" onclick="togglePlay()">▶</div>
@@ -863,8 +881,9 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
             <div class="preview-ctrl-btn" onclick="togglePlay()" id="ctrl-play">▶</div>
             <div class="preview-time"><span id="cur-time">00:00</span> / <span id="tot-time">00:15</span></div>
             <div style="flex:1"></div>
-            <div class="preview-ctrl-btn" style="font-size:16px" onclick="showToast('已保存到相册')">⬇️ 保存</div>
-            <div class="preview-ctrl-btn" style="font-size:16px" onclick="showToast('分享功能')">📤</div>
+            <div class="preview-ctrl-btn" style="font-size:16px" onclick="toggleMute()" id="mute-btn">🔊</div>
+            <div class="preview-ctrl-btn" style="font-size:16px" onclick="saveToAlbum()">⬇️ 保存</div>
+            <div class="preview-ctrl-btn" style="font-size:16px" onclick="shareVideo()">📤 分享</div>
           </div>
         </div>
       </div>
@@ -879,8 +898,9 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
         </div>
       </div>
       <div class="preview-actions">
+        <button class="btn-ghost" style="flex:1;padding:12px" onclick="copyShareLink()">🔗 复制链接</button>
         <button class="btn-ghost" style="flex:1;padding:12px" onclick="startRegenerate()">🔄 重新生成</button>
-        <button class="btn-primary" style="flex:2" onclick="showToast('视频已保存到相册');setTimeout(()=>{stopPlay();switchTab('works')},800)">💾 保存到相册</button>
+        <button class="btn-primary" style="flex:2" onclick="saveToAlbum(true)">💾 保存到相册</button>
       </div>
     </div>
 
@@ -1390,15 +1410,6 @@ const genStepsAvatar=[
   {name:'数字人视频合成',icon:'🎬',dur:1200},
   {name:'无损画质导出',icon:'💾',dur:900}
 ];
-// 字幕台词 - 真人出镜版本
-const subLinesReal=[
-  {t:0,text:'大家好，我是龙河影像的摄影师',scene:0},
-  {t:3,text:'今天给大家介绍我们的婚礼摄影服务',scene:1},
-  {t:6,text:'我们拥有十年专业拍摄经验',scene:2},
-  {t:9,text:'为每对新人定格最美好的瞬间',scene:3},
-  {t:12,text:'现在预约可享开业特惠，快来咨询吧',scene:4}
-];
-const subLines=subLinesReal; // 默认使用真人字幕
 function startGenerate(from){
   // 检查真人模式是否上传了素材
   if(S.persona==='real'&&S.uploaded.length===0){
@@ -1493,34 +1504,130 @@ function startGenerate(from){
 
 function startRegenerate(){stopPlay();goBack();setTimeout(()=>startGenerate('regen'),300)}
 
-// ===== 视频播放器 - 使用requestAnimationFrame实现60fps流畅播放，避免闪烁 =====
-let playing=false,playRaf=null,playPos=0,playDuration=15,lastFrameTime=0,currentScene=-1;
+// ===== 视频播放器 - 以媒体元素自身时钟驱动，保证音画同步 =====
+let playing=false,currentMediaIdx=-1,currentMediaEl=null,muted=true;
+let mediaElements=[];
+let usingRealMedia=false;
+let imgTimer=null;
+let demoTimer=null,demoIdx=0;
+const IMAGE_DURATION=3; // 每张图片3秒
+const DEMO_DURATION=15;
+// 字幕时间点（基于总时间轴）
+const subLines=[
+  {t:0,text:'大家好，我是龙河影像的摄影师'},
+  {t:3,text:'今天给大家介绍我们的婚礼摄影服务'},
+  {t:6,text:'我们拥有十年专业拍摄经验'},
+  {t:9,text:'为每对新人定格最美好的瞬间'},
+  {t:12,text:'现在预约可享开业特惠，快来咨询吧'}
+];
+// 素材时间轴缓存
+let mediaStartTimes=[]; // 每个素材在总时间轴上的起始时间
+let totalDuration=15;
 
 function initPreview(){
-  playPos=0;playing=false;currentScene=-1;
-  if(playRaf){cancelAnimationFrame(playRaf);playRaf=null}
+  playing=false;currentMediaIdx=-1;currentMediaEl=null;
+  if(imgTimer){clearTimeout(imgTimer);imgTimer=null}
+  if(demoTimer){clearTimeout(demoTimer);demoTimer=null}
+  
+  // 清理旧的媒体元素
+  const mediaLayer=document.getElementById('media-layer');
+  mediaLayer.innerHTML='';
+  mediaElements=[];
+  mediaStartTimes=[];
   
   document.getElementById('video-progress').style.width='0%';
   document.getElementById('cur-time').textContent='00:00';
-  document.getElementById('tot-time').textContent='00:'+String(playDuration).padStart(2,'0');
-  document.getElementById('play-btn').classList.remove('playing');document.getElementById('play-btn').textContent='▶';
+  document.getElementById('play-btn').classList.remove('playing');
+  document.getElementById('play-btn').textContent='▶';
   document.getElementById('ctrl-play').textContent='▶';
   document.getElementById('preview-sub').classList.remove('show');
+  document.getElementById('preview-sub').style.opacity='1';
   
-  // 重置所有场景
+  // 重置演示场景
   for(let i=0;i<5;i++){
-    const scene=document.getElementById('scene-'+i);
-    if(scene){scene.classList.remove('active')}
+    const s=document.getElementById('demo-scene-'+i);
+    if(s)s.classList.remove('active');
   }
-  // 显示第一个场景
-  const firstScene=document.getElementById('scene-0');
-  if(firstScene){firstScene.classList.add('active');currentScene=0}
-  // 重置场景内容缩放动画
-  document.querySelectorAll('.scene-content').forEach(el=>{
-    el.style.transform='scale(1)';
-  });
   
-  // 根据模式更新预览信息
+  const hasUploaded=S.uploaded&&S.uploaded.length>0;
+  usingRealMedia=hasUploaded;
+  
+  if(hasUploaded){
+    mediaLayer.style.display='flex';
+    document.getElementById('demo-layer').style.display='none';
+    document.getElementById('sound-ind').style.display='flex';
+    document.getElementById('mute-btn').style.display='inline';
+    
+    // 创建媒体元素并计算时间轴
+    let accTime=0;
+    S.uploaded.forEach((item,idx)=>{
+      let el;
+      if(item.type==='video'){
+        el=document.createElement('video');
+        el.src=item.url;
+        el.muted=muted;
+        el.playsInline=true;
+        el.setAttribute('webkit-playsinline','true');
+        el.preload='auto';
+        el.loop=false;
+        el.style.display='none';
+        el.style.opacity='0';
+        el.style.transition='opacity .3s ease';
+        el.style.position='absolute';
+        el.style.top='0';el.style.left='0';
+        el.style.width='100%';el.style.height='100%';
+        el.style.objectFit='contain';
+        el.style.background='#000';
+        item.dur=5; // 默认5秒
+        // 获取真实时长
+        el.addEventListener('loadedmetadata',()=>{
+          if(el.duration&&el.duration>0&&el.duration<600){
+            item.dur=el.duration;
+            rebuildTimeline();
+          }
+        });
+        // 视频时间更新 - 以此驱动进度条和字幕（保证同步）
+        el.addEventListener('timeupdate',()=>{
+          if(!playing||currentMediaIdx!==idx)return;
+          const globalTime=mediaStartTimes[idx]+el.currentTime;
+          updateProgress(globalTime);
+        });
+        el.addEventListener('ended',()=>{
+          if(!playing)return;
+          playNext();
+        });
+      }else{
+        el=document.createElement('img');
+        el.src=item.url;
+        el.style.display='none';
+        el.style.opacity='0';
+        el.style.transition='opacity .3s ease, transform 3s linear';
+        el.style.position='absolute';
+        el.style.top='0';el.style.left='0';
+        el.style.width='100%';el.style.height='100%';
+        el.style.objectFit='contain';
+        el.style.background='#000';
+        el.className='';
+        item.dur=IMAGE_DURATION;
+      }
+      mediaLayer.appendChild(el);
+      mediaElements.push(el);
+      item.el=el;
+      mediaStartTimes.push(accTime);
+      accTime+=item.dur;
+    });
+    totalDuration=Math.max(15,accTime);
+  }else{
+    mediaLayer.style.display='none';
+    document.getElementById('demo-layer').style.display='block';
+    document.getElementById('sound-ind').style.display='none';
+    document.getElementById('mute-btn').style.display='none';
+    totalDuration=DEMO_DURATION;
+  }
+  
+  document.getElementById('tot-time').textContent=fmtTime(totalDuration);
+  
+  // 更新预览信息
   const badge=document.getElementById('pq-badge');
   const sizeEl=document.getElementById('psize');
   const modeEl=document.getElementById('pv-mode');
@@ -1529,25 +1636,50 @@ function initPreview(){
   const vicon=S.persona==='real'?'🧑':S.persona==='avatar'?'🤖':'🎞️';
   titleEl.textContent='婚礼摄影'+vname+'_'+String(S.works.length).padStart(3,'0')+'.mp4';
   modeEl.textContent=vicon+' '+(S.persona==='real'?'真人出镜':S.persona==='avatar'?'AI数字人':'素材混剪');
+  if(hasUploaded)modeEl.textContent+=' · '+S.uploaded.length+'个素材';
   
-  if(S.quality==='lossless'){
-    badge.textContent='4K 无损';
-    badge.style.background='linear-gradient(135deg,#ff9800,#f44336)';
-    sizeEl.textContent='📦 38.2 MB';
-  }else if(S.quality==='hd'){
-    badge.textContent='1080P 高清';
-    badge.style.background='#4caf50';
-    sizeEl.textContent='📦 18.5 MB';
-  }else{
-    badge.textContent='720P 标清';
-    badge.style.background='#2196f3';
-    sizeEl.textContent='📦 8.3 MB';
-  }
+  if(S.quality==='lossless'){badge.textContent='4K 无损';badge.style.background='linear-gradient(135deg,#ff9800,#f44336)';sizeEl.textContent='📦 38.2 MB'}
+  else if(S.quality==='hd'){badge.textContent='1080P 高清';badge.style.background='#4caf50';sizeEl.textContent='📦 18.5 MB'}
+  else{badge.textContent='720P 标清';badge.style.background='#2196f3';sizeEl.textContent='📦 8.3 MB'}
   
-  // 根据模式选择字幕
-  if(S.persona==='real'||S.persona==='avatar'){
-    // 使用真人字幕（已在subLinesReal中，subLines默认指向它）
+  updateMuteUI();
+}
+
+function rebuildTimeline(){
+  // 视频元数据加载后重新计算时间轴
+  let accTime=0;
+  mediaStartTimes=[];
+  S.uploaded.forEach(item=>{
+    mediaStartTimes.push(accTime);
+    accTime+=item.dur||(item.type==='video'?5:IMAGE_DURATION);
+  });
+  totalDuration=Math.max(15,accTime);
+  document.getElementById('tot-time').textContent=fmtTime(totalDuration);
+}
+
+function fmtTime(s){
+  const m=Math.floor(s/60),sec=Math.floor(s%60);
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+
+function updateProgress(globalTime){
+  if(globalTime>totalDuration)globalTime=totalDuration;
+  const pct=(globalTime/totalDuration)*100;
+  document.getElementById('video-progress').style.width=pct+'%';
+  document.getElementById('cur-time').textContent=fmtTime(globalTime);
+  // 字幕
+  const subEl=document.getElementById('preview-sub');
+  let foundSub=null;
+  for(let i=subLines.length-1;i>=0;i--){
+    if(globalTime>=subLines[i].t*(totalDuration/15)){foundSub=subLines[i];break}
   }
+  if(foundSub){
+    if(subEl.textContent!==foundSub.text){
+      subEl.style.opacity='0';
+      setTimeout(()=>{subEl.textContent=foundSub.text;subEl.style.opacity='1'},120);
+    }
+    subEl.classList.add('show');
+  }else{subEl.classList.remove('show')}
 }
 
 function togglePlay(){
@@ -1555,104 +1687,270 @@ function togglePlay(){
   const btn=document.getElementById('play-btn'),ctrl=document.getElementById('ctrl-play');
   if(playing){
     btn.classList.add('playing');btn.textContent='⏸';ctrl.textContent='⏸';
-    lastFrameTime=performance.now();
-    startPlayTick();
+    startPlayback();
   }else{
     btn.classList.remove('playing');btn.textContent='▶';ctrl.textContent='▶';
-    if(playRaf){cancelAnimationFrame(playRaf);playRaf=null}
+    pausePlayback();
   }
 }
 
 function stopPlay(){
   playing=false;
-  if(playRaf){cancelAnimationFrame(playRaf);playRaf=null}
+  pausePlayback();
   const btn=document.getElementById('play-btn');if(btn){btn.classList.remove('playing');btn.textContent='▶'}
   const ctrl=document.getElementById('ctrl-play');if(ctrl)ctrl.textContent='▶';
 }
 
-function startPlayTick(){
-  function tick(now){
-    if(!playing)return;
-    const delta=(now-lastFrameTime)/1000;
-    lastFrameTime=now;
-    playPos+=delta;
-    
-    if(playPos>=playDuration){
-      playPos=0;
-      // 循环播放
-    }
-    
-    const pct=(playPos/playDuration)*100;
-    document.getElementById('video-progress').style.width=pct+'%';
-    const curSec=Math.floor(playPos);
-    document.getElementById('cur-time').textContent='00:'+String(curSec).padStart(2,'0');
-    
-    // 确定当前应该显示哪个场景和字幕
-    let foundSub=null;
-    for(let i=subLines.length-1;i>=0;i--){
-      if(playPos>=subLines[i].t){
-        foundSub=subLines[i];
-        break;
-      }
-    }
-    
-    // 切换场景 - 通过opacity平滑过渡，避免闪烁
-    if(foundSub&&foundSub.scene!==currentScene){
-      const oldScene=document.getElementById('scene-'+currentScene);
-      const newScene=document.getElementById('scene-'+foundSub.scene);
-      if(oldScene)oldScene.classList.remove('active');
-      if(newScene){
-        newScene.classList.add('active');
-        // 重置新场景的缩放动画
-        const content=newScene.querySelector('.scene-content');
-        if(content){content.style.transform='scale(1)';content.style.transition='transform '+(playDuration-foundSub.t)+'s linear';requestAnimationFrame(()=>{content.style.transform='scale(1.08)'})}
-      }
-      currentScene=foundSub.scene;
-    }
-    
-    // 字幕显示 - 淡入淡出
-    const subEl=document.getElementById('preview-sub');
-    if(foundSub){
-      if(subEl.textContent!==foundSub.text){
-        subEl.style.opacity='0';
-        setTimeout(()=>{
-          subEl.textContent=foundSub.text;
-          subEl.style.opacity='1';
-        },150);
-      }
-      subEl.classList.add('show');
-    }else{
-      subEl.classList.remove('show');
-    }
-    
-    playRaf=requestAnimationFrame(tick);
+function pausePlayback(){
+  if(imgTimer){clearTimeout(imgTimer);imgTimer=null}
+  if(demoTimer){clearTimeout(demoTimer);demoTimer=null}
+  if(usingRealMedia){
+    mediaElements.forEach(el=>{
+      if(el.tagName==='VIDEO')el.pause();
+    });
   }
-  playRaf=requestAnimationFrame(tick);
+}
+
+function startPlayback(){
+  if(usingRealMedia){
+    if(currentMediaIdx<0||currentMediaIdx>=mediaElements.length){
+      currentMediaIdx=0;
+    }
+    showMedia(currentMediaIdx);
+  }else{
+    startDemoPlayback();
+  }
+}
+
+function showMedia(idx){
+  if(idx<0||idx>=S.uploaded.length){
+    // 播放结束，循环
+    currentMediaIdx=0;
+    updateProgress(0);
+    setTimeout(()=>showMedia(0),100);
+    return;
+  }
+  // 隐藏之前
+  if(currentMediaEl&&currentMediaEl!==mediaElements[idx]){
+    currentMediaEl.style.opacity='0';
+    const prev=currentMediaEl;
+    setTimeout(()=>{prev.style.display='none'},300);
+    if(currentMediaEl.tagName==='VIDEO'){
+      currentMediaEl.pause();
+    }
+  }
+  if(imgTimer){clearTimeout(imgTimer);imgTimer=null}
+  
+  const item=S.uploaded[idx];
+  const el=mediaElements[idx];
+  currentMediaIdx=idx;
+  currentMediaEl=el;
+  
+  el.style.display='block';
+  requestAnimationFrame(()=>{el.style.opacity='1'});
+  
+  if(el.tagName==='VIDEO'){
+    el.currentTime=0;
+    el.muted=muted;
+    el.play().catch(()=>{});
+  }else{
+    // 图片：Ken Burns效果 + 定时器切换
+    el.style.transform='scale(1)';
+    void el.offsetWidth;
+    el.style.transform='scale(1.12)';
+    const startTime=mediaStartTimes[idx]||0;
+    updateProgress(startTime);
+    imgTimer=setTimeout(()=>{
+      if(!playing)return;
+      playNext();
+    },IMAGE_DURATION*1000);
+    // 图片期间用RAF平滑更新进度
+    smoothProgressForImage(startTime,IMAGE_DURATION);
+  }
+}
+
+function smoothProgressForImage(startTime,dur){
+  const start=performance.now();
+  function tick(now){
+    if(!playing||!currentMediaEl||currentMediaEl.tagName!=='IMG')return;
+    const elapsed=(now-start)/1000;
+    const t=Math.min(dur,elapsed);
+    updateProgress(startTime+t);
+    if(t<dur)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function playNext(){
+  const nextIdx=currentMediaIdx+1;
+  if(nextIdx>=S.uploaded.length){
+    // 循环
+    currentMediaIdx=-1;
+    updateProgress(totalDuration);
+    setTimeout(()=>{
+      updateProgress(0);
+      showMedia(0);
+    },500);
+    return;
+  }
+  showMedia(nextIdx);
+}
+
+function startDemoPlayback(){
+  demoIdx=0;
+  showDemoScene(0);
+  updateProgress(0);
+  scheduleDemoNext();
+}
+
+function scheduleDemoNext(){
+  if(demoTimer)clearTimeout(demoTimer);
+  demoTimer=setTimeout(()=>{
+    if(!playing)return;
+    demoIdx++;
+    if(demoIdx>=5){
+      demoIdx=0;
+      updateProgress(0);
+    }
+    showDemoScene(demoIdx);
+    updateProgress(demoIdx*3);
+    scheduleDemoNext();
+  },3000);
+  // 平滑进度
+  smoothDemoProgress(demoIdx*3,3);
+}
+
+let demoRaf=null;
+function smoothDemoProgress(startTime,dur){
+  if(demoRaf)cancelAnimationFrame(demoRaf);
+  const start=performance.now();
+  function tick(now){
+    if(!playing||usingRealMedia)return;
+    const elapsed=(now-start)/1000;
+    const t=Math.min(dur,elapsed);
+    updateProgress(startTime+t);
+    if(t<dur)demoRaf=requestAnimationFrame(tick);
+  }
+  demoRaf=requestAnimationFrame(tick);
+}
+
+function showDemoScene(idx){
+  for(let i=0;i<5;i++){
+    const s=document.getElementById('demo-scene-'+i);
+    if(s){
+      if(i===idx)s.classList.add('active');
+      else s.classList.remove('active');
+    }
+  }
+  const active=document.querySelector('#demo-scene-'+idx+' .scene-content');
+  if(active){
+    active.style.transform='scale(1)';
+    active.style.transition='transform 3s linear';
+    requestAnimationFrame(()=>{active.style.transform='scale(1.08)'});
+  }
+}
+
+function toggleMute(){
+  muted=!muted;
+  if(usingRealMedia){
+    mediaElements.forEach(el=>{
+      if(el.tagName==='VIDEO')el.muted=muted;
+    });
+  }
+  updateMuteUI();
+  if(!muted&&usingRealMedia&&currentMediaEl&&currentMediaEl.tagName==='VIDEO'){
+    currentMediaEl.play().catch(()=>{});
+  }
+}
+
+function updateMuteUI(){
+  const icon=muted?'🔇':'🔊';
+  const ind=document.getElementById('sound-ind'),btn=document.getElementById('mute-btn');
+  if(ind){ind.textContent=icon;ind.classList.toggle('muted',muted)}
+  if(btn)btn.textContent=icon;
 }
 
 function seekVideo(e){
   const rect=e.currentTarget.getBoundingClientRect();
   const ratio=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
-  playPos=ratio*playDuration;
-  document.getElementById('video-progress').style.width=(ratio*100)+'%';
-  document.getElementById('cur-time').textContent='00:'+String(Math.floor(playPos)).padStart(2,'0');
+  const target=ratio*totalDuration;
   
-  // 更新场景
-  let foundSub=null;
-  for(let i=subLines.length-1;i>=0;i--){
-    if(playPos>=subLines[i].t){foundSub=subLines[i];break}
+  if(!playing){
+    // 暂停状态拖动：直接显示对应帧
+    if(usingRealMedia&&S.uploaded.length>0){
+      // 找到目标素材
+      let idx=0,accTime=0;
+      for(let i=0;i<S.uploaded.length;i++){
+        const dur=S.uploaded[i].dur||(S.uploaded[i].type==='video'?5:IMAGE_DURATION);
+        if(target<accTime+dur){idx=i;break}
+        accTime+=dur;idx=i;
+      }
+      // 隐藏所有，显示目标
+      mediaElements.forEach((el,i)=>{
+        if(i===idx){
+          el.style.display='block';el.style.opacity='1';
+          if(el.tagName==='VIDEO'){
+            el.currentTime=target-accTime;
+            el.muted=muted;
+          }
+        }else{
+          el.style.display='none';el.style.opacity='0';
+          if(el.tagName==='VIDEO')el.pause();
+        }
+      });
+      currentMediaIdx=idx;
+      currentMediaEl=mediaElements[idx];
+    }else{
+      const si=Math.min(4,Math.floor(target/3));
+      showDemoScene(si);
+    }
+    updateProgress(target);
+    return;
   }
-  for(let i=0;i<5;i++){
-    const scene=document.getElementById('scene-'+i);
-    if(scene)scene.classList.remove('active');
-  }
-  if(foundSub){
-    const ns=document.getElementById('scene-'+foundSub.scene);
-    if(ns)ns.classList.add('active');
-    currentScene=foundSub.scene;
-    const subEl=document.getElementById('preview-sub');
-    subEl.textContent=foundSub.text;
-    subEl.classList.add('show');
+  
+  // 播放状态拖动：跳转到目标位置
+  if(usingRealMedia&&S.uploaded.length>0){
+    let idx=0,accTime=0;
+    for(let i=0;i<S.uploaded.length;i++){
+      const dur=S.uploaded[i].dur||(S.uploaded[i].type==='video'?5:IMAGE_DURATION);
+      if(target<accTime+dur){idx=i;break}
+      accTime+=dur;idx=i;
+    }
+    if(imgTimer){clearTimeout(imgTimer);imgTimer=null}
+    // 切换到目标素材
+    if(idx!==currentMediaIdx){
+      if(currentMediaEl){
+        currentMediaEl.style.opacity='0';
+        const prev=currentMediaEl;
+        setTimeout(()=>{prev.style.display='none'},300);
+        if(currentMediaEl.tagName==='VIDEO')currentMediaEl.pause();
+      }
+      const item=S.uploaded[idx],el=mediaElements[idx];
+      currentMediaIdx=idx;currentMediaEl=el;
+      el.style.display='block';
+      requestAnimationFrame(()=>{el.style.opacity='1'});
+      if(el.tagName==='VIDEO'){
+        el.currentTime=target-accTime;
+        el.muted=muted;
+        el.play().catch(()=>{});
+      }else{
+        el.style.transform='scale(1)';void el.offsetWidth;el.style.transform='scale(1.12)';
+        imgTimer=setTimeout(()=>{if(playing)playNext()},(IMAGE_DURATION-(target-accTime))*1000);
+        smoothProgressForImage(accTime,IMAGE_DURATION);
+      }
+    }else{
+      // 同一素材内跳转
+      if(currentMediaEl.tagName==='VIDEO'){
+        currentMediaEl.currentTime=target-accTime;
+      }
+    }
+  }else{
+    const si=Math.min(4,Math.floor(target/3));
+    if(demoTimer)clearTimeout(demoTimer);
+    demoIdx=si;
+    showDemoScene(si);
+    updateProgress(target);
+    scheduleDemoNext();
   }
 }
 
@@ -1709,7 +2007,207 @@ function toggleFollow(el){
 
 // ===== Toast =====
 function showToast(t){showToastText(t)}
-function showToastText(t){const toast=document.getElementById('toast');document.getElementById('ttext').textContent=t;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1800)}
+function showToastText(t){const toast=document.getElementById('toast');document.getElementById('ttext').textContent=t;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
+
+// ===== 保存到相册 / 下载视频 =====
+function saveToAlbum(goHome){
+  // 暂停播放
+  if(playing)togglePlay();
+  
+  // 如果有上传的视频素材，下载第一个视频（原始文件）
+  const videoItem=S.uploaded.find(u=>u.type==='video');
+  const imgItem=S.uploaded.find(u=>u.type==='image');
+  
+  let blob=null,filename='',mime='';
+  
+  if(videoItem&&videoItem.file){
+    blob=videoItem.file;
+    filename=document.getElementById('pv-title').textContent||'正商诸葛AI视频.mp4';
+    mime=videoItem.file.type||'video/mp4';
+  }else if(imgItem&&imgItem.file){
+    // 只有图片，下载图片
+    blob=imgItem.file;
+    filename='正商诸葛AI_'+Date.now()+'.jpg';
+    mime=imgItem.file.type||'image/jpeg';
+    showToastText('正在保存图片到相册...');
+  }else{
+    // 没有素材，提示演示模式
+    showToastText('演示模式：请先上传真人视频/照片后保存到相册');
+    return;
+  }
+  
+  // 创建下载链接
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=filename;
+    a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },500);
+    
+    showToastText('📥 视频已开始下载，请在浏览器下载中查看并保存到相册');
+    
+    if(goHome){
+      setTimeout(()=>{
+        stopPlay();
+        switchTab('works');
+      },1500);
+    }
+  }catch(e){
+    // 移动端Safari等不支持download属性，尝试打开新窗口
+    if(blob){
+      const url=URL.createObjectURL(blob);
+      window.open(url,'_blank');
+      showToastText('请长按视频选择"存储到相册"');
+    }else{
+      showToastText('保存失败，请长按视频保存');
+    }
+  }
+}
+
+// ===== 分享视频 =====
+async function shareVideo(){
+  if(playing)togglePlay();
+  
+  const title='正商诸葛AI - 智能短视频';
+  const text='我用正商诸葛AI生成了一条精彩短视频，快来看看吧！';
+  const shareUrl=generateShareLink();
+  
+  // 尝试使用Web Share API（原生分享）
+  if(navigator.share){
+    try{
+      const videoItem=S.uploaded.find(u=>u.type==='video');
+      if(videoItem&&videoItem.file&&navigator.canShare){
+        // 尝试分享文件
+        const file=new File([videoItem.file],document.getElementById('pv-title').textContent||'video.mp4',{type:videoItem.file.type});
+        if(navigator.canShare({files:[file]})){
+          await navigator.share({
+            files:[file],
+            title:title,
+            text:text
+          });
+          showToastText('分享成功！');
+          return;
+        }
+      }
+      // 分享文本链接
+      await navigator.share({
+        title:title,
+        text:text,
+        url:shareUrl
+      });
+      showToastText('分享成功！');
+    }catch(e){
+      if(e.name!=='AbortError'){
+        fallbackShare(shareUrl,text);
+      }
+    }
+  }else{
+    fallbackShare(shareUrl,text);
+  }
+}
+
+function fallbackShare(url,text){
+  // 回退方案：复制链接
+  copyToClipboard(url);
+  showShareSheet(url,text);
+}
+
+// ===== 复制链接 =====
+function copyShareLink(){
+  const url=generateShareLink();
+  copyToClipboard(url);
+}
+
+function generateShareLink(){
+  // 生成一个模拟的分享链接（实际应用中应为服务器地址）
+  const vId='zsza_'+Date.now().toString(36)+Math.random().toString(36).substr(2,6);
+  return window.location.origin+window.location.pathname+'?v='+vId;
+}
+
+function copyToClipboard(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>{
+      showToastText('🔗 链接已复制到剪贴板，快去分享吧！');
+    }).catch(()=>{
+      // 回退方案
+      fallbackCopy(text);
+    });
+  }else{
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.position='fixed';
+  ta.style.left='-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try{
+    document.execCommand('copy');
+    showToastText('🔗 链接已复制到剪贴板');
+  }catch(e){
+    showToastText('复制失败，请手动复制链接');
+  }
+  document.body.removeChild(ta);
+}
+
+// ===== 分享面板 =====
+function showShareSheet(url,text){
+  // 创建分享弹窗
+  let sheet=document.getElementById('share-sheet');
+  if(!sheet){
+    sheet=document.createElement('div');
+    sheet.id='share-sheet';
+    sheet.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;z-index:500;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+    sheet.innerHTML=`
+      <div style="background:#1a1a1a;border-radius:20px 20px 0 0;width:100%;max-width:420px;padding:20px;padding-bottom:30px;animation:slideUp .3s ease">
+        <div style="text-align:center;font-size:16px;font-weight:600;color:#fff;margin-bottom:16px">分享到</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px">
+          <div class="share-item" onclick="doShare('wx')" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+            <div style="width:48px;height:48px;border-radius:50%;background:#07c160;display:flex;align-items:center;justify-content:center;font-size:24px">💬</div>
+            <span style="font-size:11px;color:#fff">微信</span>
+          </div>
+          <div class="share-item" onclick="doShare('pyq')" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+            <div style="width:48px;height:48px;border-radius:50%;background:#07c160;display:flex;align-items:center;justify-content:center;font-size:24px">🌐</div>
+            <span style="font-size:11px;color:#fff">朋友圈</span>
+          </div>
+          <div class="share-item" onclick="doShare('qq')" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+            <div style="width:48px;height:48px;border-radius:50%;background:#12b7f5;display:flex;align-items:center;justify-content:center;font-size:24px">🐧</div>
+            <span style="font-size:11px;color:#fff">QQ</span>
+          </div>
+          <div class="share-item" onclick="doShare('wb')" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+            <div style="width:48px;height:48px;border-radius:50%;background:#e6162d;display:flex;align-items:center;justify-content:center;font-size:24px">📱</div>
+            <span style="font-size:11px;color:#fff">微博</span>
+          </div>
+        </div>
+        <div style="background:#252525;border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;color:#aaa;word-break:break-all" id="share-url-text"></div>
+        <button onclick="closeShareSheet()" style="width:100%;padding:14px;background:#252525;border:none;border-radius:12px;color:#fff;font-size:15px;cursor:pointer">取消</button>
+      </div>`;
+    sheet.addEventListener('click',e=>{if(e.target===sheet)closeShareSheet()});
+    document.querySelector('.phone').appendChild(sheet);
+  }
+  document.getElementById('share-url-text').textContent=url;
+  sheet.style.display='flex';
+}
+
+function closeShareSheet(){
+  const sheet=document.getElementById('share-sheet');
+  if(sheet)sheet.style.display='none';
+}
+
+function doShare(platform){
+  closeShareSheet();
+  const names={wx:'微信',pyq:'朋友圈',qq:'QQ',wb:'微博'};
+  showToastText('已复制链接，请粘贴到'+names[platform]+'分享');
+}
 
 // ===== 初始化 =====
 initSub();initTpl();initBgm();initTitle();initMaterial();updVol();
