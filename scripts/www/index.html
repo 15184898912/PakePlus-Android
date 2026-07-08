@@ -34,13 +34,26 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
 .form-btn-gradient{background:linear-gradient(135deg,var(--gp),var(--gb))}
 
 /* ===== 列表卡片 ===== */
-.list-card{background:var(--bg-c);border-radius:12px;padding:14px;margin:0 16px 10px;border:1px solid rgba(255,255,255,.04);cursor:pointer;transition:transform .12s,background .12s;display:flex;align-items:center;gap:12px}
+.list-card{background:var(--bg-c);border-radius:12px;padding:14px;margin:0 16px 10px;border:1px solid rgba(255,255,255,.04);cursor:pointer;transition:transform .12s,background .12s,border-color .2s;display:flex;align-items:center;gap:12px}
 .list-card:active{transform:scale(.98);background:var(--bg-cl)}
 .list-card-icon{width:44px;height:44px;border-radius:12px;background:var(--bg-cl);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .list-card-body{flex:1;min-width:0}
 .list-card-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .list-card-desc{font-size:12px;color:var(--t3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .list-card-arrow{color:var(--t3);font-size:14px;flex-shrink:0}
+
+/* ===== 选中态卡片（精细化云剪用） ===== */
+.selectable-card{border:2px solid rgba(255,255,255,.04);position:relative}
+.selectable-card.selected{border-color:var(--p);box-shadow:0 0 0 1px var(--p)}
+.selectable-card.selected .list-card-arrow{color:var(--p);font-weight:700}
+.select-check{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--p);color:#fff;font-size:12px;display:none;align-items:center;justify-content:center}
+.selectable-card.selected .select-check{display:flex}
+
+/* ===== BGM播放按钮 ===== */
+.bgm-play{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0}
+.bgm-play:hover{background:rgba(255,255,255,.15)}
+.bgm-play.playing{background:var(--p);color:#fff;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 
 /* ===== 结果面板 ===== */
 .result-panel{margin:16px;background:var(--bg-c);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.04)}
@@ -54,8 +67,8 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
 
 /* ===== 标签选择 ===== */
 .chip-group{display:flex;flex-wrap:wrap;gap:8px;margin:0 16px 16px}
-.chip{padding:6px 14px;border-radius:16px;font-size:12px;background:var(--bg-c);color:var(--t2);cursor:pointer;border:1px solid rgba(255,255,255,.04);transition:all .15s}
-.chip.active{background:var(--p);color:#fff}
+.chip{padding:6px 14px;border-radius:16px;font-size:12px;background:var(--bg-c);color:var(--t2);cursor:pointer;border:1px solid rgba(255,255,255,.04);transition:all .15s;user-select:none}
+.chip.active{background:var(--p);color:#fff;border-color:var(--p)}
 
 /* ===== 页面容器 ===== */
 .page{position:absolute;top:0;left:0;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(70px + var(--safe));opacity:1;transform:translateX(0);transition:opacity .25s,transform .25s}
@@ -342,20 +355,54 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
 <div class="sub-page" id="page-cloud-fine">
   <div class="sub-topbar"><button class="sub-back" onclick="closeSub('page-cloud-fine')">←</button><div class="sub-topbar-title">精细化智能云剪</div></div>
   <div style="text-align:center;padding:30px 20px 16px"><div style="font-size:40px;margin-bottom:8px">⚙️</div><div style="font-size:14px;color:var(--t2)">手动选择文案、配音、BGM，精确控制每一个细节</div></div>
+
   <div style="padding:0 16px"><div class="section-title" style="margin:0 0 12px">Step 1: 选择文案</div></div>
-  <div class="list-card" onclick="showToast('已选择：创业者的底层思维')"><div class="list-card-icon">💡</div><div class="list-card-body"><div class="list-card-title">创业者的底层思维</div><div class="list-card-desc">真正厉害的创业者，都在做减法...</div></div><div class="list-card-arrow">›</div></div>
-  <div class="list-card"><div class="list-card-icon">💰</div><div class="list-card-body"><div class="list-card-title">赚钱的四个层次</div><div class="list-card-desc">靠体力赚钱是底层，靠技能...</div></div><div class="list-card-arrow">›</div></div>
+  <div class="list-card selectable-card selected" id="fine-copy-1" onclick="selectCopy(1)">
+    <div class="select-check">✓</div>
+    <div class="list-card-icon">💡</div>
+    <div class="list-card-body"><div class="list-card-title">创业者的底层思维</div><div class="list-card-desc">真正厉害的创业者，都在做减法。聚焦一个点，打透它，你就赢了。</div></div>
+    <div class="list-card-arrow">›</div>
+  </div>
+  <div class="list-card selectable-card" id="fine-copy-2" onclick="selectCopy(2)">
+    <div class="select-check">✓</div>
+    <div class="list-card-icon">💰</div>
+    <div class="list-card-body"><div class="list-card-title">赚钱的四个层次</div><div class="list-card-desc">靠体力赚钱是底层，靠技能赚钱是中层，靠资源赚钱是上层，靠资本赚钱是顶层。</div></div>
+    <div class="list-card-arrow">›</div>
+  </div>
+
   <div style="padding:0 16px"><div class="section-title" style="margin:16px 0 12px">Step 2: 选择配音</div></div>
-  <div class="chip-group"><div class="chip active">磁性男声</div><div class="chip">温柔女声</div><div class="chip">活力少年</div><div class="chip">知性姐姐</div><div class="chip">方言版</div></div>
+  <div class="chip-group" id="fine-voice-group">
+    <div class="chip active" onclick="selectVoice(this)">磁性男声</div>
+    <div class="chip" onclick="selectVoice(this)">温柔女声</div>
+    <div class="chip" onclick="selectVoice(this)">活力少年</div>
+    <div class="chip" onclick="selectVoice(this)">知性姐姐</div>
+    <div class="chip" onclick="selectVoice(this)">方言版</div>
+  </div>
+
   <div style="padding:0 16px"><div class="section-title" style="margin:16px 0 12px">Step 3: 选择BGM</div></div>
-  <div class="list-card"><div class="list-card-icon">🎵</div><div class="list-card-body"><div class="list-card-title">激昂奋进</div><div class="list-card-desc">02:00 · 商业 · 🔥热门</div></div><div class="list-card-arrow">▶</div></div>
-  <div class="list-card"><div class="list-card-icon">🎵</div><div class="list-card-body"><div class="list-card-title">科技感背景</div><div class="list-card-desc">01:30 · 科技 · 🔥热门</div></div><div class="list-card-arrow">▶</div></div>
-  <div class="form-group"><button class="form-btn form-btn-primary" onclick="startCloudEdit('fine')">🎬 开始生成视频</button></div>
+  <div class="list-card selectable-card selected" id="fine-bgm-1" onclick="selectBgm(1)">
+    <div class="select-check">✓</div>
+    <div class="list-card-icon">🎵</div>
+    <div class="list-card-body"><div class="list-card-title">激昂奋进</div><div class="list-card-desc">02:00 · 商业 · 🔥热门</div></div>
+    <button class="bgm-play" id="bgm-btn-1" onclick="togglePlay(event,1)">▶</button>
+  </div>
+  <div class="list-card selectable-card" id="fine-bgm-2" onclick="selectBgm(2)">
+    <div class="select-check">✓</div>
+    <div class="list-card-icon">🎵</div>
+    <div class="list-card-body"><div class="list-card-title">科技感背景</div><div class="list-card-desc">01:30 · 科技 · 🔥热门</div></div>
+    <button class="bgm-play" id="bgm-btn-2" onclick="togglePlay(event,2)">▶</button>
+  </div>
+
+  <div class="form-group"><button class="form-btn form-btn-primary" onclick="startFineCloudEdit()">🎬 开始生成视频</button></div>
+
   <div id="cloud-fine-progress" style="display:none">
     <div class="progress-bar" style="margin:0 16px"><div class="progress-fill" id="cf-progress" style="width:0%"></div></div>
     <div style="text-align:center;font-size:13px;color:var(--t3);margin:8px 0 16px" id="cf-status">正在合成中...</div>
-    <div class="result-panel" id="cloud-fine-result" style="display:none"><div class="result-title">🎉 视频生成完成！</div><div class="result-content"><p>已生成 1 条视频，时长 00:30</p><p>文案：创业者的底层思维</p><p>配音：磁性男声 · BGM：激昂奋进</p></div></div>
-    <div class="form-group"><button class="form-btn form-btn-primary" onclick="showToast('📹 视频已保存到作品库')">📹 保存到作品库</button></div>
+    <div class="result-panel" id="cloud-fine-result" style="display:none">
+      <div class="result-title">🎉 视频生成完成！</div>
+      <div class="result-content" id="cloud-fine-result-content"></div>
+    </div>
+    <div class="form-group" id="cloud-fine-save-btn" style="display:none"><button class="form-btn form-btn-primary" onclick="showToast('📹 视频已保存到作品库')">📹 保存到作品库</button></div>
   </div>
 </div>
 
@@ -369,7 +416,7 @@ html,body{width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"S
     <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;color:var(--t2)"><span>分辨率</span><span style="color:var(--t1);font-weight:600">1080×1920</span></div>
     <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t2)"><span>预计耗时</span><span style="color:var(--pl);font-weight:600">约 15 分钟</span></div>
   </div>
-  <div class="form-group"><button class="form-btn form-btn-gradient" onclick="startCloudEdit('auto')" id="btn-auto-start">🚀 一键生成 100 条视频</button></div>
+  <div class="form-group"><button class="form-btn form-btn-gradient" onclick="startAutoCloudEdit()" id="btn-auto-start">🚀 一键生成 100 条视频</button></div>
   <div id="cloud-auto-progress" style="display:none">
     <div style="display:flex;justify-content:space-between;padding:0 16px;margin-bottom:8px"><span style="font-size:13px;color:var(--t2)">生成进度</span><span style="font-size:13px;color:var(--pl);font-weight:600" id="ca-count">0/100</span></div>
     <div class="progress-bar" style="margin:0 16px"><div class="progress-fill" id="ca-progress" style="width:0%"></div></div>
@@ -437,6 +484,10 @@ const materialData=[
   {id:4,title:"顾客排队盛况",desc:"00:20 · 2026-07-04",icon:"👥"},
   {id:5,title:"美食成品展示",desc:"00:45 · 2026-07-05",icon:"📸"}
 ];
+
+/* ========== 精细化云剪状态 ========== */
+let fineState={copy:1,voice:'磁性男声',bgm:1};
+let bgmPlaying=null;
 
 /* ========== 子页面管理 ========== */
 function openSub(id){
@@ -549,43 +600,91 @@ function startBenchmark(){
   },500);
 }
 
-/* ========== 云剪生成 ========== */
-function startCloudEdit(type){
-  if(type==='fine'){
-    const panel=document.getElementById('cloud-fine-progress');
-    panel.style.display='block';
-    const bar=document.getElementById('cf-progress');
-    const status=document.getElementById('cf-status');
-    let p=0;
-    const timer=setInterval(()=>{
-      p+=Math.random()*15+5;
-      if(p>=100){p=100;clearInterval(timer);status.textContent='✅ 视频生成完成！';document.getElementById('cloud-fine-result').style.display='block';showToast('🎉 视频已生成！')}
-      else status.textContent='正在合成中... '+Math.floor(p)+'%';
-      bar.style.width=p+'%';
-    },600);
+/* ========== 精细化云剪交互 ========== */
+function selectCopy(id){
+  fineState.copy=id;
+  document.querySelectorAll('#page-cloud-fine .selectable-card').forEach(c=>{
+    if(c.id&&c.id.startsWith('fine-copy-')) c.classList.remove('selected');
+  });
+  document.getElementById('fine-copy-'+id).classList.add('selected');
+  showToast('✅ 已选择文案：'+document.querySelector('#fine-copy-'+id+' .list-card-title').textContent);
+}
+function selectVoice(el){
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  fineState.voice=el.textContent;
+  showToast('✅ 已选择配音：'+fineState.voice);
+}
+function selectBgm(id){
+  fineState.bgm=id;
+  document.querySelectorAll('#page-cloud-fine .selectable-card').forEach(c=>{
+    if(c.id&&c.id.startsWith('fine-bgm-')) c.classList.remove('selected');
+  });
+  document.getElementById('fine-bgm-'+id).classList.add('selected');
+  showToast('✅ 已选择BGM：'+document.querySelector('#fine-bgm-'+id+' .list-card-title').textContent);
+}
+function togglePlay(event,id){
+  event.stopPropagation();
+  const btn=document.getElementById('bgm-btn-'+id);
+  if(bgmPlaying===id){
+    bgmPlaying=null;
+    btn.textContent='▶';
+    btn.classList.remove('playing');
+    showToast('⏸ 暂停播放');
   } else {
-    const panel=document.getElementById('cloud-auto-progress');
-    panel.style.display='block';
-    document.getElementById('btn-auto-start').style.display='none';
-    let count=0;
-    const titles=['创业思维分享','赚钱秘籍','行业趋势','引流技巧','个人IP打造','爆款公式','门店运营','客户维护','产品展示','优惠活动'];
-    const list=document.getElementById('ca-generated-list');
-    const bar=document.getElementById('ca-progress');
-    const countEl=document.getElementById('ca-count');
-    const status=document.getElementById('ca-status');
-    const timer=setInterval(()=>{
-      count+=Math.floor(Math.random()*3)+1;
-      if(count>=100){count=100;clearInterval(timer);status.textContent='✅ 100条视频全部生成完成！';document.getElementById('ca-done-btn').style.display='block';showToast('🎉 100条视频全部生成！')}
-      else status.textContent='正在批量生成中...';
-      bar.style.width=(count)+'%';
-      countEl.textContent=count+'/100';
-      // 添加新生成的项
-      if(count<=10||count%10===0){
-        const t=titles[count%titles.length];
-        list.innerHTML+=`<div class="list-card" style="margin-top:6px"><div class="list-card-icon">🎬</div><div class="list-card-body"><div class="list-card-title">${t} #${count}</div><div class="list-card-desc">00:${30+Math.floor(Math.random()*30)} · 已完成</div></div><div class="list-card-arrow">▶</div></div>`;
-      }
-    },300);
+    if(bgmPlaying){document.getElementById('bgm-btn-'+bgmPlaying).textContent='▶';document.getElementById('bgm-btn-'+bgmPlaying).classList.remove('playing');}
+    bgmPlaying=id;
+    btn.textContent='⏸';
+    btn.classList.add('playing');
+    showToast('▶ 正在播放：'+document.querySelector('#fine-bgm-'+id+' .list-card-title').textContent);
   }
+}
+function startFineCloudEdit(){
+  const panel=document.getElementById('cloud-fine-progress');
+  panel.style.display='block';
+  const bar=document.getElementById('cf-progress');
+  const status=document.getElementById('cf-status');
+  const result=document.getElementById('cloud-fine-result');
+  const saveBtn=document.getElementById('cloud-fine-save-btn');
+  const content=document.getElementById('cloud-fine-result-content');
+  // 获取已选项
+  const copyTitle=document.querySelector('#fine-copy-'+fineState.copy+' .list-card-title').textContent;
+  const bgmTitle=document.querySelector('#fine-bgm-'+fineState.bgm+' .list-card-title').textContent;
+  content.innerHTML='<p>已生成 1 条视频，时长 00:30</p><p>文案：'+copyTitle+'</p><p>配音：'+fineState.voice+' · BGM：'+bgmTitle+'</p>';
+  result.style.display='none';
+  saveBtn.style.display='none';
+  let p=0;
+  const timer=setInterval(()=>{
+    p+=Math.random()*15+5;
+    if(p>=100){p=100;clearInterval(timer);status.textContent='✅ 视频生成完成！';result.style.display='block';saveBtn.style.display='block';showToast('🎉 视频已生成！')}
+    else status.textContent='正在合成中... '+Math.floor(p)+'%';
+    bar.style.width=p+'%';
+  },600);
+}
+
+/* ========== 全智能一键成片 ========== */
+function startAutoCloudEdit(){
+  const panel=document.getElementById('cloud-auto-progress');
+  panel.style.display='block';
+  document.getElementById('btn-auto-start').style.display='none';
+  let count=0;
+  const titles=['创业思维分享','赚钱秘籍','行业趋势','引流技巧','个人IP打造','爆款公式','门店运营','客户维护','产品展示','优惠活动'];
+  const list=document.getElementById('ca-generated-list');
+  const bar=document.getElementById('ca-progress');
+  const countEl=document.getElementById('ca-count');
+  const status=document.getElementById('ca-status');
+  list.innerHTML='';
+  const timer=setInterval(()=>{
+    count+=Math.floor(Math.random()*3)+1;
+    if(count>=100){count=100;clearInterval(timer);status.textContent='✅ 100条视频全部生成完成！';document.getElementById('ca-done-btn').style.display='block';showToast('🎉 100条视频全部生成！')}
+    else status.textContent='正在批量生成中...';
+    bar.style.width=(count)+'%';
+    countEl.textContent=count+'/100';
+    if(count<=10||count%10===0){
+      const t=titles[count%titles.length];
+      list.innerHTML+=`<div class="list-card" style="margin-top:6px"><div class="list-card-icon">🎬</div><div class="list-card-body"><div class="list-card-title">${t} #${count}</div><div class="list-card-desc">00:${30+Math.floor(Math.random()*30)} · 已完成</div></div><div class="list-card-arrow">▶</div></div>`;
+    }
+  },300);
 }
 
 /* ========== BottomSheet ========== */
@@ -595,7 +694,7 @@ function closeSheetOverlay(e){if(e.target.id==='sheet-overlay')closeSheet()}
 function selectCloudEdit(type){
   closeSheet();
   setTimeout(()=>{
-    if(type==='fine') openSub('page-cloud-fine');
+    if(type==='fine'){openSub('page-cloud-fine');fineState={copy:1,voice:'磁性男声',bgm:1};}
     else openSub('page-cloud-auto');
   },350);
 }
