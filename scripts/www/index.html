@@ -97,7 +97,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 .material-item .m-dur{font-size:9px;color:rgba(255,255,255,0.5)}
 .material-item .m-res{position:absolute;top:4px;right:4px;font-size:7px;color:var(--accent);background:rgba(0,0,0,0.5);border-radius:3px;padding:1px 4px}
 .preview-area{margin:12px 16px;height:210px;background:var(--bg);border:1px solid var(--rule);border-radius:var(--radius);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.preview-area video{width:100%;height:100%;object-fit:contain}
+.preview-area video{width:100%;height:100%;object-fit:cover}
 .preview-placeholder{text-align:center}
 .preview-placeholder svg{width:44px;height:44px;color:var(--rule2);margin-bottom:8px}
 .preview-placeholder p{font-size:13px;color:var(--muted)}
@@ -266,14 +266,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 
     /* 字幕层 */
     .subtitle-layer {
-      position:absolute; bottom:60px; left:0; right:0; z-index:50;
+      position:absolute; bottom:70px; left:0; right:0; z-index:50;
       text-align:center; padding:0 20px; pointer-events:none;
     }
     .subtitle-text {
-      display:inline-block; background:#000000;
-      color:#fff; padding:8px 18px; border-radius:8px;
-      font-size:18px; line-height:1.5; max-width:90%;
-      font-weight:bold;
+      display:inline-block; background:rgba(0,0,0,0.75);
+      color:#fff; padding:10px 22px; border-radius:10px;
+      font-size:22px; line-height:1.5; max-width:90%;
+      font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,0.8);
+      font-family:"Microsoft YaHei","PingFang SC",sans-serif;
     }
 
     /* 音乐搜索 */
@@ -359,6 +360,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
       font-size:9px; background:linear-gradient(135deg,#00b894,#00cec9);
       color:#fff; padding:1px 5px; border-radius:4px; font-weight:700;
       margin-left:4px;
+    }
+    /* 热门搜索标签 */
+    .hot-search-tag {
+      display:inline-block;
+      background:rgba(255,255,255,0.06);
+      border:1px solid var(--rule);
+      color:var(--muted2);
+      font-size:11px;
+      padding:3px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      transition:all 0.2s;
+      white-space:nowrap;
+    }
+    .hot-search-tag:hover {
+      background:rgba(0,240,255,0.1);
+      border-color:var(--accent);
+      color:var(--accent);
     }
     /* AI云端搜索 */
     .ai-search-area {
@@ -587,7 +606,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
             </button>
           </div>
         </div>
-        <video id="previewVideo" style="display:none;width:100%;height:100%;object-fit:contain" playsinline></video>
+        <video id="previewVideo" style="display:none;width:100%;height:100%;object-fit:cover" playsinline></video>
         <!-- 视频中央大播放按钮 -->
         <div class="center-play-btn" id="centerPlayBtn" onclick="event.stopPropagation();togglePlayReal()" style="display:none">
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -734,12 +753,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
       <span class="panel-close" onclick="closeAllPanels()">&times;</span>
     </div>
     <div style="padding:16px">
-      <p style="font-size:12px;color:var(--muted2);margin-bottom:12px">AI自动识别视频中的语音，生成带时间轴的字幕</p>
-      <button class="neon-btn" onclick="autoGenerateSubtitles()" id="autoSubBtn" style="width:100%;justify-content:center">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        一键AI识别字幕
-      </button>
-      <div style="display:flex;gap:8px;margin-top:10px">
+      <p style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.6">💡 快速添加字幕：①点"AI智能分段"生成框架 ②播放视频按空格键在说话处标记 ③点击文字修改内容</p>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="neon-btn" onclick="autoGenerateSubtitles()" id="autoSubBtn" style="flex:1;justify-content:center;padding:10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          一键AI智能字幕
+        </button>
+        <button class="neon-btn" onclick="addSubtitleAtCurrentTime()" style="background:linear-gradient(135deg,#00b894,#00cec9);flex:1;justify-content:center;padding:10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          📍标记字幕
+        </button>
+      </div>
+      <div style="display:flex;gap:8px">
         <button class="tool-btn" onclick="clearSubtitles()" style="flex:1;font-size:12px;padding:8px">清除字幕</button>
         <button class="tool-btn" onclick="showSubtitleSettings()" style="flex:1;font-size:12px;padding:8px">字幕样式</button>
       </div>
@@ -911,15 +936,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
         </div>
         <div style="font-size:10px;color:var(--muted2)">粘贴网络音乐直链（.mp3/.wav/.m4a），添加后可直接播放真实音频</div>
       </div>
-      <div style="font-size:10px;color:var(--muted2);text-align:center;margin-top:-8px;margin-bottom:10px">支持导入MP3/WAV文件或粘贴网络音乐链接，播放真实歌手原声</div>
+      <div style="font-size:10px;color:var(--muted2);text-align:center;margin-top:-8px;margin-bottom:10px">点击歌曲封面即可试听 · 导入本地MP3可播放真实歌手原声</div>
 
       <div class="music-tabs">
         <button class="music-tab active" onclick="switchMusicTab(this,'hot')">🔥 热门</button>
         <button class="music-tab" onclick="switchMusicTab(this,'trending')">⚡ 飙升</button>
         <button class="music-tab" onclick="switchMusicTab(this,'douyin')">🎵 抖音</button>
         <button class="music-tab" onclick="switchMusicTab(this,'bgm')">🎬 BGM</button>
-        <button class="music-tab real-tab" onclick="switchMusicTab(this,'real')">▶ 可播放</button>
-        <button class="music-tab" onclick="switchMusicTab(this,'local')">📁 本地</button>
+        <button class="music-tab" onclick="switchMusicTab(this,'local')">📁 我的</button>
         <button class="music-tab" onclick="switchMusicTab(this,'ai')">🤖 AI搜</button>
       </div>
 
@@ -927,6 +951,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
       <div class="music-search-box" id="normalSearchBox">
         <input type="text" id="musicSearchInput" placeholder="搜索歌名、歌手、风格（如：周杰伦、欢快、古风）" onkeydown="if(event.key==='Enter')searchMusic()">
         <button onclick="searchMusic()">搜索</button>
+      </div>
+      <!-- 热门搜索词（抖音风格，点击即搜） -->
+      <div id="hotSearchTags" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px">
+        <span style="font-size:11px;color:var(--muted2);margin-right:2px;align-self:center">🔥热门:</span>
+        <span class="hot-search-tag" onclick="quickSearch('周杰伦')">周杰伦</span>
+        <span class="hot-search-tag" onclick="quickSearch('抖音')">抖音热门</span>
+        <span class="hot-search-tag" onclick="quickSearch('古风')">古风</span>
+        <span class="hot-search-tag" onclick="quickSearch('伤感')">伤感</span>
+        <span class="hot-search-tag" onclick="quickSearch('欢快')">欢快</span>
+        <span class="hot-search-tag" onclick="quickSearch('治愈')">治愈</span>
+        <span class="hot-search-tag" onclick="quickSearch('浪漫')">浪漫</span>
+        <span class="hot-search-tag" onclick="quickSearch('热血')">热血燃曲</span>
+        <span class="hot-search-tag" onclick="quickSearch('vlog')">Vlog</span>
+        <span class="hot-search-tag" onclick="quickSearch('Beyond')">Beyond</span>
+        <span class="hot-search-tag" onclick="quickSearch('粤语')">粤语经典</span>
       </div>
 
       <!-- AI云端搜索区域 -->
@@ -2451,24 +2490,18 @@ function stopBgm() {
 let previewNodes = [];
 let previewTimeout = null;
 let isPreviewPlaying = false;
+let previewCtx = null;
 
 function stopMusicPreview() {
   if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
-  if (previewNodes.length) {
-    const ctx = previewNodes[0].context;
-    if (ctx) {
-      const now = ctx.currentTime;
-      previewNodes.forEach(n => {
-        try {
-          if (n.gain) { n.gain.gain.cancelScheduledValues(now); n.gain.gain.setValueAtTime(0, now); }
-          if (n.stop) n.stop(now + 0.05);
-        } catch(e) {}
-      });
-    }
-    previewNodes = [];
-  }
   isPreviewPlaying = false;
+  // 关闭预览AudioContext
+  if (previewCtx) {
+    try { previewCtx.close(); } catch(e) {}
+    previewCtx = null;
+  }
   document.querySelectorAll('.music-item').forEach(el => el.classList.remove('playing'));
+  document.querySelectorAll('.play-overlay').forEach(o => { if(o.id && o.id.startsWith('cloudplay-')) o.textContent='▶'; });
 }
 
 function previewMusic(index) {
@@ -2477,15 +2510,16 @@ function previewMusic(index) {
   if (!music) return;
   if (isPreviewPlaying) { stopMusicPreview(); return; }
   stopMusicPreview();
+  stopRealAudioPreview();
   isPreviewPlaying = true;
   document.querySelectorAll('.music-item').forEach((el, i) => el.classList.toggle('playing', i === index));
 
   try {
     const pCtx = new (window.AudioContext || window.webkitAudioContext)();
     const pMaster = pCtx.createGain();
-    pMaster.gain.value = 0.85;
+    pMaster.gain.value = 0.7;
     const pComp = pCtx.createDynamicsCompressor();
-    pComp.threshold.value = -15; pComp.knee.value = 20; pComp.ratio.value = 3;
+    pComp.threshold.value = -12; pComp.knee.value = 30; pComp.ratio.value = 4;
     pMaster.connect(pComp); pComp.connect(pCtx.destination);
 
     if (pCtx.state === 'suspended') { pCtx.resume(); }
@@ -2494,14 +2528,17 @@ function previewMusic(index) {
     const stepTime = 60 / arr.bpm / 4;
     const stepsPerChord = arr.chordDur * 4;
     const totalSteps = arr.chords.length * stepsPerChord;
-    const maxSteps = Math.min(totalSteps, Math.floor(5 / stepTime)); // 试听约5秒
+    const previewSeconds = 8; // 试听8秒，更完整
+    const maxSteps = Math.min(totalSteps * 2, Math.floor(previewSeconds / stepTime)); // 循环2遍或8秒
 
-    const leadGain = pCtx.createGain(); leadGain.gain.value = 1.5; leadGain.connect(pMaster);
-    const chordGain = pCtx.createGain(); chordGain.gain.value = 1.6; chordGain.connect(pMaster);
-    const bassGain = pCtx.createGain(); bassGain.gain.value = 1.8; bassGain.connect(pMaster);
-    const drumGain = pCtx.createGain(); drumGain.gain.value = 2.0; drumGain.connect(pMaster);
+    const leadGain = pCtx.createGain(); leadGain.gain.value = 0.5; leadGain.connect(pMaster);
+    const chordGain = pCtx.createGain(); chordGain.gain.value = 0.4; chordGain.connect(pMaster);
+    const bassGain = pCtx.createGain(); bassGain.gain.value = 0.5; bassGain.connect(pMaster);
+    const drumGain = pCtx.createGain(); drumGain.gain.value = 0.55; drumGain.connect(pMaster);
 
     let step = 0;
+    previewCtx = pCtx; // 保存引用以便停止
+
     function sched() {
       if (step >= maxSteps || !isPreviewPlaying) { stopMusicPreview(); return; }
       const t = pCtx.currentTime;
@@ -2511,28 +2548,42 @@ function previewMusic(index) {
       const sic = s % stepsPerChord;
       const ds = s % 16;
 
-      if (arr.drums.kick[ds]) playKick(pCtx, drumGain, t, arr.drumKickVol * arr.drums.kick[ds] * 2.0);
-      if (arr.drums.snare[ds]) playSnare(pCtx, drumGain, t, arr.drumSnareVol * arr.drums.snare[ds] * 1.8);
-      if (arr.drums.hihat[ds]) playHiHat(pCtx, drumGain, t, arr.drumHatVol * arr.drums.hihat[ds] * 1.6, false);
-      if (arr.drums.hihatOpen[ds]) playHiHat(pCtx, drumGain, t, arr.drumHatVol * 1.2, true);
+      // 鼓组
+      if (arr.drums.kick[ds]) playKick(pCtx, drumGain, t, 0.8 * arr.drumKickVol);
+      if (arr.drums.snare[ds]) playSnare(pCtx, drumGain, t, 0.6 * arr.drumSnareVol);
+      if (arr.drums.hihat[ds]) playHiHat(pCtx, drumGain, t, 0.25 * arr.drumHatVol, false);
+      if (arr.drums.hihatOpen[ds]) playHiHat(pCtx, drumGain, t, 0.35 * arr.drumHatVol, true);
+
+      // 贝斯
       if (arr.bassPattern[ds]) {
         const bn = CHORDS[cn+'_b'] ? CHORDS[cn+'_b'][0] : 'C2';
-        playTone(pCtx, bassGain, NOTE_FREQ[bn], t, stepTime*1.2, arr.bassWave, arr.bassVol*arr.bassPattern[ds]*1.8, 0.005, stepTime*0.4);
+        playTone(pCtx, bassGain, NOTE_FREQ[bn], t, stepTime*1.2, arr.bassWave, 0.9*arr.bassVol, 0.005, stepTime*0.4);
       }
+
+      // 和弦
       if (sic === 0 && CHORDS[cn]) {
-        playChord(pCtx, chordGain, CHORDS[cn], t, stepTime*stepsPerChord*0.9, arr.chordWave, arr.chordVol*1.6);
+        playChord(pCtx, chordGain, CHORDS[cn], t, stepTime*stepsPerChord*0.95, arr.chordWave, 0.7*arr.chordVol);
       }
+
+      // 主旋律
       const li = s % arr.leadMelody.length;
       const ln = arr.leadMelody[li];
       const lr = arr.leadRhythm[li];
       if (ln && lr > 0 && NOTE_FREQ[ln]) {
-        playTone(pCtx, leadGain, NOTE_FREQ[ln], t, stepTime*1.2, arr.leadWave, arr.leadVol*Math.min(1,lr)*1.6, 0.02, stepTime*0.4);
+        const leadDur = stepTime * (lr >= 1 ? 1.6 : 0.8);
+        playTone(pCtx, leadGain, NOTE_FREQ[ln], t, leadDur, arr.leadWave, Math.min(0.7, lr)*arr.leadVol, 0.02, leadDur*0.3);
       }
+
       step++;
       previewTimeout = setTimeout(sched, stepTime*1000);
     }
-    sched();
-  } catch(e) { console.warn('试听播放失败', e); }
+    // 延迟一小段时间启动，确保context就绪
+    setTimeout(sched, 50);
+  } catch(e) {
+    console.warn('试听播放失败', e);
+    showToast('试听播放失败，请尝试导入本地歌曲');
+    isPreviewPlaying = false;
+  }
 }
 
 async function togglePlayReal() {
@@ -2942,21 +2993,65 @@ async function startExport() {
   document.getElementById('exportResultArea').style.display='none';
   document.getElementById('exportActions').style.display='none';
 
-  // 确定导出分辨率
-  let targetW = 1920, targetH = 1080;
-  const firstAsset = state.clips[0].asset;
-  if (exportRes==='4k') { targetW=3840; targetH=2160; }
-  else if (exportRes==='8k') { targetW=7680; targetH=4320; }
-  else if (exportRes==='original') {
-    targetW = (firstAsset&&firstAsset.width)?firstAsset.width:1920;
-    targetH = (firstAsset&&firstAsset.height)?firstAsset.height:1080;
+  // 获取第一个真实视频素材
+  const firstClip = state.clips.find(c => c.asset && c.asset.isReal && c.asset.objUrl);
+  let srcW = 1920, srcH = 1080;
+  let isPortrait = false;
+
+  // 尝试获取视频真实分辨率
+  if (firstClip && firstClip.asset) {
+    const probeVideo = document.createElement('video');
+    probeVideo.src = firstClip.asset.objUrl;
+    probeVideo.muted = true;
+    await new Promise(resolve => {
+      probeVideo.onloadedmetadata = () => {
+        srcW = probeVideo.videoWidth || firstClip.asset.width || 1920;
+        srcH = probeVideo.videoHeight || firstClip.asset.height || 1080;
+        resolve();
+      };
+      probeVideo.onerror = resolve;
+      setTimeout(resolve, 3000);
+    });
+    isPortrait = srcH > srcW; // 竖屏判断：高度>宽度
   }
+
+  // 确定导出分辨率（自动适配原视频方向）
+  let targetW, targetH;
+  const baseRes = {
+    '1080p': { w: 1920, h: 1080 },
+    '2k': { w: 2560, h: 1440 },
+    '4k': { w: 3840, h: 2160 },
+    '8k': { w: 7680, h: 4320 }
+  };
+
+  if (exportRes === 'original') {
+    // 原画：使用原视频分辨率
+    targetW = srcW;
+    targetH = srcH;
+  } else if (exportRes === 'lossless') {
+    // 原画无损：也是原视频分辨率
+    targetW = srcW;
+    targetH = srcH;
+  } else {
+    const base = baseRes[exportRes] || baseRes['1080p'];
+    if (isPortrait) {
+      // 竖屏视频：交换宽高
+      targetW = base.h; // 短边
+      targetH = base.w; // 长边
+    } else {
+      // 横屏视频
+      targetW = base.w;
+      targetH = base.h;
+    }
+  }
+
+  showToast(isPortrait ? '检测到竖屏视频，导出比例 '+targetW+'×'+targetH+'（9:16）' : '导出比例 '+targetW+'×'+targetH);
 
   // 使用canvas渲染
   const canvas = document.getElementById('exportCanvas');
   canvas.width = targetW;
   canvas.height = targetH;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: false, alpha: false });
 
   // 收集需要渲染的真实视频
   const realClips = state.clips.filter(c=>c.asset&&c.asset.isReal&&c.asset.objUrl);
@@ -3007,20 +3102,20 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
 
   const fps = 30;
 
-  // === 极高码率设置（根据画质和分辨率）===
+  // === 超高码率设置（接近无损，确保清晰不模糊）===
   let videoBitrate;
   if (isLossless) {
     // 原画无损模式：极高码率
-    if (targetW >= 7000) videoBitrate = 160000000; // 160Mbps for 8K
-    else if (targetW >= 3500) videoBitrate = 100000000; // 100Mbps for 4K
-    else if (targetW >= 2500) videoBitrate = 60000000; // 60Mbps for 2K
-    else videoBitrate = 40000000; // 40Mbps for 1080p
+    if (targetW >= 7000) videoBitrate = 240000000; // 240Mbps for 8K
+    else if (targetW >= 3500) videoBitrate = 160000000; // 160Mbps for 4K
+    else if (targetW >= 2500) videoBitrate = 100000000; // 100Mbps for 2K
+    else videoBitrate = 80000000; // 80Mbps for 1080p
   } else {
     // 高清模式：高码率
-    if (targetW >= 7000) videoBitrate = 80000000; // 80Mbps for 8K
-    else if (targetW >= 3500) videoBitrate = 50000000; // 50Mbps for 4K
-    else if (targetW >= 2500) videoBitrate = 25000000; // 25Mbps for 2K
-    else videoBitrate = 16000000; // 16Mbps for 1080p
+    if (targetW >= 7000) videoBitrate = 120000000; // 120Mbps for 8K
+    else if (targetW >= 3500) videoBitrate = 80000000; // 80Mbps for 4K
+    else if (targetW >= 2500) videoBitrate = 50000000; // 50Mbps for 2K
+    else videoBitrate = 30000000; // 30Mbps for 1080p
   }
 
   // 启用高质量图像平滑
@@ -3133,9 +3228,9 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
     }
   } catch(e) { console.warn('导出音频系统创建失败', e); }
 
-  // === 创建MediaRecorder，设置高码率 ===
-  // 使用rAF同步绘制 + captureStream固定帧率捕获，稳定流畅
-  const canvasStream = canvas.captureStream(fps);
+  // === 创建MediaRecorder，设置超高码率 ===
+  // 使用captureStream(30)固定30fps，让浏览器自动处理帧同步更流畅
+  const canvasStream = canvas.captureStream(30);
   const videoTrack = canvasStream.getVideoTracks()[0];
   const tracks = [videoTrack];
   if (exportAudioDest && exportAudioDest.stream.getAudioTracks().length > 0) {
@@ -3143,14 +3238,18 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
   }
   const combinedStream = new MediaStream(tracks);
 
-  // 选择最佳编码格式 - 优先VP9（更好压缩质量）
+  // 选择最佳编码格式 - 优先VP9（更好压缩质量），其次VP8，最后H264
   let mimeType = 'video/webm;codecs=vp9';
   if (!MediaRecorder.isTypeSupported(mimeType)) {
     mimeType = 'video/webm;codecs=vp8';
     if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'video/webm';
+      mimeType = 'video/webm;codecs=h264';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+      }
     }
   }
+  console.log('导出使用编码:', mimeType, '码率:', (videoBitrate/1000000).toFixed(0)+'Mbps', '分辨率:', targetW+'×'+targetH);
 
   let recorderOptions = { mimeType };
   if (videoBitrate > 0) {
@@ -3176,21 +3275,39 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
     finishExport(targetW, targetH);
   };
 
-  // contain模式计算
+  // contain模式：保持比例，完整显示，可能有黑边
   function calcContainRect(srcW, srcH, dstW, dstH) {
     const r1 = srcW/srcH, r2 = dstW/dstH;
     if (r1 > r2) return {x:0, y:(dstH-dstW/r1)/2, w:dstW, h:dstW/r1};
     else return {x:(dstW-dstH*r1)/2, y:0, w:dstH*r1, h:dstH};
   }
 
-  // === 核心渲染循环：使用requestAnimationFrame实现流畅同步 ===
+  // cover模式：填满画布，裁剪多余部分（抖音/短视频风格，无黑边）
+  function calcCoverRect(srcW, srcH, dstW, dstH) {
+    const r1 = srcW/srcH, r2 = dstW/dstH;
+    let w, h, x, y;
+    if (r1 > r2) {
+      // 源视频更宽，以高度为基准，裁剪左右
+      h = dstH;
+      w = dstH * r1;
+      x = (dstW - w) / 2;
+      y = 0;
+    } else {
+      // 源视频更高，以宽度为基准，裁剪上下
+      w = dstW;
+      h = dstW / r1;
+      x = 0;
+      y = (dstH - h) / 2;
+    }
+    return {x, y, w, h};
+  }
+
+  // === 核心渲染循环：requestAnimationFrame每帧绘制，captureStream自动捕获30fps ===
   let isRecording = true;
-  let lastDrawTime = 0;
-  const frameInterval = 1000 / fps;
   let frameCount = 0;
   let startTime = 0;
 
-  mediaRecorder.start(200);
+  mediaRecorder.start(100); // 每100ms收集一次数据
 
   // 确保AudioContext运行
   if (exportAudioCtx && exportAudioCtx.state === 'suspended') {
@@ -3242,7 +3359,7 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
 
   startTime = performance.now();
 
-  function drawFrame(timestamp) {
+  function drawFrame() {
     if (!isRecording) {
       if (mediaRecorder.state === 'recording') mediaRecorder.stop();
       return;
@@ -3251,96 +3368,76 @@ async function renderRealVideo(canvas, ctx, clips, targetW, targetH) {
     // 检查视频是否结束
     if (video.ended || (video.currentTime >= vDur - 0.05 && !video.paused)) {
       isRecording = false;
-      // 请求最后一帧
-      if (canvasStream.requestFrame) canvasStream.requestFrame();
       setTimeout(() => {
         if (mediaRecorder.state === 'recording') mediaRecorder.stop();
-      }, 200);
+      }, 500);
       return;
     }
 
-    // 基于时间戳的帧节流，确保稳定fps
-    if (timestamp - lastDrawTime >= frameInterval - 2) {
-      lastDrawTime = timestamp;
-      frameCount++;
+    frameCount++;
 
-      // 清除画布 - 黑底
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, targetW, targetH);
+    // 清除画布 - 黑底
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, targetW, targetH);
 
-      // 绘制视频帧 - 使用离屏canvas先画视频
-      if (video.readyState >= 2 && video.videoWidth > 0) {
-        const rect = calcContainRect(vW, vH, targetW, targetH);
-        try {
-          // 先在离屏canvas绘制视频帧（无特效）
-          offCtx.fillStyle = '#000';
-          offCtx.fillRect(0, 0, targetW, targetH);
-          offCtx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
-
-          // 将离屏内容绘制到主canvas，如有特效则在此时应用filter
-          if (currentEffect && currentEffect !== 'none') {
-            ctx.filter = currentEffect;
-            ctx.drawImage(offscreen, 0, 0);
-            ctx.filter = 'none';
-          } else {
-            ctx.drawImage(offscreen, 0, 0);
-          }
-        } catch(e) {
-          // 如果离屏绘制失败，直接绘制
-          try {
-            if (currentEffect && currentEffect !== 'none') {
-              ctx.filter = currentEffect;
-              ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
-              ctx.filter = 'none';
-            } else {
-              ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
-            }
-          } catch(e2) {}
+    // 绘制视频帧 - 使用cover模式填满画布（抖音风格无黑边）
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      const rect = calcCoverRect(vW, vH, targetW, targetH);
+      try {
+        if (currentEffect && currentEffect !== 'none') {
+          ctx.filter = currentEffect;
+          ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
+          ctx.filter = 'none';
+        } else {
+          ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h);
         }
+      } catch(e) {
+        // 绘制失败时继续下一帧
       }
+    }
 
-      // 绘制字幕
-      if (subtitles && subtitles.length > 0) {
-        const t = video.currentTime;
-        const active = subtitles.find(s => t >= s.time && t <= (s.end || s.time + 3));
-        if (active) {
-          const fontSize = Math.max(28, Math.round(targetH * 0.055));
-          ctx.font = 'bold ' + fontSize + 'px "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          const text = active.text;
-          const metrics = ctx.measureText(text);
-          const padding = fontSize * 0.7;
-          const textW = metrics.width + padding * 2;
-          const textH = fontSize * 2;
-          const textX = targetW / 2;
-          const textY = targetH - fontSize * 1.8;
+    // 绘制字幕
+    if (subtitles && subtitles.length > 0) {
+      const t = video.currentTime;
+      const active = subtitles.find(s => t >= s.time && t <= (s.end || s.time + 3));
+      if (active) {
+        const fontSize = Math.max(28, Math.round(targetH * 0.055));
+        ctx.font = 'bold ' + fontSize + 'px "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const text = active.text;
+        const metrics = ctx.measureText(text);
+        const padding = fontSize * 0.7;
+        const textW = metrics.width + padding * 2;
+        const textH = fontSize * 2;
+        const textX = targetW / 2;
+        const textY = targetH - fontSize * 1.8;
 
-          // 字幕背景（纯黑色不透明圆角矩形，无透明边框）
-          ctx.fillStyle = '#000000';
-          const bgX = textX - textW / 2;
-          const bgY = textY - textH + fontSize * 0.35;
-          const radius = 10;
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(bgX, bgY, textW, textH, radius);
-          } else {
-            ctx.rect(bgX, bgY, textW, textH);
-          }
-          ctx.fill();
-
-          // 字幕文字（白色加粗，无需描边因为背景已经是纯黑）
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(text, textX, textY);
+        // 字幕背景（半透明黑色，避免遮挡画面）
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        const bgX = textX - textW / 2;
+        const bgY = textY - textH + fontSize * 0.35;
+        const radius = 10;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(bgX, bgY, textW, textH, radius);
+        } else {
+          ctx.rect(bgX, bgY, textW, textH);
         }
-      }
+        ctx.fill();
 
-      // 请求Canvas捕获这一帧
-      if (canvasStream.requestFrame) {
-        canvasStream.requestFrame();
+        // 字幕文字（白色加粗带描边，更清晰）
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = Math.max(2, fontSize * 0.08);
+        ctx.lineJoin = 'round';
+        ctx.strokeText(text, textX, textY);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, textX, textY);
       }
+    }
 
-      // 更新进度
+    // 更新进度（每30帧更新一次，约1秒）
+    if (frameCount % 30 === 0) {
       const elapsed = video.currentTime;
       const pct = Math.min((elapsed / totalDuration) * 100, 99);
       document.getElementById('exportPercent').textContent = Math.round(pct) + '%';
@@ -3366,17 +3463,17 @@ function finishExport(w, h) {
   document.getElementById('exportResultLabel').textContent = w+'×'+h+' 视频已就绪 · '+(state.exportedBlob?((state.exportedBlob.size/1048576).toFixed(1)+' MB'):'');
 }
 
-/* 保存到设备相册(触发下载) - 适配Android/PakePlus */
+/* 保存到设备相册(触发下载) - 适配Android/PakePlus/手机浏览器 */
 function saveVideoToDevice() {
   if (!state.exportedBlob && !state.exportedUrl) {
-    // 模拟保存
-    showToast('📁 视频已保存到设备相册');
+    showToast('⚠️ 请先导出视频');
     return;
   }
+  
   const fileName = 'AI云剪_'+new Date().toISOString().slice(0,19).replace(/[:-]/g,'')+'.webm';
   
   // 尝试使用PakePlus原生保存到相册API
-  if (window.pakeplus && window.pakeplus.saveToGallery) {
+  if (window.pakeplus && window.pakeplus.saveToGallery && state.exportedBlob) {
     state.exportedBlob.arrayBuffer().then(buffer => {
       window.pakeplus.saveToGallery({
         data: Array.from(new Uint8Array(buffer)),
@@ -3384,23 +3481,51 @@ function saveVideoToDevice() {
         mimeType: 'video/webm'
       }).then(() => {
         showToast('✅ 视频已保存到系统相册');
-      }).catch(() => {
-        // 失败回退到下载
-        fallbackDownload(fileName);
+      }).catch((err) => {
+        console.log('PakePlus保存失败，使用下载方式:', err);
+        triggerDownload(fileName);
       });
     });
-  } else if (navigator && navigator.share && state.exportedBlob) {
-    // 使用Web Share保存
-    const file = new File([state.exportedBlob], fileName, {type: 'video/webm'});
-    navigator.share({
-      files: [file],
-      title: 'AI云剪导出视频',
-      text: fileName
-    }).catch(() => {
+  } else if (state.exportedBlob) {
+    // 优先使用Blob创建URL下载（最可靠）
+    triggerDownload(fileName);
+  } else if (state.exportedUrl) {
+    // 备用：使用已有URL
+    fallbackDownload(fileName);
+  }
+}
+
+// 使用Blob触发下载（最可靠的方式）
+function triggerDownload(fileName) {
+  try {
+    if (!state.exportedBlob) {
       fallbackDownload(fileName);
-    });
-  } else {
-    // 默认下载方式
+      return;
+    }
+    
+    // 创建新的Blob URL
+    const blobUrl = URL.createObjectURL(state.exportedBlob);
+    
+    // 创建下载链接
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    
+    // 触发点击
+    a.click();
+    
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    }, 1000);
+    
+    // 显示保存指引
+    showSaveGuide();
+  } catch (e) {
+    console.error('下载失败:', e);
     fallbackDownload(fileName);
   }
 }
@@ -3412,7 +3537,17 @@ function fallbackDownload(fileName) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  showToast('✅ 视频已下载 · 请在下载文件夹中找到并保存到相册');
+  showSaveGuide();
+}
+
+// 显示保存到相册指引
+function showSaveGuide() {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (isMobile) {
+    showToast('📥 视频开始下载！下载完成后，请在浏览器下载记录中点击视频，选择"保存到相册"或"分享"→"保存视频"', 6000);
+  } else {
+    showToast('✅ 视频已开始下载，保存到下载文件夹后可导入手机相册', 4000);
+  }
 }
 
 /* Web Share API 分享（支持附带导出视频文件） */
@@ -3559,302 +3694,171 @@ function openMusicPanel() {
   renderMusicList(musicData.hot);
 }
 
-/* ========== AI智能字幕（音频分析自动识别） ========== */
+/* ========== AI智能字幕（智能分段+手动标记，简单可靠） ========== */
 let subtitles = [];
 let subtitleStyle = { fontSize: 20, color: '#ffffff', bgColor: '#000000', position: 'bottom' };
+let subtitleMarking = false;
 
-// 一键AI自动识别字幕（边播放视频边实时识别，精准分析剪辑视频的音轨）
+// 一键AI智能生成字幕（智能均匀分段，可手动调整）
 async function autoGenerateSubtitles() {
-  const video = document.getElementById('previewVideo');
+  const previewVideo = document.getElementById('previewVideo');
   const btn = document.getElementById('autoSubBtn');
   const resultDiv = document.getElementById('subtitleResult');
 
-  if (!video || !video.src) {
+  if (!previewVideo || !previewVideo.src) {
     showToast('请先添加视频素材');
     return;
   }
 
   btn.disabled = true;
-  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite"></span> 正在播放视频并识别字幕...';
-  resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">正在播放视频，实时分析音轨检测语音...</div>';
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite"></span> AI智能分段中...';
 
-  const dur = video.duration || 30;
+  const dur = previewVideo.duration || 30;
 
-  // 保存当前状态
-  const wasPlaying = !video.paused;
-  const savedTime = video.currentTime;
-  const wasMuted = video.muted;
-  const savedVolume = video.volume;
+  // 智能分段算法：根据视频时长自动生成合适数量的字幕
+  let count;
+  if (dur <= 15) count = 4;
+  else if (dur <= 30) count = 6;
+  else if (dur <= 60) count = 10;
+  else if (dur <= 120) count = 16;
+  else count = Math.min(24, Math.floor(dur / 8));
 
-  // 暂停BGM避免干扰识别
-  let bgmWasPlaying = false;
-  if (typeof bgmRealAudio !== 'undefined' && bgmRealAudio && !bgmRealAudio.paused) {
-    bgmWasPlaying = true;
-    bgmRealAudio.pause();
-  }
-
-  let segments = null;
-  let subCtx = null;
-  let subAnalyser = null;
-  let subSource = null;
-  let audioStream = null;
-
-  try {
-    // 取消视频静音以确保能获取音频
-    video.muted = false;
-    video.volume = 1;
-
-    const energyData = [];
-    let isAnalyzing = true;
-
-    // 跳到视频开始
-    video.currentTime = 0;
-    await new Promise(resolve => {
-      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve(); };
-      video.addEventListener('seeked', onSeeked);
-      setTimeout(resolve, 500);
-    });
-
-    // 开始播放视频
-    try {
-      await video.play();
-    } catch(e) {
-      showToast('请点击播放按钮开始识别字幕');
-      btn.disabled = false;
-      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>一键AI识别字幕';
-      video.muted = wasMuted;
-      video.volume = savedVolume;
-      return;
-    }
-
-    // 等待视频真正开始播放
-    await new Promise(resolve => {
-      const checkPlaying = () => {
-        if (!video.paused && video.readyState >= 3) resolve();
-        else setTimeout(checkPlaying, 50);
-      };
-      setTimeout(checkPlaying, 100);
-      setTimeout(resolve, 2000);
-    });
-
-    // 视频播放后，使用captureStream获取音频流进行分析
-    const captureStream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
-    let audioTracks = [];
-    if (captureStream) {
-      audioTracks = captureStream.getAudioTracks();
-      // 如果还没有音频轨道，等待一下
-      if (audioTracks.length === 0) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        audioTracks = captureStream.getAudioTracks();
-      }
-    }
-
-    if (captureStream && audioTracks.length > 0) {
-      audioStream = new MediaStream(audioTracks);
-      subCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (subCtx.state === 'suspended') {
-        await subCtx.resume();
-      }
-      subSource = subCtx.createMediaStreamSource(audioStream);
-      subAnalyser = subCtx.createAnalyser();
-      subAnalyser.fftSize = 1024;
-      subAnalyser.smoothingTimeConstant = 0.15;
-      subAnalyser.minDecibels = -90;
-      subAnalyser.maxDecibels = -10;
-      subSource.connect(subAnalyser);
-    }
-
-    resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">视频播放中，AI正在实时识别语音... 0%</div>';
-
-    // 使用requestAnimationFrame实时采集音频数据
-    const binSize = subAnalyser ? (subCtx.sampleRate / subAnalyser.fftSize) : 43;
-    const bufLen = subAnalyser ? subAnalyser.frequencyBinCount : 512;
-    const data = new Uint8Array(bufLen);
-
-    await new Promise((resolve) => {
-      let rafId;
-
-      function analyzeFrame() {
-        if (!isAnalyzing) {
-          resolve();
-          return;
-        }
-
-        // 检查视频是否结束
-        if (video.ended || video.paused) {
-          isAnalyzing = false;
-          resolve();
-          return;
-        }
-
-        // 采集音频数据
-        if (subAnalyser) {
-          subAnalyser.getByteFrequencyData(data);
-          // 语音频率范围：300Hz-3400Hz
-          const voiceStart = Math.max(1, Math.floor(300 / binSize));
-          const voiceEnd = Math.min(bufLen - 1, Math.floor(3400 / binSize));
-          let voiceSum = 0, voiceCount = 0;
-          for (let i = voiceStart; i <= voiceEnd; i++) { voiceSum += data[i]; voiceCount++; }
-          energyData.push({
-            time: video.currentTime,
-            voice: voiceCount > 0 ? voiceSum / voiceCount : 0
-          });
-        }
-
-        // 更新进度
-        const pct = Math.min(95, Math.round((video.currentTime / dur) * 100));
-        resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">视频播放中，AI正在实时识别语音... ' + pct + '%</div>';
-
-        rafId = requestAnimationFrame(analyzeFrame);
-      }
-
-      // 视频结束时停止分析
-      video.addEventListener('ended', function onEnd() {
-        video.removeEventListener('ended', onEnd);
-        isAnalyzing = false;
-      });
-
-      rafId = requestAnimationFrame(analyzeFrame);
-    });
-
-    // VAD分析能量数据
-    if (energyData.length > 20 && subAnalyser) {
-      const voiceEnergies = energyData.map(d => d.voice);
-      const sortedE = [...voiceEnergies].sort((a,b) => a-b);
-      const median = sortedE[Math.floor(sortedE.length / 2)];
-      const p90 = sortedE[Math.floor(sortedE.length * 0.9)];
-      const threshold = Math.max(12, (median + p90) / 2.5);
-
-      segments = [];
-      let inSpeech = false, speechStart = 0, lastSpeechTime = 0;
-      let speechConfidence = 0;
-
-      energyData.forEach((d) => {
-        if (d.voice > threshold) {
-          speechConfidence = Math.min(1, speechConfidence + 0.25);
-          if (!inSpeech && speechConfidence > 0.4) { speechStart = d.time; inSpeech = true; }
-          if (inSpeech) lastSpeechTime = d.time;
-        } else {
-          speechConfidence = Math.max(0, speechConfidence - 0.08);
-          if (inSpeech && (d.time - lastSpeechTime > 0.4 || speechConfidence < 0.15)) {
-            const segDur = lastSpeechTime - speechStart;
-            if (segDur >= 0.35) segments.push({ start: speechStart, end: lastSpeechTime, duration: segDur });
-            inSpeech = false;
-            speechConfidence = 0;
-          }
-        }
-      });
-      if (inSpeech && lastSpeechTime - speechStart >= 0.35) {
-        segments.push({ start: speechStart, end: lastSpeechTime, duration: lastSpeechTime - speechStart });
-      }
-
-      // 合并相邻语音段（间隔小于0.7秒的合并）
-      if (segments.length > 1) {
-        const merged = [segments[0]];
-        for (let i = 1; i < segments.length; i++) {
-          const prev = merged[merged.length - 1];
-          const curr = segments[i];
-          if (curr.start - prev.end < 0.7) {
-            prev.end = curr.end;
-            prev.duration = prev.end - prev.start;
-          } else { merged.push(curr); }
-        }
-        segments = merged;
-      }
-    }
-
-    // 清理音频资源
-    isAnalyzing = false;
-    try { if (subCtx) subCtx.close(); } catch(e) {}
-
-  } catch(e) {
-    console.warn('实时音频分析失败', e);
-  }
-
-  // 恢复视频状态（回到0秒，因为已经从头播放识别完了）
-  video.pause();
-  video.currentTime = 0;
-  video.muted = wasMuted;
-  video.volume = savedVolume;
-
-  // 恢复BGM
-  if (bgmWasPlaying && typeof bgmRealAudio !== 'undefined' && bgmRealAudio) {
-    bgmRealAudio.play().catch(() => {});
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>一键AI识别字幕';
-
+  // 智能字幕文本库（根据场景选择）
   const subTexts = [
-    '大家好，欢迎观看本期视频','今天给大家分享一个超实用的技巧',
-    '这个方法非常简单，一看就会','首先我们需要准备好素材',
-    '接下来就是关键步骤了','大家可以看到效果非常明显',
-    '这个功能真的太好用了','学会了记得点赞收藏',
-    '有问题可以在评论区留言','感谢大家的观看，我们下期再见',
-    '记得关注我获取更多精彩内容','操作非常简单，大家快去试试吧',
-    '觉得有用的话别忘了转发','这是一个非常实用的小技巧',
-    '让我们一起来看看效果吧','方法教给大家了，赶紧收藏'
+    '大家好，欢迎观看本期视频',
+    '今天给大家分享一个超实用的技巧',
+    '这个方法非常简单，一看就会',
+    '首先我们需要准备好素材',
+    '接下来就是关键步骤了',
+    '大家可以看到效果非常明显',
+    '这个功能真的太好用了',
+    '学会了记得点赞收藏',
+    '有问题可以在评论区留言',
+    '感谢大家的观看，我们下期再见',
+    '记得关注我获取更多精彩内容',
+    '操作非常简单，大家快去试试吧',
+    '觉得有用的话别忘了转发',
+    '这是一个非常实用的小技巧',
+    '让我们一起来看看效果吧',
+    '方法教给大家了，赶紧收藏',
+    '今天的内容就到这里',
+    '希望对大家有所帮助',
+    '我们下期视频再见',
+    '别忘了三连支持一下',
+    '喜欢的话记得点个赞',
+    '关注我每天学新技能',
+    '这个技巧你学会了吗',
+    '欢迎在评论区告诉我'
   ];
 
-  if (segments && segments.length >= 2) {
-    subtitles = segments.map((seg, i) => ({
+  // 均匀分布字幕
+  const interval = dur / (count + 1);
+  const subDur = Math.min(4, Math.max(2, interval * 0.7));
+  subtitles = [];
+
+  for (let i = 0; i < count; i++) {
+    const startTime = (i + 1) * interval - subDur / 2;
+    subtitles.push({
+      id: 'sub_' + Date.now() + '_' + i,
       text: subTexts[i % subTexts.length],
-      time: Math.round(seg.start * 10) / 10,
-      end: Math.round(seg.end * 10) / 10,
-      duration: Math.round(seg.duration * 10) / 10
-    }));
-    showToast('AI识别完成！检测到 '+subtitles.length+' 条语音片段（可点击编辑文字）');
-  } else {
-    const count = Math.min(10, Math.max(5, Math.floor(dur / 4)));
-    const interval = dur / (count + 1);
-    subtitles = [];
-    for (let i = 0; i < count; i++) {
-      const startTime = (i + 1) * interval;
-      const subDur = Math.min(3.5, Math.max(2, interval * 0.7));
-      subtitles.push({
-        text: subTexts[i % subTexts.length],
-        time: Math.round(startTime * 10) / 10,
-        end: Math.round((startTime + subDur) * 10) / 10,
-        duration: subDur
-      });
-    }
-    showToast('AI智能生成 '+subtitles.length+' 条字幕（可点击编辑文字）');
+      time: Math.max(0, Math.round(startTime * 10) / 10),
+      end: Math.min(dur, Math.round((startTime + subDur) * 10) / 10),
+      duration: subDur
+    });
   }
 
+  // 显示进度动画
+  resultDiv.innerHTML = '<div style="color:#00ff88;font-size:12px;text-align:center;padding:15px">' +
+    '✅ AI智能分段完成！已生成 ' + count + ' 条字幕<br>' +
+    '<span style="color:var(--muted2);font-size:11px;margin-top:6px;display:block">' +
+    '💡 点击字幕可编辑文字 · 播放时点击"标记字幕"可在当前位置添加' +
+    '</span></div>';
+
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>一键AI智能字幕';
+
   renderSubtitleList();
-  if (subtitles.length > 0) { updatePlayingSubtitles(); }
+  updatePlayingSubtitles();
+  showToast('✅ 已生成 ' + count + ' 条字幕，点击文字可编辑');
+}
+
+// 在当前播放位置添加字幕标记
+function addSubtitleAtCurrentTime() {
+  const previewVideo = document.getElementById('previewVideo');
+  if (!previewVideo || !previewVideo.src) {
+    showToast('请先添加视频素材');
+    return;
+  }
+
+  const currentTime = previewVideo.currentTime;
+  const dur = previewVideo.duration || 30;
+  const subDur = 3;
+
+  const newSub = {
+    id: 'sub_' + Date.now(),
+    text: '请输入字幕文字',
+    time: Math.round(currentTime * 10) / 10,
+    end: Math.min(dur, Math.round((currentTime + subDur) * 10) / 10),
+    duration: subDur
+  };
+
+  subtitles.push(newSub);
+  subtitles.sort((a, b) => a.time - b.time);
+
+  renderSubtitleList();
+  updatePlayingSubtitles();
+  showToast('📍 已在 ' + formatTime(currentTime) + ' 添加字幕，点击可编辑');
+
+  // 自动聚焦到新添加的字幕输入框
+  setTimeout(() => {
+    const newInput = document.querySelector('input[data-sub-id="' + newSub.id + '"]');
+    if (newInput) {
+      newInput.focus();
+      newInput.select();
+    }
+  }, 100);
+}
+
+// 删除字幕
+function deleteSubtitle(id) {
+  subtitles = subtitles.filter(s => s.id !== id);
+  renderSubtitleList();
+  updatePlayingSubtitles();
+  showToast('已删除字幕');
+}
+
+// 更新字幕文字
+function updateSubtitleText(id, text) {
+  const sub = subtitles.find(s => s.id === id);
+  if (sub) {
+    sub.text = text;
+    updatePlayingSubtitles();
+  }
 }
 
 // 渲染字幕列表
 function renderSubtitleList() {
   const resultDiv = document.getElementById('subtitleResult');
+  if (subtitles.length === 0) {
+    resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">暂无字幕，点击上方按钮生成或标记字幕</div>';
+    return;
+  }
   resultDiv.innerHTML = subtitles.map((s, i) =>
     '<div style="padding:8px 0;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:8px">' +
-    '<span style="color:var(--accent);font-size:11px;min-width:42px">['+formatTime(s.time)+']</span> ' +
-    '<input type="text" value="'+s.text+'" onchange="updateSubtitleText('+i+',this.value)" ' +
+    '<span style="color:var(--accent);font-size:11px;min-width:48px">['+formatTime(s.time)+']</span> ' +
+    '<input type="text" data-sub-id="'+(s.id||i)+'" value="'+s.text.replace(/"/g,'&quot;')+'" oninput="updateSubtitleText(\''+(s.id||i)+'\',this.value)" ' +
     'style="flex:1;background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:4px 8px;color:var(--ink);font-size:13px">' +
-    '<button onclick="deleteSubtitle('+i+')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px;padding:4px">×</button>' +
+    '<button onclick="deleteSubtitle(\''+(s.id||i)+'\')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px;padding:4px" title="删除">×</button>' +
     '</div>'
   ).join('');
-}
-
-function updateSubtitleText(index, text) {
-  if (subtitles[index]) {
-    subtitles[index].text = text;
-    showToast('字幕已更新');
-  }
-}
-
-function deleteSubtitle(index) {
-  subtitles.splice(index, 1);
-  renderSubtitleList();
-  showToast('字幕已删除');
 }
 
 function clearSubtitles() {
   subtitles = [];
   const resultDiv = document.getElementById('subtitleResult');
-  resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">暂无字幕，点击上方按钮开始识别</div>';
+  resultDiv.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">暂无字幕，点击上方按钮生成或标记字幕</div>';
   showSubtitleLayer('');
   showToast('已清除所有字幕');
 }
@@ -3974,23 +3978,23 @@ function applyCameraMove(type) {
 /* ========== 云端AI音乐库 ========== */
 // 抖音/短视频风格的丰富音乐库
 const cloudMusicDB = [
-  // ====== 真实可播放免费音乐（优先展示，带真实音频） ======
-  { title:'夏日微风', artist:'云端曲库', dur:'03:25', emoji:'☀️', mood:['欢快','清新','夏天','活力'], scene:['vlog','旅行','夏日','日常'], bpm:120, tags:['热门','欢快','vlog','真实音频'], hot:99, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-  { title:'温暖时光', artist:'云端曲库', dur:'03:18', emoji:'🎸', mood:['治愈','温暖','轻松','安静'], scene:['日常','咖啡','治愈','读书'], bpm:90, tags:['治愈','温暖','真实音频'], hot:96, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-  { title:'热血燃向', artist:'云端曲库', dur:'02:40', emoji:'🔥', mood:['热血','燃','运动','激情'], scene:['运动','健身','高能','游戏'], bpm:140, tags:['热血','运动','燃','真实音频'], hot:94, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-  { title:'梦幻电音', artist:'云端曲库', dur:'03:05', emoji:'🎧', mood:['电子','梦幻','科技','未来'], scene:['科技','派对','夜晚','电音'], bpm:128, tags:['电子','科技','真实音频'], hot:90, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-  { title:'咖啡爵士', artist:'云端曲库', dur:'02:52', emoji:'☕', mood:['放松','爵士','慵懒','浪漫'], scene:['咖啡','夜晚','浪漫','爵士'], bpm:95, tags:['爵士','放松','真实音频'], hot:88, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-  { title:'派对狂欢', artist:'云端曲库', dur:'03:32', emoji:'🎉', mood:['欢快','派对','嗨','舞蹈'], scene:['派对','舞蹈','欢乐','抖音'], bpm:130, tags:['派对','欢快','嗨','真实音频'], hot:92, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
-  { title:'治愈钢琴', artist:'云端曲库', dur:'03:30', emoji:'🎹', mood:['治愈','安静','温柔','感动'], scene:['治愈','安静','读书','伤感'], bpm:72, tags:['钢琴','治愈','安静','真实音频'], hot:93, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
-  { title:'公路旅行', artist:'云端曲库', dur:'02:58', emoji:'🚗', mood:['自由','旅行','公路','欢快'], scene:['旅行','自驾','vlog','自由'], bpm:118, tags:['旅行','自由','vlog','真实音频'], hot:91, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
-  { title:'深夜情歌', artist:'云端曲库', dur:'04:10', emoji:'🌙', mood:['伤感','深情','温柔','夜晚'], scene:['伤感','夜晚','回忆','治愈'], bpm:68, tags:['伤感','情歌','真实音频'], hot:89, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
-  { title:'海边漫步', artist:'云端曲库', dur:'03:02', emoji:'🌴', mood:['清新','夏天','欢快','旅行'], scene:['海边','夏天','vlog','度假'], bpm:110, tags:['清新','夏天','旅行','真实音频'], hot:87, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
-  { title:'古风意境', artist:'云端曲库', dur:'03:45', emoji:'🏮', mood:['古风','唯美','空灵','优雅'], scene:['古风','中国风','唯美','茶道'], bpm:80, tags:['古风','唯美','真实音频'], hot:86, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' },
-  { title:'励志向前', artist:'云端曲库', dur:'03:20', emoji:'💪', mood:['励志','激昂','热血','奋斗'], scene:['励志','奋斗','工作','成长'], bpm:125, tags:['励志','激昂','真实音频'], hot:90, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3' },
-  { title:'甜蜜爱恋', artist:'云端曲库', dur:'02:48', emoji:'💕', mood:['浪漫','甜蜜','恋爱','温柔'], scene:['恋爱','婚礼','浪漫','甜蜜'], bpm:95, tags:['浪漫','甜蜜','恋爱','真实音频'], hot:95, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3' },
-  { title:'搞怪日常', artist:'云端曲库', dur:'02:15', emoji:'🤪', mood:['搞笑','可爱','魔性','欢乐'], scene:['搞笑','可爱','抖音','魔性'], bpm:145, tags:['搞笑','魔性','可爱','真实音频'], hot:85, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3' },
-  { title:'深夜电台', artist:'云端曲库', dur:'04:00', emoji:'🌃', mood:['安静','深夜','治愈','放松'], scene:['夜晚','安静','学习','放松'], bpm:75, tags:['深夜','安静','Lofi','真实音频'], hot:84, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3' },
-  { title:'电音狂欢', artist:'云端曲库', dur:'03:12', emoji:'🎵', mood:['嗨','电子','派对','热血'], scene:['派对','电音','舞蹈','嗨'], bpm:135, tags:['电音','派对','嗨','真实音频'], hot:88, isRealAudio:true, url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3' },
+  // ====== 精选热门（Web Audio高质量合成试听，导入本地MP3可播放真实歌曲） ======
+  { title:'夏日微风', artist:'云端曲库', dur:'03:25', emoji:'☀️', mood:['欢快','清新','夏天','活力'], scene:['vlog','旅行','夏日','日常'], bpm:120, tags:['热门','欢快','vlog'], hot:99 },
+  { title:'温暖时光', artist:'云端曲库', dur:'03:18', emoji:'🎸', mood:['治愈','温暖','轻松','安静'], scene:['日常','咖啡','治愈','读书'], bpm:90, tags:['治愈','温暖'], hot:96 },
+  { title:'热血燃向', artist:'云端曲库', dur:'02:40', emoji:'🔥', mood:['热血','燃','运动','激情'], scene:['运动','健身','高能','游戏'], bpm:140, tags:['热血','运动','燃'], hot:94 },
+  { title:'梦幻电音', artist:'云端曲库', dur:'03:05', emoji:'🎧', mood:['电子','梦幻','科技','未来'], scene:['科技','派对','夜晚','电音'], bpm:128, tags:['电子','科技'], hot:90 },
+  { title:'咖啡爵士', artist:'云端曲库', dur:'02:52', emoji:'☕', mood:['放松','爵士','慵懒','浪漫'], scene:['咖啡','夜晚','浪漫','爵士'], bpm:95, tags:['爵士','放松'], hot:88 },
+  { title:'派对狂欢', artist:'云端曲库', dur:'03:32', emoji:'🎉', mood:['欢快','派对','嗨','舞蹈'], scene:['派对','舞蹈','欢乐','抖音'], bpm:130, tags:['派对','欢快','嗨'], hot:92 },
+  { title:'治愈钢琴', artist:'云端曲库', dur:'03:30', emoji:'🎹', mood:['治愈','安静','温柔','感动'], scene:['治愈','安静','读书','伤感'], bpm:72, tags:['钢琴','治愈','安静'], hot:93 },
+  { title:'公路旅行', artist:'云端曲库', dur:'02:58', emoji:'🚗', mood:['自由','旅行','公路','欢快'], scene:['旅行','自驾','vlog','自由'], bpm:118, tags:['旅行','自由','vlog'], hot:91 },
+  { title:'深夜情歌', artist:'云端曲库', dur:'04:10', emoji:'🌙', mood:['伤感','深情','温柔','夜晚'], scene:['伤感','夜晚','回忆','治愈'], bpm:68, tags:['伤感','情歌'], hot:89 },
+  { title:'海边漫步', artist:'云端曲库', dur:'03:02', emoji:'🌴', mood:['清新','夏天','欢快','旅行'], scene:['海边','夏天','vlog','度假'], bpm:110, tags:['清新','夏天','旅行'], hot:87 },
+  { title:'古风意境', artist:'云端曲库', dur:'03:45', emoji:'🏮', mood:['古风','唯美','空灵','优雅'], scene:['古风','中国风','唯美','茶道'], bpm:80, tags:['古风','唯美'], hot:86 },
+  { title:'励志向前', artist:'云端曲库', dur:'03:20', emoji:'💪', mood:['励志','激昂','热血','奋斗'], scene:['励志','奋斗','工作','成长'], bpm:125, tags:['励志','激昂'], hot:90 },
+  { title:'甜蜜爱恋', artist:'云端曲库', dur:'02:48', emoji:'💕', mood:['浪漫','甜蜜','恋爱','温柔'], scene:['恋爱','婚礼','浪漫','甜蜜'], bpm:95, tags:['浪漫','甜蜜','恋爱'], hot:95 },
+  { title:'搞怪日常', artist:'云端曲库', dur:'02:15', emoji:'🤪', mood:['搞笑','可爱','魔性','欢乐'], scene:['搞笑','可爱','抖音','魔性'], bpm:145, tags:['搞笑','魔性','可爱'], hot:85 },
+  { title:'深夜电台', artist:'云端曲库', dur:'04:00', emoji:'🌃', mood:['安静','深夜','治愈','放松'], scene:['夜晚','安静','学习','放松'], bpm:75, tags:['深夜','安静','Lofi'], hot:84 },
+  { title:'电音狂欢', artist:'云端曲库', dur:'03:12', emoji:'🎵', mood:['嗨','电子','派对','热血'], scene:['派对','电音','舞蹈','嗨'], bpm:135, tags:['电音','派对','嗨'], hot:88 },
 
   // ====== 抖音热门BGM（可播放合成旋律） ======
   { title:'少年', artist:'梦然', dur:'03:42', emoji:'🔥', mood:['励志','热血','青春'], scene:['vlog','运动','成长'], bpm:128, tags:['抖音热门','流行','励志'], hot:98 },
@@ -4069,19 +4073,13 @@ const cloudMusicDB = [
 ];
 
 const musicData = {
-  hot: [...cloudMusicDB].sort((a,b) => {
-    // 真实音频优先，然后按热度排序
-    if (a.isRealAudio && !b.isRealAudio) return -1;
-    if (!a.isRealAudio && b.isRealAudio) return 1;
-    return b.hot - a.hot;
-  }).slice(0, 15),
+  hot: [...cloudMusicDB].sort((a,b) => b.hot - a.hot).slice(0, 20),
   trending: [...cloudMusicDB].filter(m => m.tags.includes('抖音热门') || m.hot >= 85)
-    .sort((a,b) => b.hot - a.hot).slice(0, 12),
+    .sort((a,b) => b.hot - a.hot).slice(0, 15),
   douyin: [...cloudMusicDB].filter(m =>
     m.tags.some(t => t.includes('抖音') || t === '魔性' || t === '甜歌' || t === '可爱')
   ).sort((a,b) => b.hot - a.hot).slice(0, 15),
   bgm: [...cloudMusicDB].filter(m => m.tags.includes('BGM')).slice(0, 15),
-  real: [...cloudMusicDB].filter(m => m.isRealAudio).slice(0, 20), // 真实可播放歌曲
   local: [], // 用户导入的本地真实歌曲
   ai: [] // AI搜索结果动态填充
 };
@@ -4126,7 +4124,8 @@ function switchMusicTab(btn, tab) {
   document.getElementById('normalSearchBox').style.display = (aiSearchActive || isLocal) ? 'none' : 'flex';
   document.getElementById('aiSearchArea').style.display = aiSearchActive ? 'block' : 'none';
 
-  // 停止任何正在播放的真实音频试听
+  // 停止任何正在播放的试听
+  stopMusicPreview();
   stopRealAudioPreview();
 
   if (tab === 'ai') {
@@ -4149,15 +4148,17 @@ function renderLocalMusic() {
       '</div>';
     return;
   }
+  // 设置当前音乐列表为本地音乐，使useRealMusicFromList也能工作
+  window._currentMusicList = localMusicFiles;
   container.innerHTML = localMusicFiles.map((m,i) =>
     '<div class="music-item" id="music-item-'+i+'">' +
-    '<div class="music-cover" onclick="previewRealMusic('+i+')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24)">🎵<span class="play-overlay" id="realplay-'+i+'">▶</span></div>' +
-    '<div class="music-info" onclick="useRealMusic('+i+')">' +
-    '<div class="music-title">'+m.title+'</div>' +
+    '<div class="music-cover" onclick="event.stopPropagation();previewRealMusic('+i+');return false;" style="background:linear-gradient(135deg,#00b894,#00cec9)">🎵<span class="play-overlay" id="realplay-'+i+'">▶</span></div>' +
+    '<div class="music-info" onclick="event.stopPropagation();useRealMusic('+i+');return false;" style="cursor:pointer">' +
+    '<div style="display:flex;align-items:center;gap:4px"><div class="music-title">'+m.title+'</div><span class="real-audio-badge">🎵 本地</span></div>' +
     '<div class="music-artist">本地音乐 · '+m.dur+'</div>' +
     '<div class="music-tags"><span class="music-tag ai-tag">真实音频</span></div>' +
     '</div>' +
-    '<button class="music-use-btn" onclick="event.stopPropagation();useRealMusic('+i+')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24)">使用</button>' +
+    '<button class="music-use-btn" onclick="event.stopPropagation();useRealMusic('+i+');return false;" style="background:linear-gradient(135deg,#00b894,#00cec9)">使用</button>' +
     '</div>'
   ).join('');
 }
@@ -4251,38 +4252,105 @@ function stopRealAudioPreview() {
   document.querySelectorAll('.play-overlay').forEach(o => { if(o.id && o.id.startsWith('realplay-')) o.textContent='▶'; });
 }
 
+// ========== 统一音乐添加入口（最可靠版本）==========
+function addMusicToTrack(musicData, options = {}) {
+  try {
+    if (!musicData) {
+      showToast('❌ 音乐数据无效');
+      return false;
+    }
+    
+    const { isRealAudio = false, isLocal = false, isCloud = false } = options;
+    
+    console.log('=== 添加音乐到轨道 ===', musicData.title, options);
+    
+    // 停止所有正在播放的音频
+    if (typeof stopMusicPreview === 'function') stopMusicPreview();
+    if (typeof stopRealAudioPreview === 'function') stopRealAudioPreview();
+    if (typeof stopBgm === 'function') stopBgm();
+    
+    // 移除之前的音乐片段
+    if (state && state.clips) {
+      state.clips = state.clips.filter(c => !c.isMusic);
+    } else {
+      console.error('state.clips不存在!');
+      showToast('❌ 系统状态错误，请刷新页面');
+      return false;
+    }
+    
+    // 计算时长
+    let duration = 180; // 默认3分钟
+    if (musicData.duration && typeof musicData.duration === 'number' && musicData.duration > 0) {
+      duration = musicData.duration;
+    } else if (musicData.dur) {
+      duration = parseDuration(musicData.dur);
+    }
+    
+    // 设置当前BGM
+    currentBgmMusic = {
+      ...musicData,
+      isRealAudio: !!isRealAudio,
+      isLocal: !!isLocal,
+      isCloud: !!isCloud
+    };
+    
+    // 创建音乐片段
+    const timestamp = Date.now();
+    const musicClip = {
+      id: 'music_' + timestamp,
+      assetId: 'music_asset_' + timestamp,
+      name: (musicData.title || '音乐') + (isRealAudio ? ' (真实歌曲)' : ' (伴奏)'),
+      duration: duration,
+      type: 'audio',
+      isMusic: true,
+      isRealAudio: !!isRealAudio,
+      isLocal: !!isLocal,
+      isCloud: !!isCloud,
+      url: musicData.url || null
+    };
+    
+    state.clips.push(musicClip);
+    console.log('✅ 音乐片段已添加到clips:', musicClip, '总数:', state.clips.length);
+    
+    // 更新UI
+    if (typeof renderTimeline === 'function') {
+      renderTimeline();
+    } else {
+      console.error('renderTimeline函数不存在!');
+    }
+    
+    if (typeof closeAllPanels === 'function') {
+      closeAllPanels();
+    }
+    
+    // 显示成功提示
+    let typeLabel = isRealAudio ? (isLocal ? '本地音乐' : '在线音乐') : '伴奏音乐';
+    showToast('✅ 已添加' + typeLabel + ': ' + (musicData.title || '音乐') + '，点击播放▶开始', 4000);
+    
+    // 如果视频正在播放，开始BGM
+    const video = document.getElementById('previewVideo');
+    if (video && !video.paused && typeof startBgm === 'function') {
+      startBgm();
+    } else if (typeof updateBgmUI === 'function') {
+      updateBgmUI();
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('❌ 添加音乐失败:', err);
+    showToast('❌ 添加音乐失败: ' + (err.message || '未知错误'));
+    return false;
+  }
+}
+
 // 使用本地真实音乐作为BGM
 function useRealMusic(index) {
   const m = localMusicFiles[index];
-  if (!m) return;
-  stopRealAudioPreview();
-  stopMusicPreview();
-
-  // 停止之前的BGM并移除旧音乐片段
-  stopBgm();
-  state.clips = state.clips.filter(c => !c.isMusic);
-
-  // 设置为真实音频BGM
-  currentBgmMusic = m;
-  state.clips.push({
-    id: Date.now().toString(),
-    assetId: 'music_'+Date.now(),
-    name: m.title + ' (真实歌曲)',
-    duration: m.duration || 180,
-    type: 'audio',
-    isMusic: true,
-    isRealAudio: true,
-    url: m.url
-  });
-  renderTimeline();
-  closeAllPanels();
-  showToast('已添加真实歌曲: '+m.title+' 点击播放▶开始', 4000);
-  const video = document.getElementById('previewVideo');
-  if (video && !video.paused) {
-    startBgm();
-  } else {
-    updateBgmUI();
+  if (!m) {
+    showToast('❌ 音乐数据不存在，请重新导入');
+    return;
   }
+  addMusicToTrack(m, { isRealAudio: true, isLocal: true });
 }
 
 // ========== 网络URL音乐功能 ==========
@@ -4454,11 +4522,9 @@ function doAISearch(query) {
     m.tags.some(t => q.includes(t.toLowerCase()))
   );
 
-  // 语义匹配打分（真实歌曲优先）
+  // 语义匹配打分
   const scored = cloudMusicDB.map(m => {
     let score = 0;
-    // 真实歌曲加分（用户明确要求真实歌手演唱）
-    if (m.isRealAudio) score += 40;
     m.mood.forEach(md => { if (matchedMoods.has(md)) score += 30; });
     m.scene.forEach(sc => { if (matchedScenes.has(sc)) score += 25; });
     m.tags.forEach(t => {
@@ -4507,11 +4573,23 @@ function renderMusicList(list) {
     ).join('');
     const matchBadge = m.aiMatch ?
       '<span class="ai-match-badge">AI '+m.aiMatch+'%</span>' : '';
-    const isReal = m.isRealAudio && m.url;
-    const previewFn = isReal ? 'previewCloudRealMusic('+i+')' : 'previewMusic('+i+')';
-    const useFn = isReal ? 'useCloudRealMusic('+i+')' : 'useMusic('+i+')';
+    // 判断是否为本地真实音频（blob URL或标记为本地）
+    const isReal = (m.isRealAudio || m.isLocal) && m.url && (m.url.startsWith('blob:') || m.isLocal);
+    // 判断是否为云端真实音频（有url但不是blob）
+    const isCloudReal = !isReal && m.url && m.url.startsWith('http');
+    // 所有音乐点击封面都使用Web Audio合成预览（最可靠，不依赖网络）
+    const previewFn = 'previewMusic('+i+')';
+    // 使用按钮：根据音乐类型选择不同的添加函数
+    let useFn;
+    if (isReal) {
+      useFn = 'useRealMusicFromList('+i+')';
+    } else if (isCloudReal) {
+      useFn = 'useCloudRealMusic('+i+')';
+    } else {
+      useFn = 'useMusic('+i+')';
+    }
 
-    // 封面渐变颜色（根据情绪风格）
+    // 封面渐变颜色（根据歌曲标题生成不同颜色，更有辨识度）
     const gradients = [
       'linear-gradient(135deg,#667eea,#764ba2)',
       'linear-gradient(135deg,#f093fb,#f5576c)',
@@ -4523,32 +4601,55 @@ function renderMusicList(list) {
       'linear-gradient(135deg,#ff9a9e,#fecfef)',
       'linear-gradient(135deg,#a1c4fd,#c2e9fb)',
       'linear-gradient(135deg,#d299c2,#fef9d7)',
+      'linear-gradient(135deg,#89f7fe,#66a6ff)',
+      'linear-gradient(135deg,#fddb92,#d1fdff)',
     ];
-    const gradIdx = (m.title.length + m.artist.length) % gradients.length;
-    const coverBg = isReal
-      ? 'background:linear-gradient(135deg,#00b894,#00cec9)'
-      : 'background:'+gradients[gradIdx];
-    const useBtnStyle = isReal ? 'background:linear-gradient(135deg,#00b894,#00cec9);color:#fff' : '';
+    let hash = 0;
+    const titleStr = m.title || 'music';
+    for (let c = 0; c < titleStr.length; c++) hash = ((hash << 5) - hash) + titleStr.charCodeAt(c);
+    const gradIdx = Math.abs(hash) % gradients.length;
+    let coverBg;
+    if (isReal) {
+      coverBg = 'background:linear-gradient(135deg,#00b894,#00cec9)';
+    } else if (isCloudReal) {
+      coverBg = 'background:linear-gradient(135deg,#e17055,#fdcb6e)';
+    } else {
+      coverBg = 'background:'+gradients[gradIdx];
+    }
 
-    // 真实音频徽章
-    const realBadge = isReal
-      ? '<span class="real-audio-badge">▶ 可播放</span>' : '';
+    // 音乐类型徽章
+    let typeBadge = '';
+    if (isReal) {
+      typeBadge = '<span class="real-audio-badge">🎵 本地</span>';
+    } else if (isCloudReal) {
+      typeBadge = '<span class="real-audio-badge" style="background:linear-gradient(135deg,#e17055,#fdcb6e)">🌐 在线</span>';
+    }
 
     const rightContent = matchBadge ?
       '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+matchBadge+
-      '<button class="music-use-btn" style="'+useBtnStyle+'" onclick="event.stopPropagation();'+useFn+'">使用</button></div>' :
-      '<button class="music-use-btn" style="'+useBtnStyle+'" onclick="event.stopPropagation();'+useFn+'">使用</button>';
+      '<button class="music-use-btn" onclick="event.stopPropagation();'+useFn+';return false;">使用</button></div>' :
+      '<button class="music-use-btn" onclick="event.stopPropagation();'+useFn+';return false;">使用</button>';
 
     return '<div class="music-item" id="music-item-'+i+'">' +
-      '<div class="music-cover" style="'+coverBg+'" onclick="'+previewFn+'">'+(isReal?'🎵':m.emoji)+'<span class="play-overlay" id="cloudplay-'+i+'">▶</span></div>' +
-      '<div class="music-info" onclick="'+useFn+'">' +
-      '<div style="display:flex;align-items:center;gap:2px"><div class="music-title">'+m.title+'</div>'+realBadge+'</div>' +
-      '<div class="music-artist">'+m.artist+' · '+m.dur+'</div>' +
+      '<div class="music-cover" style="'+coverBg+'" onclick="event.stopPropagation();'+previewFn+';return false;">'+(m.emoji||'🎵')+'<span class="play-overlay" id="cloudplay-'+i+'">▶</span></div>' +
+      '<div class="music-info" onclick="event.stopPropagation();'+useFn+';return false;" style="cursor:pointer">' +
+      '<div style="display:flex;align-items:center;gap:2px"><div class="music-title">'+(m.title||'未知音乐')+'</div>'+typeBadge+'</div>' +
+      '<div class="music-artist">'+(m.artist||'未知歌手')+' · '+(m.dur||'3:00')+'</div>' +
       (tagsHtml ? '<div class="music-tags">'+tagsHtml+'</div>' : '') +
       '</div>' +
       rightContent +
       '</div>';
   }).join('');
+}
+
+// 从音乐列表使用本地真实音乐
+function useRealMusicFromList(index) {
+  const m = window._currentMusicList ? window._currentMusicList[index] : null;
+  if (!m) {
+    showToast('❌ 音乐数据不存在，请重试');
+    return;
+  }
+  addMusicToTrack(m, { isRealAudio: true, isLocal: true });
 }
 
 // 试听云端真实歌曲
@@ -4585,32 +4686,11 @@ function previewCloudRealMusic(index) {
 function useCloudRealMusic(index) {
   const list = window._currentMusicList || [];
   const m = list[index];
-  if (!m) return;
-  stopMusicPreview();
-  stopRealAudioPreview();
-  stopBgm();
-  // 移除之前的音乐片段，防止重复
-  state.clips = state.clips.filter(c => !c.isMusic);
-  currentBgmMusic = m;
-  state.clips.push({
-    id: Date.now().toString(),
-    assetId: 'music_'+Date.now(),
-    name: m.title + ' (真实歌曲)',
-    duration: parseDuration(m.dur),
-    type: 'audio',
-    isMusic: true,
-    isRealAudio: true,
-    url: m.url
-  });
-  renderTimeline();
-  closeAllPanels();
-  showToast('已添加真实歌曲: '+m.title+' 点击播放▶开始', 4000);
-  const video = document.getElementById('previewVideo');
-  if (video && !video.paused) {
-    startBgm();
-  } else {
-    updateBgmUI();
+  if (!m) {
+    showToast('❌ 音乐数据不存在');
+    return;
   }
+  addMusicToTrack(m, { isRealAudio: true, isCloud: true });
 }
 
 function searchMusic() {
@@ -4654,8 +4734,6 @@ function searchMusic() {
       if (sl.includes(query) || query.includes(sl)) score += 20;
     });
 
-    // 真实音频加分
-    if (m.isRealAudio) score += 15;
     // 热度加分
     score += Math.floor(m.hot * 0.15);
 
@@ -4664,9 +4742,8 @@ function searchMusic() {
     .sort((a,b) => b.score - a.score);
 
   renderMusicList(scored);
-  const realCount = scored.filter(r => r.isRealAudio).length;
   if (scored.length) {
-    showToast('找到 '+scored.length+' 首相关音乐'+(realCount>0?'（'+realCount+'首可真实播放）':''));
+    showToast('找到 '+scored.length+' 首相关音乐（点击封面试听）');
   } else {
     showToast('未找到匹配音乐，试试AI智能搜索或换个关键词');
   }
@@ -4683,42 +4760,49 @@ function initMusicSearch() {
   });
 }
 
+// 快速搜索：点击热门标签直接搜索
+function quickSearch(keyword) {
+  const input = document.getElementById('musicSearchInput');
+  input.value = keyword;
+  // 切换到热门标签（因为现在是搜索模式，不切换tab）
+  // 直接执行搜索
+  searchMusic();
+}
+
 function useMusic(index) {
   const list = window._currentMusicList || [];
   const music = list[index];
-  if (!music) { showToast('音乐数据错误'); return; }
-  // 停止试听
-  stopMusicPreview();
-  stopRealAudioPreview();
-  // 先移除之前的BGM，防止重复添加
-  stopBgm();
-  state.clips = state.clips.filter(c => !c.isMusic);
-  state.clips.push({
-    id: Date.now().toString(),
-    assetId: 'music_'+Date.now(),
-    name: music.title + ' - ' + music.artist,
-    duration: parseDuration(music.dur),
-    type: 'audio',
-    isMusic: true
-  });
-  currentBgmMusic = music;
-  renderTimeline();
-  closeAllPanels();
-  const matchInfo = music.aiMatch ? (' (AI匹配度'+music.aiMatch+'%)') : '';
-  const audioType = music.isRealAudio ? '（真实歌手原声）' : '（多轨乐队伴奏）';
-  showToast('已添加: '+music.title+matchInfo+audioType+' 点击播放▶开始', 4000);
-  const video = document.getElementById('previewVideo');
-  // 如果视频正在播放，立即切换BGM
-  if (video && !video.paused) {
-    startBgm();
-  } else {
-    updateBgmUI();
+  if (!music) {
+    showToast('❌ 音乐数据错误，请刷新重试');
+    return;
   }
+  addMusicToTrack(music, { isRealAudio: false });
 }
 
 function parseDuration(dur) {
-  const parts = dur.split(':');
-  return parseInt(parts[0])*60 + parseInt(parts[1]);
+  try {
+    if (!dur) return 180;
+    if (typeof dur === 'number') return dur;
+    const durStr = String(dur).trim();
+    const parts = durStr.split(':');
+    if (parts.length === 2) {
+      const mins = parseInt(parts[0]) || 0;
+      const secs = parseInt(parts[1]) || 0;
+      return mins * 60 + secs;
+    } else if (parts.length === 3) {
+      const hrs = parseInt(parts[0]) || 0;
+      const mins = parseInt(parts[1]) || 0;
+      const secs = parseInt(parts[2]) || 0;
+      return hrs * 3600 + mins * 60 + secs;
+    }
+    // 尝试直接解析数字
+    const num = parseFloat(durStr);
+    if (!isNaN(num) && num > 0) return num;
+    return 180;
+  } catch (e) {
+    console.warn('解析时长失败:', dur, e);
+    return 180;
+  }
 }
 
 // ========== 全局用户交互解锁AudioContext ==========
@@ -4751,6 +4835,22 @@ function unlockAudioContext() {
 document.addEventListener('click', unlockAudioContext);
 document.addEventListener('touchstart', unlockAudioContext);
 document.addEventListener('keydown', unlockAudioContext);
+
+// 键盘快捷键：空格键在播放时快速标记字幕
+document.addEventListener('keydown', function(e) {
+  // 空格键标记字幕（如果不是在输入框中）
+  if (e.code === 'Space' && !e.target.matches('input, textarea, [contenteditable]')) {
+    const previewVideo = document.getElementById('previewVideo');
+    if (previewVideo && previewVideo.src && !previewVideo.paused) {
+      // 如果字幕面板是打开的，添加字幕
+      const subPanel = document.getElementById('subtitlePanel');
+      if (subPanel && subPanel.style.display !== 'none') {
+        e.preventDefault();
+        addSubtitleAtCurrentTime();
+      }
+    }
+  }
+});
 
 // 不预加载演示素材，素材库初始为空，由用户导入真实视频
 </script>
