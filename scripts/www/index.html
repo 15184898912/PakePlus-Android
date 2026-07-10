@@ -2,567 +2,697 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI PPT生成器</title>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh}
-        .app{max-width:480px;margin:0 auto;min-height:100vh;background:#fff;position:relative;padding-bottom:70px}
-        .hdr{background:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10}
-        .hdr-t{font-size:20px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .btn-icon{width:38px;height:38px;border-radius:10px;border:0;background:#f1f5f9;font-size:18px;cursor:pointer}
+        body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f5f5}
+        .container{max-width:480px;margin:0 auto;min-height:100vh;background:#fff;position:relative}
+        .header{background:#fff;padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+        .header h1{font-size:20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
         .content{padding:20px}
-        .status{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#ecfdf5;border-radius:10px;margin-bottom:16px;font-size:13px;color:#065f46}
-        .dot{width:8px;height:8px;border-radius:50%;background:#10b981}
-        .lbl{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-        .badge{background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px}
-        textarea{width:100%;min-height:120px;padding:14px;border:2px solid #e2e8f0;border-radius:14px;font-size:14px;font-family:inherit;background:#f8fafc;color:#1e293b;line-height:1.6;resize:vertical}
-        textarea:focus{outline:0;border-color:#6366f1;background:#fff}
-        .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-        .chip{padding:6px 12px;border-radius:16px;background:#eef2ff;color:#6366f1;font-size:12px;cursor:pointer}
-        .tpl-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}
-        .tpl-card{flex-shrink:0;width:100px;border-radius:14px;overflow:hidden;cursor:pointer;border:3px solid transparent}
-        .tpl-card.sel{border-color:#6366f1}
-        .tpl-prev{height:60px;display:flex;align-items:center;justify-content:center;font-size:24px}
-        .tpl-nm{padding:6px;text-align:center;font-size:11px;font-weight:600;background:#fff}
-        .tpl-b .tpl-prev{background:linear-gradient(135deg,#1e3a5f,#2d5a87);color:#fff}
-        .tpl-a .tpl-prev{background:#fff;color:#8b0000;border:1px solid #ddd}
-        .tpl-c .tpl-prev{background:linear-gradient(135deg,#ff6b6b,#feca57,#48dbfb);color:#fff}
-        .tpl-m .tpl-prev{background:#fff;color:#333;border:1px solid #eee}
-        .tpl-t .tpl-prev{background:linear-gradient(135deg,#0a0a0a,#1a1a2e);color:#00ff88}
-        .pg-ctrl{background:#f8fafc;padding:16px;border-radius:14px}
-        .pg-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
-        .pg-inp{width:70px;padding:8px;border:2px solid #e2e8f0;border-radius:10px;font-size:20px;font-weight:700;text-align:center;color:#6366f1;background:#fff}
-        .pg-btns{display:flex;gap:6px;flex-wrap:wrap}
-        .pg-btn{padding:6px 14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;color:#64748b;font-size:12px;cursor:pointer}
-        .pg-btn.on{background:#6366f1;color:#fff;border-color:#6366f1}
-        .tog-row{display:flex;gap:10px;margin-bottom:20px}
-        .tog-g{flex:1}
-        .tog-lbl{font-size:12px;color:#64748b;margin-bottom:6px}
-        .tog-box{display:flex;background:#f8fafc;border-radius:10px;padding:3px}
-        .tog-btn{flex:1;padding:8px;border:0;background:0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#64748b}
-        .tog-btn.on{background:#fff;color:#6366f1;box-shadow:0 2px 4px rgba(0,0,0,.1)}
-        .gen-btn{width:100%;padding:16px;border:0;border-radius:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);color:#fff;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.4)}
-        .gen-btn:disabled{opacity:.7}
-        .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #e2e8f0;display:flex;justify-content:space-around;padding:6px 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
-        .nav-i{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 14px;border:0;background:0;color:#64748b;cursor:pointer;font-size:11px}
-        .nav-i.on{color:#6366f1}
-        .nav-i .ic{font-size:22px}
-        .page{display:none;min-height:100vh}
-        .page.on{display:block}
+        .status{background:#ecfdf5;color:#065f46;padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:13px;display:flex;align-items:center;gap:8px}
+        .dot{width:8px;height:8px;background:#10b981;border-radius:50%}
+        label{font-size:14px;font-weight:600;display:block;margin-bottom:8px;margin-top:16px}
+        textarea{width:100%;min-height:120px;padding:14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-family:inherit;background:#f8fafc;resize:vertical}
+        textarea:focus{outline:none;border-color:#6366f1;background:#fff}
+        .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+        .chip{padding:6px 12px;background:#eef2ff;color:#6366f1;border-radius:16px;font-size:12px;cursor:pointer}
+        .templates{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}
+        .tpl{flex-shrink:0;width:90px;border-radius:12px;border:3px solid #e2e8f0;cursor:pointer;overflow:hidden}
+        .tpl.selected{border-color:#6366f1}
+        .tpl-prev{height:50px;display:flex;align-items:center;justify-content:center;font-size:22px}
+        .tpl-name{padding:4px;text-align:center;font-size:11px;font-weight:600;background:#fff}
+        .page-row{display:flex;gap:10px;align-items:center;margin:10px 0}
+        .page-input{width:60px;padding:6px;border:2px solid #e2e8f0;border-radius:8px;font-size:18px;font-weight:700;text-align:center;color:#6366f1}
+        .page-btns{display:flex;gap:6px;flex-wrap:wrap}
+        .page-btn{padding:5px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;color:#64748b;font-size:12px;cursor:pointer}
+        .page-btn.active{background:#6366f1;color:#fff;border-color:#6366f1}
+        .gen-btn{width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);color:#fff;font-size:17px;font-weight:700;cursor:pointer;margin-top:20px;box-shadow:0 4px 12px rgba(99,102,241,.3)}
+        .gen-btn:disabled{opacity:.6}
         /* Progress */
-        .prog{background:linear-gradient(180deg,#eef2ff,#fff);min-height:100vh;display:none;flex-direction:column;padding:40px 20px}
-        .prog.on{display:flex}
-        .prog-ring{position:relative;width:160px;height:160px;margin:0 auto 24px}
-        .prog-ring svg{transform:rotate(-90deg)}
-        .prog-pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:38px;font-weight:700;color:#6366f1}
-        .prog-st{text-align:center;font-size:16px;font-weight:600;margin-bottom:6px}
-        .prog-dt{text-align:center;font-size:13px;color:#64748b;margin-bottom:20px}
-        .prog-steps{width:100%;max-width:320px;margin:0 auto}
-        .prog-step{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:6px;border-radius:10px;background:#fff}
-        .prog-step.act{background:#eef2ff;border:2px solid #6366f1}
-        .prog-step.done{opacity:.7}
-        .prog-step.err .s-ic{background:#ef4444;color:#fff}
-        .s-ic{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:#f1f5f9;color:#64748b;flex-shrink:0}
-        .prog-step.act .s-ic{background:#6366f1;color:#fff}
-        .prog-step.done .s-ic{background:#10b981;color:#fff}
+        .progress{display:none;flex-direction:column;align-items:center;padding:60px 20px;min-height:100vh;background:linear-gradient(180deg,#eef2ff,#fff)}
+        .progress.show{display:flex}
+        .pct{font-size:48px;font-weight:700;color:#6366f1;margin:20px 0 10px}
+        .p-status{font-size:18px;font-weight:600;margin-bottom:8px}
+        .p-detail{font-size:14px;color:#64748b;margin-bottom:30px}
+        .p-steps{width:100%;max-width:320px}
+        .p-step{display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-radius:10px;margin-bottom:6px}
+        .p-step.active{background:#eef2ff;border:2px solid #6366f1}
+        .p-step.done{opacity:.6}
+        .p-ic{width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:14px}
+        .p-step.active .p-ic{background:#6366f1;color:#fff}
+        .p-step.done .p-ic{background:#10b981;color:#fff}
         /* Preview */
-        .prev{display:none;flex-direction:column;min-height:100vh;background:#f8fafc}
-        .prev.on{display:flex}
-        .prev-hdr{background:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e2e8f0}
-        .prev-t{flex:1;font-size:14px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .prev-pg{font-size:12px;color:#64748b;background:#f1f5f9;padding:4px 10px;border-radius:14px}
-        .slides-c{flex:1;overflow:hidden;position:relative}
-        .slides-w{display:flex;height:100%;transition:transform .3s}
-        .slide-pg{min-width:100%;height:100%;padding:12px;display:flex;align-items:center;justify-content:center}
-        .slide{width:100%;aspect-ratio:16/9;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden;position:relative;display:flex}
-        .s-side{width:38%;height:100%;flex-shrink:0}
-        .s-cov{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;background:linear-gradient(135deg,#1e3a5f,#2d5a87);color:#fff}
-        .s-con{flex:1;padding:14px;display:flex;flex-direction:column;position:relative;z-index:1;overflow:hidden}
-        .s-ttl{font-size:16px;font-weight:700;margin-bottom:6px;line-height:1.3}
-        .s-cov .s-ttl{font-size:22px;color:#fff;margin-bottom:6px}
-        .s-sub{font-size:11px;opacity:.8;margin-bottom:10px}
-        .s-cov .s-sub{color:rgba(255,255,255,.9)}
-        .s-pts{list-style:none;overflow-y:auto;flex:1}
-        .s-pts li{font-size:11px;line-height:1.5;padding-left:14px;position:relative;margin-bottom:3px}
-        .s-pts li::before{content:'';position:absolute;left:0;top:5px;width:5px;height:5px;border-radius:50%;background:currentColor}
-        .s-ft{padding:4px 12px;font-size:8px;opacity:.6;display:flex;justify-content:space-between;position:absolute;bottom:0;left:0;right:0}
-        .sb{background:linear-gradient(135deg,#1e3a5f,#2d5a87);color:#fff}
-        .sa{background:#fff;color:#333;border:3px solid #8b0000}
-        .sa .s-ttl{color:#8b0000;border-bottom:2px solid #8b0000;padding-bottom:3px}
-        .sc{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
-        .sm{background:#fff;color:#333}
-        .sm .s-ttl{font-weight:400;border-left:3px solid #333;padding-left:8px}
-        .st{background:linear-gradient(135deg,#0a0a0a,#1a1a2e);color:#00ff88}
-        .st .s-ttl{text-shadow:0 0 8px #00ff88}
-        .thumbs{background:#fff;padding:6px;border-top:1px solid #e2e8f0}
-        .thumbs-w{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
-        .thumb{flex-shrink:0;width:32px;height:18px;border-radius:2px;border:2px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:600;background:#f1f5f9}
-        .thumb.on{border-color:#6366f1}
-        .prev-act{background:#fff;padding:8px 14px;padding-bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:6px;border-top:1px solid #e2e8f0}
-        .act-btn{flex:1;padding:8px 4px;border:0;border-radius:10px;font-size:10px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
-        .act-btn.p{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
-        .act-btn.s{background:#f1f5f9;color:#1e293b}
-        .act-btn .ic{font-size:16px}
-        /* Edit panel */
-        .edit-pnl{position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:500;display:none;flex-direction:column;overflow-y:auto}
-        .edit-pnl.on{display:flex}
-        .edit-hdr{position:sticky;top:0;background:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e8f0}
-        .edit-cnt{padding:14px;flex:1}
-        .edit-item{background:#f8fafc;border-radius:12px;padding:12px;margin-bottom:10px}
-        .edit-num{font-size:10px;color:#6366f1;font-weight:600;margin-bottom:8px}
-        .edit-f{margin-bottom:8px}
-        .edit-lbl{font-size:11px;font-weight:600;color:#64748b;margin-bottom:3px;display:block}
-        .edit-inp{width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:inherit;background:#fff;color:#1e293b}
-        .pt-row{display:flex;gap:5px;margin-bottom:4px}
-        .pt-del{width:28px;height:28px;border-radius:6px;border:0;background:#fee2e2;color:#ef4444;font-size:14px;cursor:pointer;flex-shrink:0}
-        .add-pt{width:100%;padding:6px;border:2px dashed #e2e8f0;border-radius:8px;background:0;color:#6366f1;font-size:11px;cursor:pointer;margin-top:4px}
-        .edit-bar{position:sticky;bottom:0;background:#fff;padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;display:flex;gap:10px}
-        .btn-save{flex:1;padding:12px;border:0;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
-        .btn-cancel{padding:12px 18px;border:2px solid #e2e8f0;border-radius:10px;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer}
-        /* Modal */
-        .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
-        .modal-bg.on{display:flex}
-        .modal{background:#fff;border-radius:16px;width:100%;max-width:360px;padding:20px}
-        .modal-t{font-size:18px;font-weight:700;margin-bottom:12px;text-align:center}
-        .modal-c{font-size:13px;color:#64748b;line-height:1.5;margin-bottom:14px}
-        .modal-btns{display:flex;gap:10px}
-        .m-btn{flex:1;padding:12px;border:0;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer}
-        .m-btn.cancel{background:#f1f5f9;color:#64748b}
-        .m-btn.ok{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
-        .dl-opt{width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;margin-bottom:8px}
-        .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);background:#1e293b;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:2000;transition:transform .3s}
-        .toast.on{transform:translateX(-50%) translateY(0)}
+        .preview{display:none;flex-direction:column;min-height:100vh;background:#f5f5f5}
+        .preview.show{display:flex}
+        .prev-header{background:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #eee}
+        .prev-header button{width:36px;height:36px;border:none;border-radius:8px;background:#f1f5f9;font-size:18px;cursor:pointer}
+        .prev-title{flex:1;text-align:center;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .prev-page{font-size:12px;color:#64748b;background:#f1f5f9;padding:4px 10px;border-radius:12px}
+        .slides-area{flex:1;overflow:hidden}
+        .slides-wrap{display:flex;height:100%;transition:transform .3s}
+        .slide-page{min-width:100%;height:100%;padding:12px;display:flex;align-items:center;justify-content:center}
+        .slide{width:100%;aspect-ratio:16/9;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden;position:relative;display:flex}
+        .slide-business{background:linear-gradient(135deg,#1e3a5f,#2d5a87);color:#fff}
+        .slide-creative{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+        .slide-minimal{background:#fff;color:#333}
+        .slide-tech{background:linear-gradient(135deg,#0a0a0a,#1a1a2e);color:#00ff88}
+        .slide-academic{background:#fff;color:#333;border:3px solid #8b0000}
+        .slide-academic .s-title{color:#8b0000;border-bottom:2px solid #8b0000;padding-bottom:4px}
+        .s-cover{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+        .s-title{font-size:20px;font-weight:700;margin-bottom:8px}
+        .s-cover .s-title{font-size:24px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+        .s-sub{font-size:12px;opacity:.8;margin-bottom:10px}
+        .s-cover .s-sub{color:rgba(255,255,255,.9)}
+        .s-side{width:38%;height:100%;flex-shrink:0;background:rgba(255,255,255,.1)}
+        .s-content{flex:1;padding:14px;display:flex;flex-direction:column;z-index:1;overflow:hidden}
+        .s-content .s-title{font-size:16px}
+        .s-points{list-style:none;overflow-y:auto;flex:1}
+        .s-points li{font-size:11px;line-height:1.5;padding-left:12px;position:relative;margin-bottom:3px}
+        .s-points li:before{content:'';position:absolute;left:0;top:5px;width:5px;height:5px;border-radius:50%;background:currentColor}
+        .s-footer{position:absolute;bottom:0;left:0;right:0;padding:4px 12px;font-size:8px;opacity:.6;display:flex;justify-content:space-between}
+        .thumbs{background:#fff;padding:6px;border-top:1px solid #eee;display:flex;gap:5px;overflow-x:auto}
+        .thumb{flex-shrink:0;width:28px;height:16px;border-radius:2px;border:2px solid transparent;background:#f1f5f9;font-size:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:600}
+        .thumb.active{border-color:#6366f1}
+        .prev-actions{background:#fff;padding:8px 14px;display:flex;gap:6px;border-top:1px solid #eee}
+        .action-btn{flex:1;padding:8px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+        .action-btn.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+        .action-btn.secondary{background:#f1f5f9;color:#1e293b}
+        /* Edit */
+        .edit-panel{position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:100;display:none;flex-direction:column;overflow-y:auto}
+        .edit-panel.show{display:flex}
+        .edit-header{position:sticky;top:0;background:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #eee}
+        .edit-header button{width:36px;height:36px;border:none;border-radius:8px;background:#f1f5f9;font-size:18px;cursor:pointer}
+        .edit-body{padding:14px;flex:1}
+        .edit-slide{background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:10px}
+        .edit-label{font-size:10px;color:#6366f1;font-weight:600;margin-bottom:6px}
+        .edit-field{margin-bottom:8px}
+        .edit-field label{font-size:11px;color:#64748b;margin:0 0 3px 0;font-weight:500}
+        .edit-field input{width:100%;padding:6px 8px;border:2px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit}
+        .point-row{display:flex;gap:4px;margin-bottom:4px}
+        .point-del{width:26px;height:26px;border:none;border-radius:6px;background:#fee2e2;color:#ef4444;font-size:14px;cursor:pointer;flex-shrink:0}
+        .add-point{width:100%;padding:6px;border:2px dashed #e2e8f0;border-radius:6px;background:none;color:#6366f1;font-size:11px;cursor:pointer;margin-top:4px}
+        .edit-footer{position:sticky;bottom:0;background:#fff;padding:10px 14px;border-top:1px solid #eee;display:flex;gap:10px}
+        .save-btn{flex:1;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+        .cancel-btn{padding:12px 18px;border:2px solid #e2e8f0;border-radius:10px;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer}
+        /* Toast */
+        .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);background:#1e293b;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:200;transition:transform .3s}
+        .toast.show{transform:translateX(-50%) translateY(0)}
         .toast.ok{background:#10b981}
         .toast.err{background:#ef4444}
-        .hist-empty{text-align:center;padding:50px 20px}
-        .hist-ei{font-size:60px;margin-bottom:12px;opacity:.4}
-        .hist-et{font-size:16px;font-weight:600;color:#64748b;margin-bottom:6px}
-        .hist-list{display:flex;flex-direction:column;gap:10px}
-        .hist-item{background:#fff;border-radius:12px;padding:12px;display:flex;gap:10px;box-shadow:0 2px 6px rgba(0,0,0,.06);cursor:pointer}
-        .hist-th{width:60px;height:34px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px}
-        .hist-inf{flex:1;min-width:0}
-        .hist-tt{font-size:13px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .hist-mt{font-size:10px;color:#64748b;display:flex;gap:8px}
+        /* Modal */
+        .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:150;padding:16px}
+        .modal-bg.show{display:flex}
+        .modal{background:#fff;border-radius:14px;width:100%;max-width:340px;padding:18px}
+        .modal h3{font-size:18px;text-align:center;margin-bottom:10px}
+        .modal p{font-size:13px;color:#64748b;line-height:1.5;margin-bottom:14px}
+        .modal-btns{display:flex;gap:10px}
+        .modal-btns button{flex:1;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+        .m-cancel{background:#f1f5f9;color:#64748b}
+        .m-ok{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+        .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #eee;display:flex;justify-content:space-around;padding:6px 0}
+        .nav-btn{flex:1;background:none;border:none;color:#64748b;font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px}
+        .nav-btn.active{color:#6366f1}
+        .nav-btn .ic{font-size:20px}
+        .page{display:none}
+        .page.active{display:block}
     </style>
 </head>
 <body>
-<div class="app" id="app">
-    <!-- Home -->
-    <div class="page on" id="pgHome">
-        <div class="hdr">
-            <div class="hdr-t">🤖 AI PPT生成器</div>
-            <button class="btn-icon" onclick="showPage('settings')">⚙️</button>
-        </div>
+<div class="container">
+    <!-- Home Page -->
+    <div class="page active" id="pageHome">
+        <div class="header"><h1>🤖 AI PPT生成器</h1></div>
         <div class="content">
-            <div class="status"><div class="dot"></div><div>✅ 离线智能就绪（无需网络，可编辑）</div></div>
-            <div style="margin-bottom:16px">
-                <div class="lbl">📝 PPT主题 <span class="badge">即用</span></div>
-                <textarea id="promptInp" placeholder="输入主题，例如：&#10;• 2024年度工作总结&#10;• 新员工入职培训&#10;• 产品介绍/项目汇报"></textarea>
-                <div class="chips">
-                    <span class="chip" onclick="fill('2024年度工作总结，业绩回顾、问题分析、明年计划')">📋 年度总结</span>
-                    <span class="chip" onclick="fill('新员工入职培训，公司介绍、企业文化、规章制度')">🎓 入职培训</span>
-                    <span class="chip" onclick="fill('项目汇报，进展情况、成果展示、下一步计划')">📊 项目汇报</span>
-                    <span class="chip" onclick="fill('产品介绍，核心功能、产品优势、应用场景')">📦 产品介绍</span>
+            <div class="status"><div class="dot"></div><span>✅ 离线智能就绪，无需网络</span></div>
+            <label>📝 PPT主题</label>
+            <textarea id="promptInput" placeholder="输入主题，例如：&#10;2024年度工作总结&#10;新员工入职培训&#10;项目汇报"></textarea>
+            <div class="chips">
+                <span class="chip" onclick="setPrompt('2024年度工作总结，业绩回顾、经验总结、问题分析、明年计划')">📋 年度总结</span>
+                <span class="chip" onclick="setPrompt('新员工入职培训，公司介绍、企业文化、规章制度')">🎓 入职培训</span>
+                <span class="chip" onclick="setPrompt('项目汇报，项目进展、成果展示、下一步计划')">📊 项目汇报</span>
+                <span class="chip" onclick="setPrompt('产品介绍，核心功能、产品优势、应用场景')">📦 产品介绍</span>
+            </div>
+            <label>🎨 模板风格</label>
+            <div class="templates" id="templatesBox"></div>
+            <label>📄 页数</label>
+            <div class="page-row">
+                <input type="number" class="page-input" id="pageInput" value="8" min="3" max="30">
+                <div class="page-btns">
+                    <button class="page-btn" onclick="setPage(5,this)">5页</button>
+                    <button class="page-btn active" onclick="setPage(8,this)">8页</button>
+                    <button class="page-btn" onclick="setPage(12,this)">12页</button>
                 </div>
             </div>
-            <div style="margin-bottom:16px">
-                <div class="lbl">🎨 模板</div>
-                <div class="tpl-scroll" id="tplScroll"></div>
-            </div>
-            <div style="margin-bottom:16px">
-                <div class="lbl">📄 页数</div>
-                <div class="pg-ctrl">
-                    <div class="pg-row">
-                        <span style="font-size:13px;color:#64748b">幻灯片页数</span>
-                        <input type="number" class="pg-inp" id="pgInp" value="8" min="3" max="50">
-                    </div>
-                    <div class="pg-btns">
-                        <button class="pg-btn" onclick="setPg(5,event)">5页</button>
-                        <button class="pg-btn on" onclick="setPg(8,event)">8页</button>
-                        <button class="pg-btn" onclick="setPg(12,event)">12页</button>
-                        <button class="pg-btn" onclick="setPg(15,event)">15页</button>
-                    </div>
-                </div>
-            </div>
-            <div class="tog-row">
-                <div class="tog-g">
-                    <div class="tog-lbl">🌐 语言</div>
-                    <div class="tog-box">
-                        <button class="tog-btn on" data-lg="zh" onclick="setLg('zh')">中文</button>
-                        <button class="tog-btn" data-lg="en" onclick="setLg('en')">English</button>
-                    </div>
-                </div>
-                <div class="tog-g">
-                    <div class="tog-lbl">🖼️ 风格</div>
-                    <div class="tog-box">
-                        <button class="tog-btn on" data-sty="photo" onclick="setSty('photo')">照片</button>
-                        <button class="tog-btn" data-sty="illust" onclick="setSty('illust')">插画</button>
-                    </div>
-                </div>
-            </div>
-            <button class="gen-btn" id="genBtn" onclick="startGen()">🚀 立即生成PPT</button>
-            <div style="text-align:center;margin-top:12px;font-size:10px;color:#94a3b8">💡 生成后可自由编辑，可下载PPTX</div>
+            <button class="gen-btn" id="genBtn" onclick="doGenerate()">🚀 立即生成PPT</button>
         </div>
     </div>
 
-    <!-- Progress -->
-    <div class="prog" id="pgProg">
-        <div class="prog-ring">
-            <svg width="160" height="160">
-                <defs><linearGradient id="pgGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs>
-                <circle cx="80" cy="80" r="70" fill="none" stroke="#e2e8f0" stroke-width="10"/>
-                <circle cx="80" cy="80" r="70" fill="none" stroke="url(#pgGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="439.8" stroke-dashoffset="439.8" id="pgRing"/>
-            </svg>
-            <div class="prog-pct" id="pgPct">0%</div>
-        </div>
-        <div class="prog-st" id="pgSt">准备中...</div>
-        <div class="prog-dt" id="pgDt"></div>
-        <div class="prog-steps" id="pgSteps"></div>
+    <!-- Progress Page -->
+    <div class="progress" id="pageProgress">
+        <div class="pct" id="pctText">0%</div>
+        <div class="p-status" id="statusText">准备中...</div>
+        <div class="p-detail" id="detailText"></div>
+        <div class="p-steps" id="stepsBox"></div>
     </div>
 
-    <!-- Preview -->
-    <div class="prev" id="pgPrev">
-        <div class="prev-hdr">
-            <button class="btn-icon" onclick="goHome()">←</button>
-            <div class="prev-t" id="prevT">PPT预览</div>
-            <button class="btn-icon" onclick="openEdit()">✏️</button>
-            <div class="prev-pg" id="prevPg">1/8</div>
+    <!-- Preview Page -->
+    <div class="preview" id="pagePreview">
+        <div class="prev-header">
+            <button onclick="goHome()">←</button>
+            <div class="prev-title" id="prevTitle">PPT预览</div>
+            <button onclick="openEdit()">✏️</button>
+            <div class="prev-page" id="pageIndicator">1/8</div>
         </div>
-        <div class="slides-c"><div class="slides-w" id="slidesW"></div></div>
-        <div class="thumbs"><div class="thumbs-w" id="thumbsW"></div></div>
-        <div class="prev-act">
-            <button class="act-btn p" onclick="showDl()"><span class="ic">💾</span><span>下载PPTX</span></button>
-            <button class="act-btn s" onclick="regen()"><span class="ic">🔄</span><span>重新生成</span></button>
+        <div class="slides-area"><div class="slides-wrap" id="slidesWrap"></div></div>
+        <div class="thumbs" id="thumbsBox"></div>
+        <div class="prev-actions">
+            <button class="action-btn primary" onclick="downloadPPTX()"><span style="font-size:16px">💾</span><span>下载PPTX</span></button>
+            <button class="action-btn secondary" onclick="doGenerate()"><span style="font-size:16px">🔄</span><span>重新生成</span></button>
         </div>
     </div>
 
-    <!-- Edit -->
-    <div class="edit-pnl" id="editPnl">
-        <div class="edit-hdr">
-            <button class="btn-icon" onclick="closeEdit()">←</button>
-            <div class="prev-t">编辑内容</div>
-            <div style="width:38px"></div>
+    <!-- Edit Panel -->
+    <div class="edit-panel" id="editPanel">
+        <div class="edit-header">
+            <button onclick="closeEdit()">←</button>
+            <div style="flex:1;text-align:center;font-size:15px;font-weight:600">编辑内容</div>
+            <div style="width:36px"></div>
         </div>
-        <div class="edit-cnt" id="editCnt"></div>
-        <div class="edit-bar">
-            <button class="btn-cancel" onclick="closeEdit()">取消</button>
-            <button class="btn-save" onclick="saveEdit()">✓ 保存</button>
+        <div class="edit-body" id="editBody"></div>
+        <div class="edit-footer">
+            <button class="cancel-btn" onclick="closeEdit()">取消</button>
+            <button class="save-btn" onclick="saveEdit()">✓ 保存</button>
         </div>
     </div>
 
-    <!-- History -->
-    <div class="page" id="pgHist">
-        <div class="hdr">
-            <div class="hdr-t">📚 历史记录</div>
-            <button class="btn-icon" onclick="clearHist()">🗑️</button>
-        </div>
-        <div class="content" id="histCnt"></div>
-    </div>
-
-    <!-- Settings -->
-    <div class="page" id="pgSet">
-        <div class="hdr">
-            <button class="btn-icon" onclick="showPage('home')">←</button>
-            <div class="hdr-t">⚙️ 设置</div>
-            <div style="width:38px"></div>
-        </div>
-        <div class="content">
-            <div style="margin-bottom:20px">
-                <div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:8px">关于</div>
-                <div style="background:#fff;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.06)">
-                    <div style="display:flex;align-items:center;padding:12px 14px;gap:10px">
-                        <div style="width:34px;height:34px;border-radius:8px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:16px">ℹ️</div>
-                        <div><div style="font-size:13px;font-weight:600">版本</div><div style="font-size:11px;color:#64748b">v7.0 离线稳定版</div></div>
-                    </div>
-                </div>
+    <!-- Modal -->
+    <div class="modal-bg" id="modal">
+        <div class="modal">
+            <h3 id="modalTitle">确认</h3>
+            <p id="modalText"></p>
+            <div class="modal-btns">
+                <button class="m-cancel" onclick="closeModal()">取消</button>
+                <button class="m-ok" id="modalOk">确定</button>
             </div>
         </div>
     </div>
 
-    <div class="nav" id="navBar">
-        <button class="nav-i on" data-p="home" onclick="showPage('home')"><span class="ic">🏠</span><span>首页</span></button>
-        <button class="nav-i" data-p="history" onclick="showPage('history')"><span class="ic">📚</span><span>历史</span></button>
-        <button class="nav-i" data-p="settings" onclick="showPage('settings')"><span class="ic">👤</span><span>我的</span></button>
-    </div>
+    <div class="toast" id="toast"></div>
 </div>
-
-<div class="modal-bg" id="modal">
-    <div class="modal">
-        <div class="modal-t" id="modT">确认</div>
-        <div class="modal-c" id="modC"></div>
-        <div class="modal-btns">
-            <button class="m-btn cancel" onclick="closeMod()">取消</button>
-            <button class="m-btn ok" id="modOk">确定</button>
-        </div>
-    </div>
-</div>
-<div class="toast" id="toast"></div>
 
 <script>
-var S={tpl:'business',cnt:8,lg:'zh',sty:'photo',proj:null,slIdx:0,hist:[],imgCache:{}};
-var TPLS=[
-    {id:'business',nm:'商务',ic:'💼',cls:'sb',c:'#1e3a5f',tc:'#fff'},
-    {id:'academic',nm:'学术',ic:'🎓',cls:'sa',c:'#8b0000',tc:'#333'},
-    {id:'creative',nm:'创意',ic:'🎨',cls:'sc',c:'#667eea',tc:'#fff'},
-    {id:'minimal',nm:'简约',ic:'✨',cls:'sm',c:'#fff',tc:'#333'},
-    {id:'tech',nm:'科技',ic:'🚀',cls:'st',c:'#0a0a0a',tc:'#00ff88'}
-];
-
-// Knowledge base
-var KB={
-    zh:{
-        match:function(t){
-            var ps={'年度总结|工作总结|年终|述职':{sub:'年度汇报 · 总结展望',sec:['业绩回顾','重点工作','经验总结','问题分析','改进措施','明年计划'],pts:{'业绩回顾':['全年核心业绩指标完成情况','销售额/营收数据同比增长','重点客户开发与维护成果','团队建设与人才培养'],'重点工作':['年度重点项目推进交付','产品迭代与技术升级','市场拓展与品牌建设','流程优化与效率提升'],'经验总结':['核心竞争力持续增强','团队协作能力提升','客户满意度稳步提高','创新驱动发展成效'],'问题分析':['部分项目进度滞后分析','团队能力短板分析','资源配置问题分析','市场应对不足分析'],'改进措施':['加强项目进度管控','完善人才培养体系','优化资源配置效率','建立快速响应机制'],'明年计划':['新年度核心目标设定','重点业务发展方向','团队扩充计划','新产品新业务规划']}},
-        '培训|入职|新员工':{sub:'入职培训 · 快速融入',sec:['公司介绍','企业文化','规章制度','岗位职责','薪酬福利','注意事项'],pts:{'公司介绍':['公司发展历程与里程碑','主营业务与核心产品','市场地位与竞争优势','未来发展战略'],'企业文化':['企业愿景使命价值观','企业精神与工作作风','行为准则与职业规范','团队文化建设'],'规章制度':['考勤管理制度','请假休假规定','办公行为规范','保密合规要求'],'岗位职责':['岗位说明书解读','工作目标与KPI','汇报关系与协作','职业发展通道'],'薪酬福利':['薪酬体系说明','绩效考核制度','五险一金介绍','员工福利项目'],'注意事项':['办公环境安全','信息安全规范','应急处理流程','常用联系方式']}},
-        '项目|汇报|项目汇报':{sub:'项目汇报 · 成果展示',sec:['项目背景','进展情况','成果展示','问题风险','下一步计划','总结展望'],pts:{'项目背景':['项目立项背景','核心问题定位','相关方需求','项目战略意义'],'进展情况':['整体进度完成率','各阶段任务完成','时间节点达成','资源投入情况'],'成果展示':['已完成核心成果','关键指标改善','亮点工作与创新','获得的认可'],'问题风险':['当前主要问题','潜在风险评估','已采取应对措施','需要的支持'],'下一步计划':['下一阶段重点任务','时间计划与节点','资源需求调配','风险应对预案'],'总结展望':['阶段性总结','经验教训反思','后续工作展望','感谢团队支持']}},
-        '产品|产品介绍|发布':{sub:'产品介绍 · 价值传递',sec:['产品概述','核心功能','产品优势','应用场景','使用指南','发展规划'],pts:{'产品概述':['产品定位与理念','解决的核心问题','目标用户群体','价值主张'],'核心功能':['主要功能模块','核心功能亮点','功能演示说明','技术架构支撑'],'产品优势':['相比竞品优势','技术壁垒','用户体验优势','性价比优势'],'应用场景':['典型场景一','典型场景二','典型场景三','客户案例'],'使用指南':['快速上手步骤','常见问题解答','客服支持渠道','版本更新说明'],'发展规划':['产品路线图','即将推出功能','用户反馈机制','长期愿景']}},
-        '教学|课件|课程|教案':{sub:'教学课件 · 知识传递',sec:['课程导入','知识讲解','重点难点','案例分析','总结回顾','思考练习'],pts:{'课程导入':['学习目标介绍','知识关联引入','为什么学习本节','生活现象引入'],'知识讲解':['核心概念定义','基本原理讲解','知识点系统梳理','重要公式定理'],'重点难点':['重点内容强调','常见难点解析','易错点提醒','记忆方法技巧'],'案例分析':['典型案例详解','案例启示思考','理论联系实际','拓展讨论'],'总结回顾':['知识点总结','知识框架梳理','重点内容回顾','下节内容预告'],'思考练习':['课后作业布置','思考题拓展','推荐阅读材料','预习内容提示']}},
-        'AI|人工智能|大模型':{sub:'技术前沿 · 智能未来',sec:['AI概述','核心技术','应用场景','行业案例','挑战风险','未来趋势'],pts:{'AI概述':['人工智能定义分类','当前技术发展水平','全球产业格局','AI带来的变革'],'核心技术':['大语言模型原理','多模态AI进展','计算机视觉技术','强化学习决策'],'应用场景':['智能客服对话系统','内容生成创意设计','智能制造工业质检','智慧医疗辅助诊断'],'行业案例':['金融AI风控实践','教育智能化转型','零售个性化推荐','自动驾驶进展'],'挑战风险':['数据安全隐私保护','算法偏见公平性','AI伦理监管','就业影响适应'],'未来趋势':['AGI发展展望','模型小型化部署','AI Agent发展','人机协作新范式']}}
-        };
-            for(var k in ps){var ks=k.split('|');for(var i=0;i<ks.length;i++){if(t.indexOf(ks[i])>=0)return ps[k];}}
-            return {sub:'专业演示 · 精彩呈现',sec:['背景概述','现状分析','核心内容','关键要点','实施建议','总结展望'],pts:{'背景概述':['主题背景与意义','发展历程与现状','相关政策环境','研究目的范围'],'现状分析':['当前现状梳理','主要数据展示','优势劣势分析','机遇挑战并存'],'核心内容':['核心概念阐释','关键要素分析','逻辑关系梳理','核心价值提炼'],'关键要点':['核心要点强调','注意事项提示','成功因素分析','常见问题对策'],'实施建议':['分阶段实施路径','资源配置建议','组织保障措施','配套支撑体系'],'总结展望':['主要结论归纳','未来趋势预判','长短期目标','行动倡议']}};
-        }
-    }
+// ===== State =====
+var state = {
+    tpl: 'business',
+    count: 8,
+    project: null,
+    slideIdx: 0
 };
 
-function genContent(prompt,cnt,lg){
-    var isZh=lg==='zh';
-    var topic=prompt.trim()||(isZh?'演示文稿':'Presentation');
-    var kb=KB.zh;
-    var data=kb.match(topic);
-    var cc=Math.max(1,cnt-2);
-    var secs=data.sec.slice(0,cc);
-    var ex=isZh?['补充说明','案例分享','注意事项']:['Notes','Cases','Tips'];
-    while(secs.length<cc)secs.push(ex[secs.length%ex.length]);
-    var seed=Date.now();
-    var slides=[];
-    slides.push({type:'cover',title:topic,subtitle:data.sub,pts:[],seed:seed+1});
-    if(cnt>=6)slides.push({type:'toc',title:isZh?'目录':'Contents',subtitle:'',pts:secs,seed:seed+2});
-    for(var i=0;i<secs.length;i++){
-        var sec=secs[i];var pts=data.pts[sec];
-        if(!pts)pts=isZh?[sec+'要点一',sec+'要点二',sec+'要点三',sec+'要点四']:[sec+' point 1',sec+' point 2',sec+' point 3'];
-        slides.push({type:'content',title:sec,subtitle:'',pts:pts.slice(0,5),seed:seed+10+i});
-    }
-    slides.push({type:'ending',title:isZh?'感谢观看':'Thank You',subtitle:isZh?'Q&A 欢迎交流':'Q&A',pts:[],seed:seed+999});
-    return{title:topic,slides:slides};
-}
+var templates = [
+    {id:'business', name:'商务', icon:'💼', cls:'slide-business'},
+    {id:'creative', name:'创意', icon:'🎨', cls:'slide-creative'},
+    {id:'minimal', name:'简约', icon:'✨', cls:'slide-minimal'},
+    {id:'tech', name:'科技', icon:'🚀', cls:'slide-tech'},
+    {id:'academic', name:'学术', icon:'🎓', cls:'slide-academic'}
+];
 
-// Init
-function init(){
-    try{
-        renderTpls();
-        document.getElementById('pgInp').oninput=function(){var v=parseInt(this.value)||3;v=Math.max(3,Math.min(50,v));S.cnt=v;};
-        loadHist();
-    }catch(e){console.error(e);}
-}
+// ===== Knowledge Base =====
+var contentTemplates = {
+    '年度总结|工作总结|年终|述职': [
+        {title:'业绩回顾', points:['全年核心业绩指标完成情况', '销售额/营收数据同比增长分析', '重点客户开发与维护成果', '团队建设与人才培养成效']},
+        {title:'重点工作', points:['年度重点项目推进交付', '产品迭代与技术升级', '市场拓展与品牌建设', '流程优化与效率提升']},
+        {title:'经验总结', points:['核心竞争力持续增强', '团队协作能力提升', '客户满意度稳步提高', '创新驱动发展成效']},
+        {title:'问题分析', points:['部分项目进度滞后分析', '团队能力短板分析', '资源配置问题分析', '市场应对不足分析']},
+        {title:'改进措施', points:['加强项目进度管控', '完善人才培养体系', '优化资源配置效率', '建立快速响应机制']},
+        {title:'明年计划', points:['新年度核心目标设定', '重点业务发展方向', '团队扩充计划', '新产品新业务规划']}
+    ],
+    '培训|入职|新员工': [
+        {title:'公司介绍', points:['公司发展历程与里程碑', '主营业务与核心产品', '市场地位与竞争优势', '未来发展战略']},
+        {title:'企业文化', points:['企业愿景使命价值观', '企业精神与工作作风', '行为准则与职业规范', '团队文化建设']},
+        {title:'规章制度', points:['考勤管理制度', '请假休假规定', '办公行为规范', '保密合规要求']},
+        {title:'岗位职责', points:['岗位说明书解读', '工作目标与KPI', '汇报关系与协作', '职业发展通道']},
+        {title:'薪酬福利', points:['薪酬体系说明', '绩效考核制度', '五险一金介绍', '员工福利项目']},
+        {title:'注意事项', points:['办公环境安全', '信息安全规范', '应急处理流程', '常用联系方式']}
+    ],
+    '项目|汇报|项目汇报': [
+        {title:'项目背景', points:['项目立项背景', '核心问题定位', '相关方需求', '项目战略意义']},
+        {title:'进展情况', points:['整体进度完成率', '各阶段任务完成', '时间节点达成', '资源投入情况']},
+        {title:'成果展示', points:['已完成核心成果', '关键指标改善', '亮点工作与创新', '获得的认可']},
+        {title:'问题风险', points:['当前主要问题', '潜在风险评估', '已采取应对措施', '需要的支持']},
+        {title:'下一步计划', points:['下一阶段重点任务', '时间计划与节点', '资源需求调配', '风险应对预案']},
+        {title:'总结展望', points:['阶段性总结', '经验教训反思', '后续工作展望', '感谢团队支持']}
+    ],
+    '产品|产品介绍|发布': [
+        {title:'产品概述', points:['产品定位与理念', '解决的核心问题', '目标用户群体', '价值主张']},
+        {title:'核心功能', points:['主要功能模块', '核心功能亮点', '功能演示说明', '技术架构支撑']},
+        {title:'产品优势', points:['相比竞品优势', '技术壁垒', '用户体验优势', '性价比优势']},
+        {title:'应用场景', points:['典型场景一', '典型场景二', '典型场景三', '客户案例']},
+        {title:'使用指南', points:['快速上手步骤', '常见问题解答', '客服支持渠道', '版本更新说明']},
+        {title:'发展规划', points:['产品路线图', '即将推出功能', '用户反馈机制', '长期愿景']}
+    ]
+};
 
-function renderTpls(){
-    var h='';
-    for(var i=0;i<TPLS.length;i++){
-        var t=TPLS[i];
-        h+='<div class="tpl-card tpl-'+t.id+(t.id===S.tpl?' sel':'')+'" data-t="'+t.id+'" onclick="selTpl(\''+t.id+'\')"><div class="tpl-prev">'+t.ic+'</div><div class="tpl-nm">'+t.nm+'</div></div>';
-    }
-    document.getElementById('tplScroll').innerHTML=h;
-}
-function selTpl(id){S.tpl=id;var cs=document.querySelectorAll('.tpl-card');for(var i=0;i<cs.length;i++)cs[i].classList.toggle('sel',cs[i].getAttribute('data-t')===id);}
-function fill(t){document.getElementById('promptInp').value=t;}
-function setPg(c,e){c=Math.max(3,Math.min(50,c));S.cnt=c;document.getElementById('pgInp').value=c;var bs=document.querySelectorAll('.pg-btn');for(var i=0;i<bs.length;i++)bs[i].classList.remove('on');if(e&&e.target)e.target.classList.add('on');}
-function setLg(l){S.lg=l;var bs=document.querySelectorAll('.tog-box:first-child .tog-btn');for(var i=0;i<bs.length;i++)bs[i].classList.toggle('on',bs[i].getAttribute('data-lg')===l);}
-function setSty(s){S.sty=s;var bs=document.querySelectorAll('.tog-box:last-child .tog-btn');for(var i=0;i<bs.length;i++)bs[i].classList.toggle('on',bs[i].getAttribute('data-sty')===s);}
+var defaultSections = [
+    {title:'背景概述', points:['主题背景与意义', '发展历程与现状', '相关政策环境', '研究目的范围']},
+    {title:'现状分析', points:['当前现状梳理', '主要数据展示', '优势劣势分析', '机遇挑战并存']},
+    {title:'核心内容', points:['核心概念阐释', '关键要素分析', '逻辑关系梳理', '核心价值提炼']},
+    {title:'关键要点', points:['核心要点强调', '注意事项提示', '成功因素分析', '常见问题对策']},
+    {title:'实施建议', points:['分阶段实施路径', '资源配置建议', '组织保障措施', '配套支撑体系']},
+    {title:'总结展望', points:['主要结论归纳', '未来趋势预判', '长短期目标', '行动倡议']}
+];
 
-function showPage(p){
-    var pages=['home','prog','prev','hist','set'];
-    for(var i=0;i<pages.length;i++)document.getElementById('pg'+pages[i].charAt(0).toUpperCase()+pages[i].slice(1)).classList.remove('on');
-    var pg='pg'+p.charAt(0).toUpperCase()+p.slice(1);
-    if(p==='home')pg='pgHome';if(p==='prog')pg='pgProg';if(p==='prev')pg='pgPrev';if(p==='hist'){pg='pgHist';renderHist();}if(p==='settings')pg='pgSet';
-    document.getElementById(pg).classList.add('on');
-    var navs=document.querySelectorAll('.nav-i');
-    for(var i=0;i<navs.length;i++)navs[i].classList.toggle('on',navs[i].getAttribute('data-p')===p);
-    document.getElementById('navBar').style.display=(p==='prog'||p==='prev')?'none':'flex';
-}
-function goHome(){closeEdit();showPage('home');}
-
-// Generation
-function startGen(){
-    var prompt=document.getElementById('promptInp').value.trim();
-    if(!prompt){toast('请输入PPT主题','err');return;}
-    document.getElementById('pgHome').classList.remove('on');
-    document.getElementById('navBar').style.display='none';
-    document.getElementById('pgProg').classList.add('on');
-    document.getElementById('genBtn').disabled=true;
-    S.imgCache={};
-
-    var isZh=S.lg==='zh';
-    var stepIcons=['🧠','📝','🖼️','📊'];
-    var stepTxts=[
-        {t:isZh?'分析主题':'Analyzing',d:isZh?'理解需求':'Understanding'},
-        {t:isZh?'生成内容':'Content',d:isZh?'智能组织':'Organizing'},
-        {t:isZh?'准备配图':'Images',d:isZh?'准备图片':'Preparing'},
-        {t:isZh?'合成PPT':'Building',d:isZh?'排版合成':'Assembling'}
-    ];
-    var sh='';
-    for(var i=0;i<4;i++)sh+='<div class="prog-step" id="stp'+i+'"><div class="s-ic">'+stepIcons[i]+'</div><div><div style="font-size:13px;font-weight:600">'+stepTxts[i].t+'</div><div style="font-size:10px;color:#64748b">'+stepTxts[i].d+'</div></div></div>';
-    document.getElementById('pgSteps').innerHTML=sh;
-
-    setStep(0,'act');setPct(5);
-    document.getElementById('pgSt').textContent=isZh?'分析中...':'Analyzing...';
-    document.getElementById('pgDt').textContent='';
-    setTimeout(function(){
-        setStep(0,'done');setStep(1,'act');setPct(15);
-        document.getElementById('pgSt').textContent=isZh?'生成内容中...':'Generating...';
-        var data=genContent(prompt,S.cnt,S.lg);
-        setTimeout(function(){
-            setStep(1,'done');setPct(50);
-            var proj={id:Date.now().toString(),title:data.title,prompt:prompt,time:new Date().toISOString(),total:data.slides.length,tpl:S.tpl,slides:data.slides};
-            S.proj=proj;
-            for(var i=0;i<proj.slides.length;i++){S.imgCache[proj.slides[i].seed]=imgUrl(proj.slides[i].title,proj.slides[i].seed);}
-            setStep(2,'act');setPct(55);
-            document.getElementById('pgSt').textContent=isZh?'准备中...':'Preparing...';
-            var steps=proj.slides.length;
-            for(var j=0;j<=steps;j++){(function(idx){setTimeout(function(){setPct(55+Math.round((idx/steps)*30));document.getElementById('pgDt').textContent=isZh?('处理 '+(idx+1)+'/'+steps):('Processing '+(idx+1)+'/'+steps));if(idx>=steps){setStep(2,'done');setStep(3,'act');setPct(90);document.getElementById('pgSt').textContent=isZh?'合成中...':'Assembling...';setTimeout(function(){setStep(3,'done');setPct(100);document.getElementById('pgSt').textContent=isZh?'完成！':'Done!';document.getElementById('pgDt').textContent='';saveHist(proj);setTimeout(function(){showPrev(proj);document.getElementById('genBtn').disabled=false;toast(isZh?'生成成功！':'Generated!','ok');},400);},300);}},j*30);})(j);}
-        },400);
-    },300);
-}
-function imgUrl(t,seed){
-    var kw=String(t||'business').replace(/[^\w\s]/g,'').substring(0,40)||'business';
-    var style=S.sty==='photo'?'professional photography':'modern illustration';
-    return 'https://image.pollinations.ai/prompt/'+encodeURIComponent(style+', '+kw+', business')+'?width=1024&height=768&seed='+seed+'&nologo=true';
-}
-function setStep(i,s){
-    var els=document.querySelectorAll('.prog-step');
-    for(var j=0;j<els.length;j++){
-        els[j].classList.remove('act','done','err');
-        var ic=els[j].querySelector('.s-ic');
-        if(j<i||(j===i&&s==='done')){els[j].classList.add('done');ic.textContent='✓';}
-        else if(j===i&&s==='act'){els[j].classList.add('act');ic.textContent=['🧠','📝','🖼️','📊'][j];}
-    }
-}
-function setPct(p){
-    var c=2*Math.PI*70;
-    document.getElementById('pgRing').style.strokeDashoffset=c-(p/100)*c;
-    document.getElementById('pgPct').textContent=Math.round(p)+'%';
-}
-
-// Preview
-function showPrev(p){
-    S.proj=p;S.slIdx=0;
-    document.getElementById('pgProg').classList.remove('on');
-    document.getElementById('pgPrev').classList.add('on');
-    document.getElementById('prevT').textContent=p.title.length>16?p.title.substring(0,16)+'...':p.title;
-    renderSlides(p);renderThumbs(p);updatePgInd();
-}
-function renderSlides(p){
-    var t=TPLS.find(function(x){return x.id===p.tpl;})||TPLS[0];
-    var w=document.getElementById('slidesW');
-    var h='';
-    for(var i=0;i<p.slides.length;i++){
-        var s=p.slides[i];var cls=t.cls;var isCv=s.type==='cover'||s.type==='ending';
-        var side=isCv?'':'<div class="s-side" style="background-color:'+t.c+'"></div>';
-        var cv=isCv?'<div class="s-cov"><div style="padding:20px"><div class="s-ttl">'+esc(s.title)+'</div>'+(s.subtitle?'<div class="s-sub">'+esc(s.subtitle)+'</div>':'')+'</div></div>':'';
-        var cn=isCv?'':'<div class="s-con"><div class="s-ttl">'+esc(s.title)+'</div>'+(s.pts&&s.pts.length?'<ul class="s-pts">'+s.pts.map(function(pt){return '<li>'+esc(pt)+'</li>';}).join('')+'</ul>':'')+'</div>';
-        h+='<div class="slide-pg"><div class="slide '+cls+'">'+side+cv+cn+'<div class="s-ft" style="'+(isCv?'color:#fff':'')+'"><span>'+esc(p.title.substring(0,14))+'</span><span>'+(i+1)+'/'+p.slides.length+'</span></div></div></div>';
-    }
-    w.innerHTML=h;
-    var sx=0;var c=document.querySelector('.slides-c');
-    c.ontouchstart=function(e){sx=e.touches[0].clientX;};
-    c.ontouchend=function(e){var d=sx-e.changedTouches[0].clientX;if(Math.abs(d)>40){if(d>0&&S.slIdx<p.slides.length-1)goSl(S.slIdx+1);else if(d<0&&S.slIdx>0)goSl(S.slIdx-1);}};
-}
-function renderThumbs(p){
-    var t=TPLS.find(function(x){return x.id===p.tpl;})||TPLS[0];
-    document.getElementById('thumbsW').innerHTML=p.slides.map(function(s,i){return '<div class="thumb '+(i===0?'on':'')+'" data-i="'+i+'" onclick="goSl('+i+')" style="background:'+t.c+';color:'+t.tc+'">'+(i+1)+'</div>';}).join('');
-}
-function goSl(i){if(!S.proj)return;S.slIdx=i;document.getElementById('slidesW').style.transform='translateX(-'+i*100+'%)';var ts=document.querySelectorAll('.thumb');for(var j=0;j<ts.length;j++)ts[j].classList.toggle('on',parseInt(ts[j].getAttribute('data-i'))===i);updatePgInd();}
-function updatePgInd(){if(!S.proj)return;document.getElementById('prevPg').textContent=(S.slIdx+1)+'/'+S.proj.slides.length;}
-function esc(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
-
-// Edit
-function openEdit(){if(!S.proj)return;var c=document.getElementById('editCnt');var h='';
-    for(var i=0;i<S.proj.slides.length;i++){var s=S.proj.slides[i];var cv=s.type==='cover'||s.type==='ending';
-        h+='<div class="edit-item"><div class="edit-num">'+(cv?(s.type==='cover'?'封面':'结尾'):(s.type==='toc'?'目录':'第'+i+'页'))+'</div>';
-        h+='<div class="edit-f"><label class="edit-lbl">标题</label><input class="edit-inp" data-s="'+i+'" data-f="t" value="'+attr(s.title)+'"></div>';
-        if(s.subtitle!==undefined)h+='<div class="edit-f"><label class="edit-lbl">副标题</label><input class="edit-inp" data-s="'+i+'" data-f="sub" value="'+attr(s.subtitle||'')+'"></div>';
-        if(s.pts){h+='<div class="edit-f"><label class="edit-lbl">内容要点</label><div id="pts'+i+'">';
-            for(var j=0;j<s.pts.length;j++)h+='<div class="pt-row"><input class="edit-inp" data-s="'+i+'" data-p="'+j+'" value="'+attr(s.pts[j])+'"><button class="pt-del" onclick="rmPt('+i+','+j+')">×</button></div>';
-            h+='</div><button class="add-pt" onclick="addPt('+i+')">+ 添加要点</button></div>';}
-        h+='</div>';
-    }
-    c.innerHTML=h;document.getElementById('editPnl').classList.add('on');
-}
-function closeEdit(){document.getElementById('editPnl').classList.remove('on');}
-function addPt(si){if(!S.proj)return;if(S.proj.slides[si].pts.length<8){S.proj.slides[si].pts.push('新要点');openEdit();}}
-function rmPt(si,pi){if(!S.proj)return;S.proj.slides[si].pts.splice(pi,1);openEdit();}
-function saveEdit(){if(!S.proj)return;
-    var inps=document.querySelectorAll('.edit-inp');
-    for(var i=0;i<inps.length;i++){var inp=inps[i];var si=parseInt(inp.getAttribute('data-s'));var f=inp.getAttribute('data-f');var pi=inp.getAttribute('data-p');
-        if(pi!==null&&pi!==undefined)S.proj.slides[si].pts[parseInt(pi)]=inp.value;
-        else if(f==='t'){S.proj.slides[si].title=inp.value;if(si===0)S.proj.title=inp.value;}
-        else if(f==='sub')S.proj.slides[si].subtitle=inp.value;
-    }
-    closeEdit();renderSlides(S.proj);renderThumbs(S.proj);document.getElementById('prevT').textContent=S.proj.title.length>16?S.proj.title.substring(0,16)+'...':S.proj.title;toast('已保存','ok');
-}
-function attr(t){return String(t).replace(/"/g,'&quot;');}
-
-// Download
-function showDl(){
-    var isZh=S.lg==='zh';
-    document.getElementById('modT').textContent=isZh?'下载PPTX':'Download';
-    document.getElementById('modC').innerHTML='<button class="dl-opt" id="dl1"><span style="font-size:22px">💾</span><div><div style="font-weight:600;color:#1e293b;font-size:13px">'+(isZh?'直接下载PPTX':'Download PPTX')+'</div><div style="font-size:10px;color:#64748b">'+(isZh?'保存到下载文件夹':'Save to Downloads')+'</div></div></button>';
-    document.getElementById('modal').classList.add('on');
-    document.getElementById('modOk').style.display='none';
-    document.querySelector('.m-btn.cancel').textContent=isZh?'取消':'Cancel';
-    document.getElementById('dl1').onclick=function(){closeMod();dlPPTX();};
-}
-function closeMod(){document.getElementById('modal').classList.remove('on');}
-async function dlPPTX(){
-    if(!S.proj)return;toast('生成PPTX中...');
-    try{
-        var pptx=new PptxGenJS();var p=S.proj;var t=TPLS.find(function(x){return x.id===p.tpl})||TPLS[0];
-        pptx.layout='LAYOUT_WIDE';pptx.title=p.title;pptx.author='AI PPT';
-        var cols={business:{p:'1E3A5F',t:'FFFFFF',b:'1E3A5F'},academic:{p:'8B0000',t:'333333',b:'FFFFFF'},creative:{p:'667EEA',t:'FFFFFF',b:'667EEA'},minimal:{p:'333333',t:'333333',b:'FFFFFF'},tech:{p:'00FF88',t:'00FF88',b:'0A0A0A'}};
-        var c=cols[p.tpl]||cols.business;
-        var fn=p.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g,'_').substring(0,40)+'_'+p.slides.length+'页.pptx';
-        for(var idx=0;idx<p.slides.length;idx++){
-            var s=p.slides[idx];var ps=pptx.addSlide();ps.background={color:c.b};
-            if(s.type==='cover'||s.type==='ending'){
-                ps.addShape(pptx.ShapeType.rect,{x:0,y:0,w:10,h:5.625,fill:{color:c.p},line:{color:c.p}});
-                ps.addText(s.title,{x:0.5,y:2.0,w:9.0,h:1.2,fontSize:Math.min(36,Math.max(20,36-Math.floor(s.title.length/8))),bold:true,color:c.t,align:'center',valign:'middle'});
-                if(s.subtitle)ps.addText(s.subtitle,{x:0.5,y:3.4,w:9.0,h:0.5,fontSize:14,color:c.t,align:'center',transparency:20});
-            }else{
-                ps.addShape(pptx.ShapeType.rect,{x:0,y:0,w:3.5,h:5.625,fill:{color:c.p,transparency:10},line:{color:c.p,transparency:100}});
-                var tc=p.tpl==='academic'?c.p:c.t;
-                ps.addText(s.title,{x:0.5,y:0.4,w:9.0,h:0.7,fontSize:Math.min(24,Math.max(16,24-Math.floor(s.title.length/10))),bold:true,color:tc,valign:'middle'});
-                var pts=(s.pts||[]).slice(0,6);var fz=pts.length>4?11:15,lh=pts.length>4?0.6:0.78;
-                for(var pi=0;pi<pts.length;pi++){var y=1.1+pi*lh;if(y+lh<=5.0)ps.addText(pts[pi],{x:0.7,y:y,w:8.8,h:lh-0.05,fontSize:fz,color:c.t,valign:'top',bullet:{indent:10}});}
+function findTemplate(topic) {
+    for (var key in contentTemplates) {
+        var keys = key.split('|');
+        for (var i = 0; i < keys.length; i++) {
+            if (topic.indexOf(keys[i]) >= 0) {
+                return contentTemplates[key];
             }
-            ps.addText((idx+1)+' / '+p.slides.length,{x:8.2,y:5.2,w:1.5,h:0.3,fontSize:8,color:c.t,align:'right',transparency:50});
         }
-        await pptx.writeFile({fileName:fn});toast('已下载: '+fn,'ok');
-    }catch(err){toast('导出失败: '+err.message,'err');}
-}
-function regen(){showConfirm('重新生成','重新生成PPT？',function(){document.getElementById('pgPrev').classList.remove('on');startGen();});}
-function showConfirm(t,c,cb){document.getElementById('modT').textContent=t;document.getElementById('modC').textContent=c;document.getElementById('modal').classList.add('on');document.getElementById('modOk').style.display='block';document.getElementById('modOk').textContent='确定';document.querySelector('.m-btn.cancel').textContent='取消';document.getElementById('modOk').onclick=function(){closeMod();if(cb)cb();};document.querySelector('.m-btn.cancel').onclick=closeMod;}
-
-// History
-function saveHist(p){try{var h=JSON.parse(localStorage.getItem('pptH')||'[]');h.unshift({id:p.id,title:p.title,prompt:p.prompt,time:p.time,total:p.slides.length,tpl:p.tpl,slides:p.slides.map(function(s){return{title:s.title,subtitle:s.subtitle||'',pts:s.pts||[],type:s.type,seed:s.seed};})});if(h.length>15)h.length=15;localStorage.setItem('pptH',JSON.stringify(h));S.hist=h;}catch(e){}}
-function loadHist(){try{S.hist=JSON.parse(localStorage.getItem('pptH')||'[]');}catch(e){S.hist=[];}}
-function renderHist(){loadHist();var c=document.getElementById('histCnt');
-    if(!S.hist.length){c.innerHTML='<div class="hist-empty"><div class="hist-ei">📭</div><div class="hist-et">暂无记录</div><div style="font-size:13px;color:#94a3b8">生成的PPT会保存在这里</div></div>';return;}
-    var h='<div class="hist-list">';
-    for(var i=0;i<S.hist.length;i++){var p=S.hist[i];var t=TPLS.find(function(x){return x.id===p.tpl})||TPLS[0];var d=new Date(p.time);var ds=d.toLocaleDateString('zh-CN')+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-        h+='<div class="hist-item" onclick="viewH(\''+p.id+'\')"><div class="hist-th" style="background:'+t.c+';color:'+t.tc+'">'+t.ic+'</div><div class="hist-inf"><div class="hist-tt">'+esc(p.title)+'</div><div class="hist-mt"><span>📄'+p.total+'页</span><span>📅'+ds+'</span></div></div></div>';
     }
-    h+='</div>';c.innerHTML=h;
+    return defaultSections;
 }
-function viewH(id){var p=null;for(var i=0;i<S.hist.length;i++){if(S.hist[i].id===id){p=S.hist[i];break;}}if(p){var proj={id:p.id,title:p.title,prompt:p.prompt,time:p.time,total:p.slides.length,tpl:p.tpl,slides:p.slides};S.proj=proj;for(var j=0;j<proj.slides.length;j++)S.imgCache[proj.slides[j].seed]=imgUrl(proj.slides[j].title,proj.slides[j].seed);showPrev(proj);}}
-function clearHist(){if(!S.hist.length){toast('无记录');return;}showConfirm('清空','清空所有记录？',function(){S.hist=[];localStorage.removeItem('pptH');renderHist();toast('已清空','ok');});}
 
-function toast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'');setTimeout(function(){t.classList.add('on');},10);setTimeout(function(){t.classList.remove('on');},2500);}
+// ===== Init =====
+function init() {
+    renderTemplates();
+}
 
-// Start immediately - no splash screen delay
-if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+function renderTemplates() {
+    var box = document.getElementById('templatesBox');
+    var html = '';
+    for (var i = 0; i < templates.length; i++) {
+        var t = templates[i];
+        html += '<div class="tpl ' + (t.id === state.tpl ? 'selected' : '') + '" data-id="' + t.id + '" onclick="selectTpl(\'' + t.id + '\')">';
+        html += '<div class="tpl-prev" style="' + getTplStyle(t.id) + '">' + t.icon + '</div>';
+        html += '<div class="tpl-name">' + t.name + '</div></div>';
+    }
+    box.innerHTML = html;
+}
+
+function getTplStyle(id) {
+    switch(id) {
+        case 'business': return 'background:linear-gradient(135deg,#1e3a5f,#2d5a87);color:#fff';
+        case 'creative': return 'background:linear-gradient(135deg,#667eea,#764ba2);color:#fff';
+        case 'minimal': return 'background:#fff;color:#333;border:1px solid #eee';
+        case 'tech': return 'background:linear-gradient(135deg,#0a0a0a,#1a1a2e);color:#00ff88';
+        case 'academic': return 'background:#fff;color:#8b0000;border:1px solid #ddd';
+        default: return 'background:#f1f5f9';
+    }
+}
+
+function selectTpl(id) {
+    state.tpl = id;
+    var els = document.querySelectorAll('.tpl');
+    for (var i = 0; i < els.length; i++) {
+        els[i].classList.toggle('selected', els[i].getAttribute('data-id') === id);
+    }
+}
+
+function setPrompt(t) {
+    document.getElementById('promptInput').value = t;
+}
+
+function setPage(n, btn) {
+    n = Math.max(3, Math.min(30, n));
+    state.count = n;
+    document.getElementById('pageInput').value = n;
+    var btns = document.querySelectorAll('.page-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+    if (btn) btn.classList.add('active');
+}
+
+// ===== Generate =====
+function doGenerate() {
+    var prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) {
+        showToast('请输入PPT主题', 'err');
+        return;
+    }
+    
+    var pageInput = document.getElementById('pageInput');
+    state.count = parseInt(pageInput.value) || 8;
+    state.count = Math.max(3, Math.min(30, state.count));
+    
+    // Switch to progress
+    document.getElementById('pageHome').classList.remove('active');
+    document.getElementById('pageProgress').classList.add('show');
+    document.getElementById('genBtn').disabled = true;
+    
+    // Steps
+    var stepsHtml = '';
+    var stepNames = ['分析主题', '生成内容', '准备页面', '完成'];
+    var stepIcons = ['🧠', '📝', '🖼️', '✅'];
+    for (var i = 0; i < 4; i++) {
+        stepsHtml += '<div class="p-step" id="step' + i + '"><div class="p-ic">' + stepIcons[i] + '</div><div><div style="font-size:13px;font-weight:600">' + stepNames[i] + '</div></div></div>';
+    }
+    document.getElementById('stepsBox').innerHTML = stepsHtml;
+    
+    // Animate progress
+    setProgress(5, '分析中...', '');
+    setStep(0, 'active');
+    
+    setTimeout(function() {
+        setStep(0, 'done');
+        setStep(1, 'active');
+        setProgress(30, '生成内容...', '智能组织内容结构');
+        
+        var sections = findTemplate(prompt);
+        var contentCount = state.count - 2; // minus cover and ending
+        var slides = [];
+        
+        // Cover
+        slides.push({type:'cover', title:prompt, subtitle:'演示文稿', points:[], tpl:state.tpl});
+        
+        // Content slides
+        for (var i = 0; i < contentCount; i++) {
+            var sec = sections[i % sections.length];
+            slides.push({
+                type: 'content',
+                title: sec.title,
+                subtitle: '',
+                points: sec.points.slice(0, 5),
+                tpl: state.tpl
+            });
+        }
+        
+        // Ending
+        slides.push({type:'ending', title:'感谢观看', subtitle:'Q&A 欢迎交流', points:[], tpl:state.tpl});
+        
+        setTimeout(function() {
+            setStep(1, 'done');
+            setStep(2, 'active');
+            setProgress(70, '准备页面...', '渲染幻灯片');
+            
+            state.project = {
+                title: prompt,
+                slides: slides,
+                tpl: state.tpl
+            };
+            
+            setTimeout(function() {
+                setStep(2, 'done');
+                setStep(3, 'active');
+                setProgress(100, '完成！', '');
+                
+                setTimeout(function() {
+                    setStep(3, 'done');
+                    showPreview();
+                    document.getElementById('genBtn').disabled = false;
+                    showToast('生成成功！', 'ok');
+                }, 400);
+            }, 400);
+        }, 400);
+    }, 400);
+}
+
+function setProgress(pct, status, detail) {
+    document.getElementById('pctText').textContent = pct + '%';
+    document.getElementById('statusText').textContent = status;
+    document.getElementById('detailText').textContent = detail;
+}
+
+function setStep(idx, status) {
+    for (var i = 0; i < 4; i++) {
+        var el = document.getElementById('step' + i);
+        el.classList.remove('active', 'done');
+        if (i < idx || (i === idx && status === 'done')) {
+            el.classList.add('done');
+            el.querySelector('.p-ic').textContent = '✓';
+        } else if (i === idx && status === 'active') {
+            el.classList.add('active');
+        }
+    }
+}
+
+// ===== Preview =====
+function showPreview() {
+    document.getElementById('pageProgress').classList.remove('show');
+    document.getElementById('pagePreview').classList.add('show');
+    renderSlides();
+    renderThumbs();
+    updatePageInd();
+    state.slideIdx = 0;
+    document.getElementById('slidesWrap').style.transform = 'translateX(0)';
+}
+
+function renderSlides() {
+    var p = state.project;
+    var wrap = document.getElementById('slidesWrap');
+    var html = '';
+    var cls = 'slide-' + p.tpl;
+    for (var i = 0; i < p.slides.length; i++) {
+        var s = p.slides[i];
+        var isCover = s.type === 'cover' || s.type === 'ending';
+        html += '<div class="slide-page"><div class="slide ' + cls + '">';
+        if (isCover) {
+            html += '<div class="s-cover"><div class="s-title">' + escapeHtml(s.title) + '</div>';
+            if (s.subtitle) html += '<div class="s-sub">' + escapeHtml(s.subtitle) + '</div>';
+            html += '</div>';
+        } else {
+            html += '<div class="s-side"></div><div class="s-content">';
+            html += '<div class="s-title">' + escapeHtml(s.title) + '</div>';
+            if (s.points && s.points.length) {
+                html += '<ul class="s-points">';
+                for (var j = 0; j < s.points.length; j++) {
+                    html += '<li>' + escapeHtml(s.points[j]) + '</li>';
+                }
+                html += '</ul>';
+            }
+            html += '</div>';
+        }
+        html += '<div class="s-footer"><span>' + escapeHtml(p.title.substring(0,12)) + '</span><span>' + (i+1) + '/' + p.slides.length + '</span></div>';
+        html += '</div></div>';
+    }
+    wrap.innerHTML = html;
+    
+    // Touch swipe
+    var startX = 0;
+    var area = document.querySelector('.slides-area');
+    area.ontouchstart = function(e) { startX = e.touches[0].clientX; };
+    area.ontouchend = function(e) {
+        var dx = startX - e.changedTouches[0].clientX;
+        if (Math.abs(dx) > 40) {
+            if (dx > 0 && state.slideIdx < p.slides.length - 1) goSlide(state.slideIdx + 1);
+            else if (dx < 0 && state.slideIdx > 0) goSlide(state.slideIdx - 1);
+        }
+    };
+}
+
+function renderThumbs() {
+    var p = state.project;
+    var box = document.getElementById('thumbsBox');
+    var html = '';
+    for (var i = 0; i < p.slides.length; i++) {
+        html += '<div class="thumb ' + (i === 0 ? 'active' : '') + '" onclick="goSlide(' + i + ')">' + (i+1) + '</div>';
+    }
+    box.innerHTML = html;
+}
+
+function goSlide(idx) {
+    state.slideIdx = idx;
+    document.getElementById('slidesWrap').style.transform = 'translateX(-' + idx*100 + '%)';
+    var thumbs = document.querySelectorAll('.thumb');
+    for (var i = 0; i < thumbs.length; i++) {
+        thumbs[i].classList.toggle('active', i === idx);
+    }
+    updatePageInd();
+}
+
+function updatePageInd() {
+    var p = state.project;
+    document.getElementById('pageIndicator').textContent = (state.slideIdx+1) + '/' + p.slides.length;
+    document.getElementById('prevTitle').textContent = p.title.length > 14 ? p.title.substring(0,14)+'...' : p.title;
+}
+
+function goHome() {
+    closeEdit();
+    document.getElementById('pagePreview').classList.remove('show');
+    document.getElementById('pageProgress').classList.remove('show');
+    document.getElementById('pageHome').classList.add('active');
+}
+
+// ===== Edit =====
+function openEdit() {
+    var p = state.project;
+    var body = document.getElementById('editBody');
+    var html = '';
+    for (var i = 0; i < p.slides.length; i++) {
+        var s = p.slides[i];
+        var label = s.type === 'cover' ? '封面' : (s.type === 'ending' ? '结尾' : '第' + i + '页');
+        html += '<div class="edit-slide"><div class="edit-label">' + label + '</div>';
+        html += '<div class="edit-field"><label>标题</label><input data-slide="' + i + '" data-field="title" value="' + escapeAttr(s.title) + '"></div>';
+        if (s.subtitle !== undefined) {
+            html += '<div class="edit-field"><label>副标题</label><input data-slide="' + i + '" data-field="subtitle" value="' + escapeAttr(s.subtitle || '') + '"></div>';
+        }
+        if (s.points) {
+            html += '<div class="edit-field"><label>内容要点</label><div id="pts' + i + '">';
+            for (var j = 0; j < s.points.length; j++) {
+                html += '<div class="point-row"><input data-slide="' + i + '" data-point="' + j + '" value="' + escapeAttr(s.points[j]) + '"><button class="point-del" onclick="removePoint(' + i + ',' + j + ')">×</button></div>';
+            }
+            html += '</div><button class="add-point" onclick="addPoint(' + i + ')">+ 添加要点</button></div>';
+        }
+        html += '</div>';
+    }
+    body.innerHTML = html;
+    document.getElementById('editPanel').classList.add('show');
+}
+
+function closeEdit() {
+    document.getElementById('editPanel').classList.remove('show');
+}
+
+function addPoint(si) {
+    if (state.project.slides[si].points.length < 8) {
+        state.project.slides[si].points.push('新要点');
+        openEdit();
+    }
+}
+
+function removePoint(si, pi) {
+    state.project.slides[si].points.splice(pi, 1);
+    openEdit();
+}
+
+function saveEdit() {
+    var inputs = document.querySelectorAll('#editBody input');
+    for (var i = 0; i < inputs.length; i++) {
+        var inp = inputs[i];
+        var si = parseInt(inp.getAttribute('data-slide'));
+        var f = inp.getAttribute('data-field');
+        var pi = inp.getAttribute('data-point');
+        if (pi !== null && pi !== undefined) {
+            state.project.slides[si].points[parseInt(pi)] = inp.value;
+        } else if (f === 'title') {
+            state.project.slides[si].title = inp.value;
+            if (si === 0) state.project.title = inp.value;
+        } else if (f === 'subtitle') {
+            state.project.slides[si].subtitle = inp.value;
+        }
+    }
+    closeEdit();
+    renderSlides();
+    renderThumbs();
+    showToast('已保存', 'ok');
+}
+
+// ===== Download =====
+function downloadPPTX() {
+    if (!state.project) return;
+    showToast('生成PPTX中...');
+    
+    try {
+        var pptx = new PptxGenJS();
+        var p = state.project;
+        pptx.layout = 'LAYOUT_WIDE';
+        pptx.title = p.title;
+        
+        var colors = {
+            business: {primary:'1E3A5F', text:'FFFFFF', bg:'1E3A5F'},
+            creative: {primary:'667EEA', text:'FFFFFF', bg:'667EEA'},
+            minimal: {primary:'333333', text:'333333', bg:'FFFFFF'},
+            tech: {primary:'00FF88', text:'00FF88', bg:'0A0A0A'},
+            academic: {primary:'8B0000', text:'333333', bg:'FFFFFF'}
+        };
+        var c = colors[p.tpl] || colors.business;
+        var fn = p.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '_').substring(0, 40) + '.pptx';
+        
+        for (var idx = 0; idx < p.slides.length; idx++) {
+            var s = p.slides[idx];
+            var slide = pptx.addSlide();
+            slide.background = {color: c.bg};
+            
+            if (s.type === 'cover' || s.type === 'ending') {
+                slide.addShape(pptx.ShapeType.rect, {x:0,y:0,w:10,h:5.625,fill:{color:c.primary},line:{color:c.primary}});
+                slide.addText(s.title, {
+                    x:0.5, y:2.0, w:9.0, h:1.2,
+                    fontSize: Math.min(36, Math.max(20, 36 - Math.floor(s.title.length/8))),
+                    bold:true, color:c.text, align:'center', valign:'middle'
+                });
+                if (s.subtitle) {
+                    slide.addText(s.subtitle, {
+                        x:0.5, y:3.4, w:9.0, h:0.5, fontSize:14, color:c.text, align:'center', transparency:20
+                    });
+                }
+            } else {
+                slide.addShape(pptx.ShapeType.rect, {x:0,y:0,w:3.5,h:5.625,fill:{color:c.primary,transparency:10},line:{color:c.primary,transparency:100}});
+                var titleColor = p.tpl === 'academic' ? c.primary : c.text;
+                slide.addText(s.title, {
+                    x:0.5, y:0.4, w:9.0, h:0.7,
+                    fontSize: Math.min(24, Math.max(16, 24 - Math.floor(s.title.length/10))),
+                    bold:true, color:titleColor, valign:'middle'
+                });
+                var pts = (s.points || []).slice(0, 6);
+                var fz = pts.length > 4 ? 11 : 15;
+                var lh = pts.length > 4 ? 0.6 : 0.78;
+                for (var pi = 0; pi < pts.length; pi++) {
+                    var y = 1.1 + pi * lh;
+                    if (y + lh <= 5.0) {
+                        slide.addText(pts[pi], {x:0.7, y:y, w:8.8, h:lh-0.05, fontSize:fz, color:c.text, valign:'top', bullet:{indent:10}});
+                    }
+                }
+            }
+            slide.addText((idx+1) + ' / ' + p.slides.length, {x:8.2,y:5.2,w:1.5,h:0.3,fontSize:8,color:c.text,align:'right',transparency:50});
+        }
+        
+        pptx.writeFile({fileName: fn});
+        showToast('已下载: ' + fn, 'ok');
+    } catch(e) {
+        showToast('导出失败: ' + e.message, 'err');
+    }
+}
+
+// ===== Utils =====
+function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function escapeAttr(s) {
+    return String(s).replace(/"/g, '&quot;');
+}
+
+function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + (type || '');
+    setTimeout(function(){t.classList.add('show');}, 10);
+    setTimeout(function(){t.classList.remove('show');}, 2500);
+}
+
+function showModal(title, text, cb) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalText').textContent = text;
+    document.getElementById('modal').classList.add('show');
+    document.getElementById('modalOk').onclick = function() {
+        closeModal();
+        if (cb) cb();
+    };
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+}
+
+// Page input handler
+document.addEventListener('DOMContentLoaded', function() {
+    init();
+    document.getElementById('pageInput').oninput = function() {
+        var v = parseInt(this.value) || 3;
+        v = Math.max(3, Math.min(30, v));
+        state.count = v;
+        var btns = document.querySelectorAll('.page-btn');
+        for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+    };
+});
+
+// Run init immediately
+init();
 </script>
 </body>
 </html>
