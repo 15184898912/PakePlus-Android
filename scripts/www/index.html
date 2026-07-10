@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#6366f1">
-    <title>AI智能PPT生成器 - 云端AI驱动</title>
+    <title>AI智能PPT生成器</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <style>
@@ -19,107 +19,45 @@
             --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
             --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background: var(--bg); color: var(--ink); min-height: 100vh; overflow-x: hidden;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; overflow-x: hidden; }
         .app-container { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--bg); position: relative; overflow: hidden; }
-
-        /* 启动页 */
-        .splash-screen {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, #ec4899 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
-            transition: opacity 0.5s ease;
-        }
+        .splash-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, #ec4899 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; transition: opacity 0.5s ease; }
         .splash-screen.hidden { opacity: 0; pointer-events: none; }
-        .splash-logo {
-            width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 28px;
-            display: flex; align-items: center; justify-content: center; font-size: 60px; margin-bottom: 24px;
-            animation: pulse 2s infinite; backdrop-filter: blur(10px);
-        }
+        .splash-logo { width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 28px; display: flex; align-items: center; justify-content: center; font-size: 60px; margin-bottom: 24px; animation: pulse 2s infinite; backdrop-filter: blur(10px); }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-        @keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(99,102,241,0.5)} 50%{box-shadow:0 0 40px rgba(99,102,241,0.8)} }
         .splash-title { font-size: 28px; font-weight: 700; color: white; margin-bottom: 8px; }
         .splash-subtitle { font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 8px; }
         .splash-badge { background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px; font-size: 12px; color: white; margin-top: 16px; backdrop-filter: blur(10px); }
-
-        /* 页面 */
         .page { display: none; min-height: 100vh; padding-bottom: 80px; }
         .page.active { display: block; }
-
-        /* 顶部导航 */
-        .header {
-            background: var(--bg); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
-            border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: 100;
-        }
-        .header-title {
-            font-size: 20px; font-weight: 700;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        }
-        .header-btn {
-            width: 40px; height: 40px; border-radius: 12px; border: none; background: var(--bg2);
-            color: var(--muted); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
-
-        /* 底部导航 */
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px;
-            background: var(--bg); border-top: 1px solid var(--rule); display: flex; justify-content: space-around;
-            padding: 8px 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); z-index: 100;
-        }
-        .nav-item {
-            display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px;
-            border: none; background: none; color: var(--muted); cursor: pointer; font-size: 12px; transition: color 0.2s;
-        }
+        .header { background: var(--bg); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: 100; }
+        .header-title { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .header-btn { width: 40px; height: 40px; border-radius: 12px; border: none; background: var(--bg2); color: var(--muted); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--bg); border-top: 1px solid var(--rule); display: flex; justify-content: space-around; padding: 8px 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 12px; transition: color 0.2s; }
         .nav-item.active { color: var(--accent); }
         .nav-item .icon { font-size: 24px; }
-
-        /* 首页 */
         .home-content { padding: 20px; }
-        .section-label {
-            font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 12px;
-            display: flex; align-items: center; gap: 8px;
-        }
-        .ai-badge {
-            display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, var(--accent), var(--accent2));
-            color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500;
-        }
-        .prompt-input {
-            width: 100%; min-height: 140px; padding: 16px; border: 2px solid var(--rule); border-radius: 16px;
-            font-size: 15px; font-family: inherit; resize: vertical; background: var(--bg2); color: var(--ink); line-height: 1.6;
-        }
+        .section-label { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .ai-badge { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+        .offline-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--warning); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+        .prompt-input { width: 100%; min-height: 140px; padding: 16px; border: 2px solid var(--rule); border-radius: 16px; font-size: 15px; font-family: inherit; resize: vertical; background: var(--bg2); color: var(--ink); line-height: 1.6; }
         .prompt-input:focus { outline: none; border-color: var(--accent); background: var(--bg); }
         .suggestion-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-        .suggestion-chip {
-            padding: 8px 14px; border-radius: 20px; background: var(--accent-light); color: var(--accent);
-            font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
-        }
+        .suggestion-chip { padding: 8px 14px; border-radius: 20px; background: var(--accent-light); color: var(--accent); font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
         .suggestion-chip:hover { border-color: var(--accent); background: var(--bg); }
-
-        /* API状态 */
-        .api-status {
-            display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--bg2);
-            border-radius: 12px; margin-bottom: 20px; font-size: 13px;
-        }
+        .api-status { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--bg2); border-radius: 12px; margin-bottom: 20px; font-size: 13px; }
         .api-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
         .api-status-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
         .api-status-dot.error { background: var(--error); }
+        .api-status-dot.warning { background: var(--warning); }
         .api-status-text { flex: 1; color: var(--muted); }
         .api-status-text.connected { color: var(--success); }
-        .api-settings-btn {
-            padding: 6px 12px; border: 1px solid var(--rule); border-radius: 8px;
-            background: var(--bg); color: var(--muted); font-size: 12px; cursor: pointer;
-        }
-
-        /* 模板 */
+        .api-status-text.warning { color: var(--warning); }
+        .api-settings-btn { padding: 6px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); color: var(--muted); font-size: 12px; cursor: pointer; }
         .template-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
         .template-scroll::-webkit-scrollbar { display: none; }
-        .template-card {
-            flex-shrink: 0; width: 110px; border-radius: 16px; overflow: hidden; cursor: pointer;
-            border: 3px solid transparent; transition: all 0.2s;
-        }
+        .template-card { flex-shrink: 0; width: 110px; border-radius: 16px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
         .template-card.selected { border-color: var(--accent); transform: scale(1.02); }
         .template-preview { height: 70px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
         .template-name { padding: 8px; text-align: center; font-size: 12px; font-weight: 600; background: var(--bg); }
@@ -128,135 +66,61 @@
         .template-creative .template-preview { background: linear-gradient(135deg,#ff6b6b,#feca57,#48dbfb); color:white; }
         .template-minimal .template-preview { background: #fff; color:#333; border:1px solid #eee; }
         .template-tech .template-preview { background: linear-gradient(135deg,#0a0a0a,#1a1a2e); color:#00ff88; }
-
-        /* 页数 */
         .page-control { background: var(--bg2); padding: 20px; border-radius: 16px; }
         .page-input-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
-        .page-number-input {
-            width: 80px; padding: 10px 12px; border: 2px solid var(--rule); border-radius: 12px;
-            font-size: 22px; font-weight: 700; text-align: center; color: var(--accent); background: var(--bg); font-family: inherit;
-        }
+        .page-number-input { width: 80px; padding: 10px 12px; border: 2px solid var(--rule); border-radius: 12px; font-size: 22px; font-weight: 700; text-align: center; color: var(--accent); background: var(--bg); font-family: inherit; }
         .page-number-input:focus { outline: none; border-color: var(--accent); }
         .page-quick-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-        .page-quick-btn {
-            padding: 8px 16px; border: 1px solid var(--rule); border-radius: 20px; background: var(--bg);
-            color: var(--muted); font-size: 13px; cursor: pointer;
-        }
+        .page-quick-btn { padding: 8px 16px; border: 1px solid var(--rule); border-radius: 20px; background: var(--bg); color: var(--muted); font-size: 13px; cursor: pointer; }
         .page-quick-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
-
-        /* 开关行 */
         .toggle-row { display: flex; gap: 12px; margin-bottom: 24px; }
         .toggle-group { flex: 1; }
         .toggle-group-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
         .toggle-btns { display: flex; background: var(--bg2); border-radius: 12px; padding: 4px; }
-        .toggle-btn {
-            flex: 1; padding: 10px 8px; border: none; background: none; border-radius: 10px; font-size: 13px;
-            font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s;
-        }
+        .toggle-btn { flex: 1; padding: 10px 8px; border: none; background: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; }
         .toggle-btn.active { background: var(--bg); color: var(--accent); box-shadow: var(--shadow); }
-
-        /* 生成按钮 */
-        .generate-btn {
-            width: 100%; padding: 18px; border: none; border-radius: 16px;
-            background: linear-gradient(135deg, var(--accent), var(--accent2), #ec4899); color: white;
-            font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.2s;
-            box-shadow: 0 4px 15px rgba(99,102,241,0.4); display: flex; align-items: center; justify-content: center; gap: 8px;
-            position: relative; overflow: hidden;
-        }
+        .generate-btn { width: 100%; padding: 18px; border: none; border-radius: 16px; background: linear-gradient(135deg, var(--accent), var(--accent2), #ec4899); color: white; font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(99,102,241,0.4); display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; overflow: hidden; }
         .generate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(99,102,241,0.5); }
         .generate-btn:disabled { opacity: 0.8; cursor: not-allowed; }
-        .generate-btn .spinner {
-            width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
+        .generate-btn .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* 进度页 */
-        .progress-page {
-            background: linear-gradient(180deg, var(--accent-light) 0%, var(--bg) 100%); min-height: 100vh;
-            display: none; flex-direction: column; padding: 40px 20px;
-        }
+        .progress-page { background: linear-gradient(180deg, var(--accent-light) 0%, var(--bg) 100%); min-height: 100vh; display: none; flex-direction: column; padding: 40px 20px; }
         .progress-page.active { display: flex; }
         .progress-ring-container { position: relative; width: 180px; height: 180px; margin: 0 auto 30px; }
         .progress-ring { transform: rotate(-90deg); }
         .progress-ring-bg { fill: none; stroke: var(--rule); stroke-width: 12; }
-        .progress-ring-fill {
-            fill: none; stroke: url(#progressGradient); stroke-width: 12; stroke-linecap: round;
-            stroke-dasharray: 502.65; stroke-dashoffset: 502.65; transition: stroke-dashoffset 0.3s ease;
-        }
-        .progress-percent {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-            font-size: 42px; font-weight: 700; color: var(--accent);
-        }
-        .progress-status {
-            text-align: center; font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 8px;
-        }
-        .progress-detail {
-            text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 24px;
-            min-height: 20px;
-        }
-        .ai-stream {
-            background: var(--bg); border-radius: 16px; padding: 16px; margin-bottom: 20px;
-            max-height: 200px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--muted);
-            border: 1px solid var(--rule);
-        }
+        .progress-ring-fill { fill: none; stroke: url(#progressGradient); stroke-width: 12; stroke-linecap: round; stroke-dasharray: 502.65; stroke-dashoffset: 502.65; transition: stroke-dashoffset 0.3s ease; }
+        .progress-percent { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 42px; font-weight: 700; color: var(--accent); }
+        .progress-status { text-align: center; font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+        .progress-detail { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 24px; min-height: 20px; }
+        .ai-stream { background: var(--bg); border-radius: 16px; padding: 16px; margin-bottom: 20px; max-height: 200px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--muted); border: 1px solid var(--rule); }
         .ai-stream-title { font-weight: 600; color: var(--accent); margin-bottom: 8px; font-size: 12px; }
         .ai-stream-content { white-space: pre-wrap; word-break: break-word; }
         .progress-steps { width: 100%; max-width: 340px; margin: 0 auto; }
-        .progress-step {
-            display: flex; align-items: center; gap: 14px; padding: 14px; margin-bottom: 8px;
-            border-radius: 12px; background: var(--bg); transition: all 0.3s;
-        }
+        .progress-step { display: flex; align-items: center; gap: 14px; padding: 14px; margin-bottom: 8px; border-radius: 12px; background: var(--bg); transition: all 0.3s; }
         .progress-step.active { background: var(--accent-light); border: 2px solid var(--accent); }
         .progress-step.completed { opacity: 0.7; }
-        .step-icon {
-            width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 16px; background: var(--bg2); color: var(--muted); flex-shrink: 0;
-        }
+        .step-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; background: var(--bg2); color: var(--muted); flex-shrink: 0; }
         .progress-step.active .step-icon { background: var(--accent); color: white; animation: spin 1s linear infinite; }
         .progress-step.completed .step-icon { background: var(--success); color: white; animation: none; }
+        .progress-step.error .step-icon { background: var(--error); color: white; animation: none; }
         .step-title { font-size: 14px; font-weight: 600; color: var(--ink); }
         .step-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
-        .cancel-btn {
-            margin: 24px auto 0; padding: 12px 32px; border: 2px solid var(--rule); border-radius: 12px;
-            background: var(--bg); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer;
-            display: block;
-        }
-
-        /* 预览页 */
+        .cancel-btn { margin: 24px auto 0; padding: 12px 32px; border: 2px solid var(--rule); border-radius: 12px; background: var(--bg); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; display: block; }
         .preview-page { display: none; flex-direction: column; min-height: 100vh; background: var(--bg2); }
         .preview-page.active { display: flex; }
-        .preview-header {
-            background: var(--bg); padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-            border-bottom: 1px solid var(--rule);
-        }
-        .icon-btn {
-            width: 36px; height: 36px; border-radius: 10px; border: none; background: var(--bg2);
-            font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
+        .preview-header { background: var(--bg); padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule); }
+        .icon-btn { width: 36px; height: 36px; border-radius: 10px; border: none; background: var(--bg2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .preview-title { flex: 1; font-size: 15px; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .preview-page-indicator { font-size: 13px; color: var(--muted); background: var(--bg2); padding: 6px 12px; border-radius: 20px; }
-
         .slides-container { flex: 1; position: relative; overflow: hidden; }
         .slides-wrapper { display: flex; height: 100%; transition: transform 0.3s ease; }
         .slide-page { min-width: 100%; height: 100%; padding: 16px; display: flex; align-items: center; justify-content: center; }
-        .slide-card {
-            width: 100%; aspect-ratio: 16/9; border-radius: 12px; box-shadow: var(--shadow-lg);
-            overflow: hidden; position: relative; display: flex;
-        }
+        .slide-card { width: 100%; aspect-ratio: 16/9; border-radius: 12px; box-shadow: var(--shadow-lg); overflow: hidden; position: relative; display: flex; }
         .slide-image-side { width: 40%; height: 100%; background-size: cover; background-position: center; position: relative; flex-shrink: 0; }
         .slide-image-cover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-size: cover; background-position: center; }
-        .slide-image-cover::after {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(135deg, rgba(0,0,0,0.2), rgba(0,0,0,0.5));
-        }
-        .slide-image-loading {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center;
-            justify-content: center; background: var(--bg2);
-        }
-        .slide-content-side {
-            flex: 1; padding: 16px; display: flex; flex-direction: column; position: relative; z-index: 1; overflow: hidden;
-        }
+        .slide-image-cover::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(0,0,0,0.2), rgba(0,0,0,0.5)); }
+        .slide-content-side { flex: 1; padding: 16px; display: flex; flex-direction: column; position: relative; z-index: 1; overflow: hidden; }
         .slide-cover .slide-content-side { align-items: center; justify-content: center; text-align: center; width: 100%; }
         .slide-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; z-index: 1; }
         .slide-cover .slide-title { font-size: 24px; margin-bottom: 8px; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
@@ -264,19 +128,8 @@
         .slide-cover .slide-subtitle { color: rgba(255,255,255,0.9); text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
         .slide-points { list-style: none; overflow-y: auto; flex: 1; z-index: 1; }
         .slide-points li { font-size: 12px; line-height: 1.6; padding-left: 16px; position: relative; margin-bottom: 4px; }
-        .slide-points li::before {
-            content: ''; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
-        }
-        .slide-footer {
-            padding: 6px 16px; font-size: 9px; opacity: 0.7; display: flex; justify-content: space-between;
-            position: absolute; bottom: 0; left: 0; right: 0;
-        }
-        .ai-generated-badge {
-            position: absolute; top: 8px; right: 8px; background: rgba(99,102,241,0.9); color: white;
-            font-size: 8px; padding: 2px 6px; border-radius: 8px; z-index: 2;
-        }
-
-        /* 模板样式 */
+        .slide-points li::before { content: ''; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .slide-footer { padding: 6px 16px; font-size: 9px; opacity: 0.7; display: flex; justify-content: space-between; position: absolute; bottom: 0; left: 0; right: 0; }
         .slide-business { background: linear-gradient(135deg,#1e3a5f,#2d5a87); color: white; }
         .slide-academic { background: #fff; color: #333; border: 4px solid #8b0000; }
         .slide-academic .slide-title { color: #8b0000; border-bottom: 2px solid #8b0000; padding-bottom: 4px; }
@@ -285,105 +138,51 @@
         .slide-minimal .slide-title { font-weight: 400; border-left: 4px solid #333; padding-left: 10px; }
         .slide-tech { background: linear-gradient(135deg,#0a0a0a,#1a1a2e); color: #00ff88; }
         .slide-tech .slide-title { text-shadow: 0 0 10px #00ff88; }
-
-        /* 缩略图 */
         .thumbnails-container { background: var(--bg); padding: 8px; border-top: 1px solid var(--rule); }
         .thumbnails-scroll { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
         .thumbnails-scroll::-webkit-scrollbar { display: none; }
-        .thumbnail {
-            flex-shrink: 0; width: 36px; height: 20px; border-radius: 3px; border: 2px solid transparent; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; overflow: hidden;
-        }
+        .thumbnail { flex-shrink: 0; width: 36px; height: 20px; border-radius: 3px; border: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; overflow: hidden; }
         .thumbnail.active { border-color: var(--accent); }
         .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-
-        /* 预览操作栏 */
-        .preview-actions {
-            background: var(--bg); padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom));
-            display: flex; gap: 8px; border-top: 1px solid var(--rule);
-        }
-        .action-btn {
-            flex: 1; padding: 10px 6px; border: none; border-radius: 12px; font-size: 11px; font-weight: 600;
-            cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;
-        }
+        .preview-actions { background: var(--bg); padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); display: flex; gap: 8px; border-top: 1px solid var(--rule); }
+        .action-btn { flex: 1; padding: 10px 6px; border: none; border-radius: 12px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .action-btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
         .action-btn.secondary { background: var(--bg2); color: var(--ink); }
         .action-btn .icon { font-size: 18px; }
-
-        /* 编辑面板 */
-        .edit-panel {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 500;
-            display: none; flex-direction: column; overflow-y: auto;
-        }
+        .edit-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 500; display: none; flex-direction: column; overflow-y: auto; }
         .edit-panel.active { display: flex; }
-        .edit-header {
-            position: sticky; top: 0; background: var(--bg); padding: 16px 20px; display: flex; align-items: center;
-            gap: 12px; border-bottom: 1px solid var(--rule); z-index: 10;
-        }
+        .edit-header { position: sticky; top: 0; background: var(--bg); padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--rule); z-index: 10; }
         .edit-content { padding: 16px; flex: 1; }
         .edit-slide-item { background: var(--bg2); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
         .edit-slide-num { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
         .edit-field { margin-bottom: 10px; }
         .edit-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; display: block; }
-        .edit-input {
-            width: 100%; padding: 10px; border: 2px solid var(--rule); border-radius: 10px;
-            font-size: 13px; font-family: inherit; background: var(--bg); color: var(--ink);
-        }
+        .edit-input { width: 100%; padding: 10px; border: 2px solid var(--rule); border-radius: 10px; font-size: 13px; font-family: inherit; background: var(--bg); color: var(--ink); }
         .edit-input:focus { outline: none; border-color: var(--accent); }
         .edit-point-item { display: flex; gap: 6px; margin-bottom: 6px; }
-        .edit-point-del {
-            width: 32px; height: 32px; border-radius: 8px; border: none; background: #fee2e2;
-            color: var(--error); font-size: 16px; cursor: pointer; flex-shrink: 0;
-        }
-        .add-point-btn {
-            width: 100%; padding: 8px; border: 2px dashed var(--rule); border-radius: 10px;
-            background: none; color: var(--accent); font-size: 12px; cursor: pointer; margin-top: 6px;
-        }
-        .edit-save-bar {
-            position: sticky; bottom: 0; background: var(--bg); padding: 12px 16px;
-            padding-bottom: max(12px, env(safe-area-inset-bottom));
-            border-top: 1px solid var(--rule); display: flex; gap: 12px;
-        }
-        .edit-save-btn {
-            flex: 1; padding: 14px; border: none; border-radius: 12px;
-            background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white;
-            font-size: 15px; font-weight: 600; cursor: pointer;
-        }
-        .edit-cancel-btn {
-            padding: 14px 20px; border: 2px solid var(--rule); border-radius: 12px;
-            background: var(--bg); color: var(--muted); font-size: 15px; font-weight: 600; cursor: pointer;
-        }
-
-        /* API设置面板 */
-        .api-panel {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 600;
-            display: none; flex-direction: column; overflow-y: auto;
-        }
+        .edit-point-del { width: 32px; height: 32px; border-radius: 8px; border: none; background: #fee2e2; color: var(--error); font-size: 16px; cursor: pointer; flex-shrink: 0; }
+        .add-point-btn { width: 100%; padding: 8px; border: 2px dashed var(--rule); border-radius: 10px; background: none; color: var(--accent); font-size: 12px; cursor: pointer; margin-top: 6px; }
+        .edit-save-bar { position: sticky; bottom: 0; background: var(--bg); padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); display: flex; gap: 12px; }
+        .edit-save-btn { flex: 1; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .edit-cancel-btn { padding: 14px 20px; border: 2px solid var(--rule); border-radius: 12px; background: var(--bg); color: var(--muted); font-size: 15px; font-weight: 600; cursor: pointer; }
+        .api-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 600; display: none; flex-direction: column; overflow-y: auto; }
         .api-panel.active { display: flex; }
         .api-panel-content { padding: 20px; flex: 1; }
-        .api-provider {
-            border: 2px solid var(--rule); border-radius: 16px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;
-        }
+        .api-provider { border: 2px solid var(--rule); border-radius: 16px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
         .api-provider.selected { border-color: var(--accent); background: var(--accent-light); }
         .api-provider-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
         .api-provider-desc { font-size: 12px; color: var(--muted); }
-        .api-provider-badge {
-            display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px;
-        }
+        .api-provider-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
         .badge-free { background: #dcfce7; color: #166534; }
-        .badge-custom { background: #fef3c7; color: #92400e; }
-
-        /* 历史/设置 */
+        .badge-offline { background: #fef3c7; color: #92400e; }
+        .badge-custom { background: #dbeafe; color: #1e40af; }
         .history-content, .settings-content { padding: 20px; }
         .empty-state { text-align: center; padding: 60px 20px; }
         .empty-icon { font-size: 80px; margin-bottom: 16px; opacity: 0.5; }
         .empty-title { font-size: 18px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
         .empty-desc { font-size: 14px; color: var(--muted); }
         .history-list { display: flex; flex-direction: column; gap: 12px; }
-        .history-item {
-            background: var(--bg); border-radius: 16px; padding: 16px; display: flex; gap: 12px;
-            box-shadow: var(--shadow); cursor: pointer; transition: all 0.2s; position: relative;
-        }
+        .history-item { background: var(--bg); border-radius: 16px; padding: 16px; display: flex; gap: 12px; box-shadow: var(--shadow); cursor: pointer; transition: all 0.2s; position: relative; }
         .history-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
         .history-thumb { width: 70px; height: 40px; border-radius: 8px; flex-shrink: 0; overflow: hidden; background: var(--bg2); }
         .history-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -391,82 +190,49 @@
         .history-info { flex: 1; min-width: 0; }
         .history-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .history-meta { font-size: 11px; color: var(--muted); display: flex; gap: 10px; }
-        .history-ai-badge { font-size: 9px; color: var(--accent); background: var(--accent-light); padding: 1px 6px; border-radius: 6px; }
-        .history-delete {
-            position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: none;
-            background: var(--bg2); color: var(--muted); font-size: 12px; cursor: pointer; opacity: 0;
-        }
+        .history-delete { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--bg2); color: var(--muted); font-size: 12px; cursor: pointer; opacity: 0; }
         .history-item:hover .history-delete { opacity: 1; }
-
         .settings-group { margin-bottom: 20px; }
         .settings-group-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding: 0 4px; }
         .settings-card { background: var(--bg); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
-        .settings-item {
-            display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--rule); gap: 12px;
-        }
+        .settings-item { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--rule); gap: 12px; }
         .settings-item:last-child { border-bottom: none; }
-        .settings-item-icon {
-            width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center;
-            justify-content: center; font-size: 18px; flex-shrink: 0;
-        }
+        .settings-item-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
         .settings-item-content { flex: 1; }
         .settings-item-title { font-size: 14px; font-weight: 600; }
         .settings-item-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
         .toggle-switch { position: relative; width: 48px; height: 26px; background: var(--rule); border-radius: 13px; cursor: pointer; }
         .toggle-switch.active { background: var(--accent); }
-        .toggle-switch::after {
-            content: ''; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; background: white;
-            border-radius: 50%; transition: all 0.2s; box-shadow: var(--shadow);
-        }
+        .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; background: white; border-radius: 50%; transition: all 0.2s; box-shadow: var(--shadow); }
         .toggle-switch.active::after { left: 24px; }
-
-        /* Toast */
-        .toast {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
-            background: var(--ink); color: white; padding: 12px 24px; border-radius: 12px; font-size: 14px;
-            font-weight: 500; z-index: 2000; transition: transform 0.3s ease; box-shadow: var(--shadow-lg);
-            max-width: 90%; text-align: center;
-        }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: var(--ink); color: white; padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 500; z-index: 2000; transition: transform 0.3s ease; box-shadow: var(--shadow-lg); max-width: 90%; text-align: center; }
         .toast.show { transform: translateX(-50%) translateY(0); }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--error); }
-
-        /* 模态框 */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5);
-            display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px;
-        }
+        .toast.warning { background: var(--warning); }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px; }
         .modal-overlay.show { display: flex; }
         .modal { background: var(--bg); border-radius: 20px; width: 100%; max-width: 400px; padding: 24px; animation: modalIn 0.3s ease; max-height: 80vh; overflow-y: auto; }
         @keyframes modalIn { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
         .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; text-align: center; }
         .modal-content { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
         .modal-actions { display: flex; gap: 12px; }
-        .modal-btn {
-            flex: 1; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer;
-        }
+        .modal-btn { flex: 1; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
         .modal-btn.cancel { background: var(--bg2); color: var(--muted); }
         .modal-btn.confirm { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
-        .download-option {
-            width: 100%; padding: 14px; border: 2px solid var(--rule); border-radius: 12px; background: var(--bg);
-            cursor: pointer; text-align: left; display: flex; align-items: center; gap: 12px; margin-bottom: 10px; transition: all 0.2s;
-        }
+        .download-option { width: 100%; padding: 14px; border: 2px solid var(--rule); border-radius: 12px; background: var(--bg); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 12px; margin-bottom: 10px; transition: all 0.2s; }
         .download-option:hover { border-color: var(--accent); background: var(--accent-light); }
-
         @media (min-width: 481px) { .app-container { box-shadow: var(--shadow-lg); } }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- 启动页 -->
         <div class="splash-screen" id="splashScreen">
             <div class="splash-logo">🤖</div>
             <div class="splash-title">AI PPT生成器</div>
-            <div class="splash-subtitle">云端大模型驱动 · 真实内容生成</div>
-            <div class="splash-badge">✨ Powered by Cloud AI</div>
+            <div class="splash-subtitle">智能生成 · 专业PPT</div>
+            <div class="splash-badge">✨ 多模式AI引擎</div>
         </div>
-
-        <!-- 首页 -->
         <div class="page active" id="homePage">
             <div class="header">
                 <div class="header-title">🤖 AI PPT生成器</div>
@@ -474,15 +240,14 @@
             </div>
             <div class="home-content">
                 <div class="api-status" id="apiStatusBar">
-                    <div class="api-status-dot" id="apiStatusDot"></div>
-                    <div class="api-status-text" id="apiStatusText">正在连接AI服务...</div>
-                    <button class="api-settings-btn" onclick="openApiPanel()">设置API</button>
+                    <div class="api-status-dot connected" id="apiStatusDot"></div>
+                    <div class="api-status-text connected" id="apiStatusText">智能引擎就绪</div>
+                    <button class="api-settings-btn" onclick="openApiPanel()">设置</button>
                 </div>
-
                 <div style="margin-bottom: 20px;">
                     <div class="section-label">
                         📝 描述您的PPT主题
-                        <span class="ai-badge">AI生成</span>
+                        <span class="ai-badge" id="aiModeBadge">智能生成</span>
                     </div>
                     <textarea class="prompt-input" id="promptInput" placeholder="请详细描述您想要生成的PPT内容...&#10;&#10;例如：&#10;• 2024年度销售工作总结，包含业绩回顾、问题分析、明年工作计划&#10;• 人工智能在教育领域的应用前景和挑战&#10;• 新员工入职培训：公司文化、规章制度、业务流程"></textarea>
                     <div class="suggestion-chips">
@@ -492,12 +257,10 @@
                         <span class="suggestion-chip" onclick="fillPrompt('新能源汽车市场竞争格局分析：特斯拉、比亚迪、蔚来对比')">🚗 行业分析</span>
                     </div>
                 </div>
-
                 <div style="margin-bottom: 20px;">
                     <div class="section-label">🎨 模板风格</div>
                     <div class="template-scroll" id="templateScroll"></div>
                 </div>
-
                 <div style="margin-bottom: 20px;">
                     <div class="section-label">📄 页数</div>
                     <div class="page-control">
@@ -514,7 +277,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="toggle-row">
                     <div class="toggle-group">
                         <div class="toggle-group-label">🌐 语言</div>
@@ -531,23 +293,15 @@
                         </div>
                     </div>
                 </div>
-
                 <button class="generate-btn" id="generateBtn" onclick="startGeneration()">
-                    🚀 调用AI生成PPT
+                    🚀 生成PPT
                 </button>
             </div>
         </div>
-
-        <!-- 进度页 -->
         <div class="progress-page" id="progressPage">
             <div class="progress-ring-container">
                 <svg class="progress-ring" width="180" height="180">
-                    <defs>
-                        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#6366f1"/>
-                            <stop offset="100%" style="stop-color:#ec4899"/>
-                        </linearGradient>
-                    </defs>
+                    <defs><linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#6366f1"/><stop offset="100%" style="stop-color:#ec4899"/></linearGradient></defs>
                     <circle class="progress-ring-bg" cx="90" cy="90" r="80"/>
                     <circle class="progress-ring-fill" id="progressRing" cx="90" cy="90" r="80"/>
                 </svg>
@@ -556,14 +310,12 @@
             <div class="progress-status" id="progressStatus">准备中...</div>
             <div class="progress-detail" id="progressDetail"></div>
             <div class="ai-stream" id="aiStreamBox" style="display:none;">
-                <div class="ai-stream-title">💬 AI思考过程</div>
+                <div class="ai-stream-title">💬 生成详情</div>
                 <div class="ai-stream-content" id="aiStreamContent"></div>
             </div>
             <div class="progress-steps" id="progressSteps"></div>
             <button class="cancel-btn" onclick="cancelGeneration()">取消生成</button>
         </div>
-
-        <!-- 预览页 -->
         <div class="preview-page" id="previewPage">
             <div class="preview-header">
                 <button class="icon-btn" onclick="goBack()">←</button>
@@ -571,26 +323,14 @@
                 <button class="icon-btn" onclick="openEditPanel()">✏️</button>
                 <div class="preview-page-indicator" id="pageIndicator">1/8</div>
             </div>
-            <div class="slides-container">
-                <div class="slides-wrapper" id="slidesWrapper"></div>
-            </div>
-            <div class="thumbnails-container">
-                <div class="thumbnails-scroll" id="thumbnailsScroll"></div>
-            </div>
+            <div class="slides-container"><div class="slides-wrapper" id="slidesWrapper"></div></div>
+            <div class="thumbnails-container"><div class="thumbnails-scroll" id="thumbnailsScroll"></div></div>
             <div class="preview-actions">
-                <button class="action-btn primary" onclick="showDownloadOptions()">
-                    <span class="icon">💾</span><span>下载PPTX</span>
-                </button>
-                <button class="action-btn secondary" onclick="sharePPT()">
-                    <span class="icon">📤</span><span>分享</span>
-                </button>
-                <button class="action-btn secondary" onclick="regeneratePPT()">
-                    <span class="icon">🔄</span><span>重新生成</span>
-                </button>
+                <button class="action-btn primary" onclick="showDownloadOptions()"><span class="icon">💾</span><span>下载PPTX</span></button>
+                <button class="action-btn secondary" onclick="sharePPT()"><span class="icon">📤</span><span>分享</span></button>
+                <button class="action-btn secondary" onclick="regeneratePPT()"><span class="icon">🔄</span><span>重新生成</span></button>
             </div>
         </div>
-
-        <!-- 编辑面板 -->
         <div class="edit-panel" id="editPanel">
             <div class="edit-header">
                 <button class="icon-btn" onclick="closeEditPanel()">←</button>
@@ -603,8 +343,6 @@
                 <button class="edit-save-btn" onclick="saveEdits()">✓ 保存修改</button>
             </div>
         </div>
-
-        <!-- API设置面板 -->
         <div class="api-panel" id="apiPanel">
             <div class="edit-header">
                 <button class="icon-btn" onclick="closeApiPanel()">←</button>
@@ -614,22 +352,23 @@
             <div class="api-panel-content">
                 <div class="settings-group">
                     <div class="settings-group-title">选择AI服务</div>
-                    <div class="api-provider selected" data-provider="pollinations" onclick="selectApiProvider('pollinations')">
-                        <div class="api-provider-name">
-                            🆓 Pollinations AI
-                            <span class="api-provider-badge badge-free">免费</span>
-                        </div>
-                        <div class="api-provider-desc">免费开源AI服务，无需API Key，直接使用</div>
+                    <div class="api-provider selected" data-provider="smart" onclick="selectApiProvider('smart')">
+                        <div class="api-provider-name">🧠 智能引擎<span class="api-provider-badge badge-free">推荐</span></div>
+                        <div class="api-provider-desc">自动选择最佳方案，云端AI优先，离线智能兜底</div>
+                    </div>
+                    <div class="api-provider" data-provider="pollinations" onclick="selectApiProvider('pollinations')">
+                        <div class="api-provider-name">🆓 Pollinations AI<span class="api-provider-badge badge-free">免费在线</span></div>
+                        <div class="api-provider-desc">免费开源AI服务，无需API Key（需科学上网）</div>
+                    </div>
+                    <div class="api-provider" data-provider="offline" onclick="selectApiProvider('offline')">
+                        <div class="api-provider-name">📱 离线智能<span class="api-provider-badge badge-offline">无需网络</span></div>
+                        <div class="api-provider-desc">基于关键词的智能内容生成，无需联网</div>
                     </div>
                     <div class="api-provider" data-provider="openai" onclick="selectApiProvider('openai')">
-                        <div class="api-provider-name">
-                            🔑 OpenAI兼容API
-                            <span class="api-provider-badge badge-custom">自定义Key</span>
-                        </div>
-                        <div class="api-provider-desc">支持OpenAI、通义千问、文心一言、DeepSeek等兼容接口</div>
+                        <div class="api-provider-name">🔑 自定义API<span class="api-provider-badge badge-custom">OpenAI兼容</span></div>
+                        <div class="api-provider-desc">支持OpenAI、DeepSeek、通义千问、文心一言等</div>
                     </div>
                 </div>
-
                 <div id="openaiSettings" style="display:none;">
                     <div class="settings-group">
                         <div class="settings-group-title">OpenAI兼容配置</div>
@@ -655,14 +394,9 @@
                         • 智谱AI: https://open.bigmodel.cn/api/paas/v4
                     </div>
                 </div>
-
-                <button class="edit-save-btn" onclick="saveApiSettings()" style="width:100%;margin-bottom:20px;">
-                    ✓ 保存并测试连接
-                </button>
+                <button class="edit-save-btn" onclick="saveApiSettings()" style="width:100%;margin-bottom:20px;">✓ 保存设置</button>
             </div>
         </div>
-
-        <!-- 历史记录页 -->
         <div class="page" id="historyPage">
             <div class="header">
                 <div class="header-title">📚 历史记录</div>
@@ -670,8 +404,6 @@
             </div>
             <div class="history-content" id="historyContent"></div>
         </div>
-
-        <!-- 设置页 -->
         <div class="page" id="settingsPage">
             <div class="header">
                 <button class="header-btn" onclick="showPage('home')">←</button>
@@ -686,7 +418,7 @@
                             <div class="settings-item-icon" style="background:#dbeafe;">🤖</div>
                             <div class="settings-item-content">
                                 <div class="settings-item-title">AI服务配置</div>
-                                <div class="settings-item-desc" id="currentApiDesc">Pollinations AI（免费）</div>
+                                <div class="settings-item-desc" id="currentApiDesc">智能引擎（推荐）</div>
                             </div>
                             <div style="color:var(--muted)">→</div>
                         </div>
@@ -697,16 +429,12 @@
                     <div class="settings-card">
                         <div class="settings-item">
                             <div class="settings-item-icon" style="background:#fef3c7;">🌙</div>
-                            <div class="settings-item-content">
-                                <div class="settings-item-title">深色模式</div>
-                            </div>
+                            <div class="settings-item-content"><div class="settings-item-title">深色模式</div></div>
                             <div class="toggle-switch" id="darkModeToggle" onclick="toggleDarkMode()"></div>
                         </div>
                         <div class="settings-item">
                             <div class="settings-item-icon" style="background:#e0e7ff;">🖼️</div>
-                            <div class="settings-item-content">
-                                <div class="settings-item-title">图片尺寸</div>
-                            </div>
+                            <div class="settings-item-content"><div class="settings-item-title">图片尺寸</div></div>
                             <select id="imageSizeSelect" style="padding:6px 10px;border:2px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;">
                                 <option value="800x600">800×600</option>
                                 <option value="1024x768" selected>1024×768</option>
@@ -722,26 +450,18 @@
                             <div class="settings-item-icon" style="background:#d1fae5;">ℹ️</div>
                             <div class="settings-item-content">
                                 <div class="settings-item-title">版本</div>
-                                <div class="settings-item-desc">v4.0 - 云端AI真实生成</div>
+                                <div class="settings-item-desc">v5.0 - 多模式AI引擎</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="bottom-nav" id="bottomNav">
-            <button class="nav-item active" data-page="home" onclick="showPage('home')">
-                <span class="icon">🏠</span><span>首页</span>
-            </button>
-            <button class="nav-item" data-page="history" onclick="showPage('history')">
-                <span class="icon">📚</span><span>历史</span>
-            </button>
-            <button class="nav-item" data-page="settings" onclick="showPage('settings')">
-                <span class="icon">👤</span><span>我的</span>
-            </button>
+            <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="icon">🏠</span><span>首页</span></button>
+            <button class="nav-item" data-page="history" onclick="showPage('history')"><span class="icon">📚</span><span>历史</span></button>
+            <button class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="icon">👤</span><span>我的</span></button>
         </div>
-
         <div class="toast" id="toast"></div>
         <div class="modal-overlay" id="confirmModal">
             <div class="modal">
@@ -754,314 +474,384 @@
             </div>
         </div>
     </div>
-
     <script>
-        // ==================== 状态管理 ====================
         const state = {
-            currentPage: 'home', selectedTemplate: 'business', slideCount: 8, language: 'zh',
-            darkMode: false, imageStyle: 'photo', selectedIndustry: '', isGenerating: false,
-            currentProject: null, currentSlideIndex: 0, history: [], generationCancelled: false,
-            imageCache: {},
-            apiProvider: 'pollinations', // pollinations | openai
-            apiKey: '', apiBase: 'https://api.openai.com/v1', apiModel: 'gpt-3.5-turbo'
+            currentPage:'home', selectedTemplate:'business', slideCount:8, language:'zh',
+            darkMode:false, imageStyle:'photo', isGenerating:false, currentProject:null,
+            currentSlideIndex:0, history:[], generationCancelled:false, imageCache:{},
+            aiProvider:'smart', apiKey:'', apiBase:'https://api.openai.com/v1', apiModel:'gpt-3.5-turbo',
+            usedOfflineFallback:false
         };
-
         const templates = [
-            { id: 'business', name: '商务风', icon: '💼', class: 'slide-business', color: '#1e3a5f', textColor: '#FFFFFF' },
-            { id: 'academic', name: '学术风', icon: '🎓', class: 'slide-academic', color: '#8b0000', textColor: '#333333' },
-            { id: 'creative', name: '创意风', icon: '🎨', class: 'slide-creative', color: '#667eea', textColor: '#FFFFFF' },
-            { id: 'minimal', name: '简约风', icon: '✨', class: 'slide-minimal', color: '#f8fafc', textColor: '#333333' },
-            { id: 'tech', name: '科技风', icon: '🚀', class: 'slide-tech', color: '#0a0a0a', textColor: '#00ff88' }
+            {id:'business',name:'商务风',icon:'💼',class:'slide-business',color:'#1e3a5f',textColor:'#FFFFFF'},
+            {id:'academic',name:'学术风',icon:'🎓',class:'slide-academic',color:'#8b0000',textColor:'#333333'},
+            {id:'creative',name:'创意风',icon:'🎨',class:'slide-creative',color:'#667eea',textColor:'#FFFFFF'},
+            {id:'minimal',name:'简约风',icon:'✨',class:'slide-minimal',color:'#f8fafc',textColor:'#333333'},
+            {id:'tech',name:'科技风',icon:'🚀',class:'slide-tech',color:'#0a0a0a',textColor:'#00ff88'}
         ];
 
-        // ==================== 初始化 ====================
-        document.addEventListener('DOMContentLoaded', init);
-
-        async function init() {
-            loadSettings();
-            renderTemplates();
-            initPageControls();
-            loadHistory();
-            renderIndustries();
-            checkApiConnection();
-            setTimeout(() => document.getElementById('splashScreen').classList.add('hidden'), 2500);
-        }
-
-        function renderIndustries() {
-            // 行业已整合到AI生成逻辑中
-        }
-
-        function checkApiConnection() {
-            const dot = document.getElementById('apiStatusDot');
-            const text = document.getElementById('apiStatusText');
-            dot.className = 'api-status-dot connected';
-            if (state.apiProvider === 'pollinations') {
-                text.textContent = '已连接 Pollinations AI（免费）';
-                text.className = 'api-status-text connected';
-                document.getElementById('currentApiDesc').textContent = 'Pollinations AI（免费）';
-            } else {
-                text.textContent = state.apiKey ? '自定义API已配置' : '请配置API Key';
-                text.className = state.apiKey ? 'api-status-text connected' : 'api-status-text';
-                document.getElementById('currentApiDesc').textContent = state.apiKey ? `${state.apiModel}（自定义）` : '未配置API Key';
-            }
-        }
-
-        // ==================== AI API调用 ====================
-        async function callCloudAI(prompt, slideCount, language, onStream) {
-            const isZh = language === 'zh';
-            const systemPrompt = isZh ? 
-                `你是一个专业的PPT内容生成助手。请根据用户的主题，生成一份结构完整的PPT大纲。
-
-要求：
-1. 严格按照JSON格式返回，不要有任何额外文字
-2. PPT页数严格控制在${slideCount}页左右（包含封面、目录、结尾页）
-3. 每页内容要具体、真实、专业，围绕用户主题展开，不要泛泛而谈
-4. 每页3-5个要点，每个要点是完整的句子
-5. 目录页要列出主要章节
-6. 为每页生成一个适合配图的英文image_prompt关键词
-
-返回JSON格式：
-{
-  "title": "PPT标题",
-  "slides": [
-    {
-      "type": "cover|toc|content|ending",
-      "title": "页面标题",
-      "subtitle": "副标题（可空，封面和结尾页可填）",
-      "points": ["要点1", "要点2", "要点3"],
-      "image_prompt": "english keywords for image generation"
-    }
-  ]
-}` :
-                `You are a professional PPT content generator. Create a well-structured PPT outline based on the user's topic.
-
-Requirements:
-1. Return ONLY valid JSON, no other text
-2. Total slides: around ${slideCount} (including cover, toc, ending)
-3. Content must be specific, factual, and relevant to the topic
-4. 3-5 bullet points per slide, each being a complete sentence
-5. TOC slide lists main sections
-6. Generate English image_prompt keywords for each slide
-
-Return JSON format:
-{
-  "title": "PPT Title",
-  "slides": [
-    {
-      "type": "cover|toc|content|ending",
-      "title": "Slide Title",
-      "subtitle": "subtitle or empty",
-      "points": ["point 1", "point 2", "point 3"],
-      "image_prompt": "english keywords for image"
-    }
-  ]
-}`;
-
-            const userContent = isZh ? 
-                `请生成一份关于"${prompt}"的PPT，共${slideCount}页。内容要专业、具体、真实。` :
-                `Generate a PPT about "${prompt}", ${slideCount} slides. Make it professional and specific.`;
-
-            try {
-                let result;
-                
-                if (state.apiProvider === 'openai' && state.apiKey) {
-                    // OpenAI兼容API调用
-                    result = await callOpenAIAPI(systemPrompt, userContent, onStream);
-                } else {
-                    // Pollinations AI免费调用
-                    result = await callPollinationsAI(systemPrompt, userContent, onStream);
-                }
-
-                return parseAIResponse(result, slideCount, isZh);
-            } catch (err) {
-                console.error('AI API Error:', err);
-                // 如果API失败，抛出错误
-                throw new Error(isZh ? 'AI服务调用失败: ' + err.message : 'AI API failed: ' + err.message);
-            }
-        }
-
-        async function callPollinationsAI(systemPrompt, userContent, onStream) {
-            const fullPrompt = `${systemPrompt}\n\n用户请求: ${userContent}\n\n请只返回JSON：`;
-            const encodedPrompt = encodeURIComponent(fullPrompt);
-            
-            // Pollinations AI 文本API
-            const url = `https://text.pollinations.ai/${encodedPrompt}?json=false&seed=${Date.now()}`;
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: { 'Accept': 'text/plain' }
-            });
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            const text = await response.text();
-            if (onStream) onStream(text);
-            return text;
-        }
-
-        async function callOpenAIAPI(systemPrompt, userContent, onStream) {
-            const response = await fetch(`${state.apiBase}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${state.apiKey}`
+        // ==================== 智能离线内容引擎 ====================
+        // 行业知识库
+        const knowledgeBase = {
+            zh: {
+                topics: {
+                    '年度总结|工作总结|年终总结|年度报告|业绩': {
+                        coverSubtitle: '年终汇报 · 总结展望',
+                        sections: ['业绩回顾', '重点工作', '经验总结', '问题与不足', '改进措施', '明年计划', '展望未来'],
+                        points: {
+                            '业绩回顾': ['全年核心业绩指标完成情况', '销售额/营收数据同比增长', '重点客户开发与维护成果', '团队建设与人才培养成效'],
+                            '重点工作': ['年度重点项目推进与交付', '产品迭代与技术升级', '市场拓展与品牌建设', '流程优化与效率提升'],
+                            '经验总结': ['核心竞争力持续增强', '团队协作能力显著提升', '客户满意度稳步提高', '创新驱动发展成效明显'],
+                            '问题与不足': ['部分项目进度滞后原因分析', '团队能力存在的短板', '资源配置中的不合理之处', '市场变化应对不够及时'],
+                            '改进措施': ['加强项目进度管控机制', '完善人才培养体系', '优化资源配置效率', '建立快速响应机制'],
+                            '明年计划': ['设定新年度核心目标', '重点业务发展方向', '团队扩充与能力建设', '新产品/新业务规划'],
+                            '展望未来': ['行业发展趋势判断', '公司战略定位调整', '长期发展目标规划', '携手共创美好未来']
+                        }
+                    },
+                    '培训|入职|新员工|岗前培训': {
+                        coverSubtitle: '入职培训 · 快速融入',
+                        sections: ['公司介绍', '企业文化', '组织架构', '规章制度', '薪酬福利', '岗位职责', '安全须知'],
+                        points: {
+                            '公司介绍': ['公司发展历程与里程碑', '主营业务与核心产品', '市场地位与竞争优势', '未来发展战略规划'],
+                            '企业文化': ['企业愿景与使命', '核心价值观解读', '企业精神与作风', '文化活动与团队建设'],
+                            '组织架构': ['公司组织架构总览', '各部门职能介绍', '汇报关系与协作流程', '管理层介绍'],
+                            '规章制度': ['考勤管理制度', '请假与休假规定', '办公行为规范', '保密协议与合规要求'],
+                            '薪酬福利': ['薪酬体系介绍', '绩效考核制度', '社保与公积金', '员工福利项目'],
+                            '岗位职责': ['岗位说明书解读', '工作目标与KPI', '汇报关系与协作', '职业发展通道'],
+                            '安全须知': ['办公环境安全', '信息安全规范', '应急处理流程', '健康与安全提示']
+                        }
+                    },
+                    'AI|人工智能|机器学习|深度学习|大模型': {
+                        coverSubtitle: '技术前沿 · 智能未来',
+                        sections: ['AI发展概述', '核心技术', '应用场景', '行业案例', '挑战与风险', '发展趋势', '未来展望'],
+                        points: {
+                            'AI发展概述': ['人工智能发展历史回顾', '从规则引擎到大模型的演进', '当前AI技术发展水平', '全球AI产业格局'],
+                            '核心技术': ['大语言模型原理与架构', '多模态AI技术进展', '计算机视觉与语音识别', '强化学习与决策智能'],
+                            '应用场景': ['智能客服与对话系统', '内容生成与创意设计', '智能制造与工业质检', '智慧医疗与辅助诊断'],
+                            '行业案例': ['金融行业AI应用实践', '教育行业智能化转型', '零售行业AI赋能', '交通出行自动驾驶'],
+                            '挑战与风险': ['数据安全与隐私保护', '算法偏见与公平性问题', 'AI伦理与监管合规', '技术落地的实际困难'],
+                            '发展趋势': ['模型小型化与边缘部署', '多模态融合成为主流', 'Agent智能体快速发展', 'AI与各行业深度融合'],
+                            '未来展望': ['通用人工智能发展路径', 'AI对就业市场的影响', '人机协作新范式', '共建AI美好未来']
+                        }
+                    },
+                    '新能源|电动汽车|电动车|汽车|特斯拉|比亚迪': {
+                        coverSubtitle: '行业分析 · 市场洞察',
+                        sections: ['行业概述', '市场格局', '主要玩家', '技术路线', '政策环境', '发展趋势', '投资建议'],
+                        points: {
+                            '行业概述': ['新能源汽车产业发展现状', '全球渗透率持续提升', '中国市场引领增长', '产业链日趋完善'],
+                            '市场格局': ['全球新能源汽车销量数据', '主要市场份额分布', '细分市场竞争态势', '消费者需求变化趋势'],
+                            '主要玩家': ['特斯拉：技术领先与全球化', '比亚迪：垂直整合优势', '新势力品牌差异化竞争', '传统车企电动化转型'],
+                            '技术路线': ['纯电动与插电混动对比', '电池技术发展路线', '充电与换电模式之争', '自动驾驶技术进展'],
+                            '政策环境': ['双碳目标推动电动化', '各国补贴政策变化', '充电基础设施建设', '排放标准趋严利好新能源'],
+                            '发展趋势': ['智能化成为核心竞争力', '固态电池商业化加速', '出海成为重要增长极', '产业链整合持续深化'],
+                            '投资建议': ['关注技术领先企业', '把握产业链上游机会', '重视智能化赛道投资', '警惕产能过剩风险']
+                        }
+                    },
+                    '市场|营销|销售|品牌|推广': {
+                        coverSubtitle: '市场营销 · 策略规划',
+                        sections: ['市场环境', '目标用户', '竞品分析', '营销策略', '渠道规划', '执行计划', '效果评估'],
+                        points: {
+                            '市场环境': ['行业整体市场规模', '增长速度与发展阶段', '宏观政策影响因素', '市场机会与挑战'],
+                            '目标用户': ['用户画像与人群细分', '核心需求洞察', '消费行为特征分析', '用户痛点与未满足需求'],
+                            '竞品分析': ['主要竞争对手梳理', '竞品优劣势对比', '竞品营销策略分析', '差异化竞争机会'],
+                            '营销策略': ['品牌定位与价值主张', '内容营销与社交传播', '活动策划与事件营销', '价格策略与促销方案'],
+                            '渠道规划': ['线上渠道矩阵布局', '线下渠道建设规划', '渠道合作与分销策略', '私域流量运营方案'],
+                            '执行计划': ['分阶段执行时间表', '资源配置与预算分配', '团队分工与责任到人', '关键节点与里程碑'],
+                            '效果评估': ['核心KPI指标设定', '数据监测与分析方法', 'ROI评估与优化机制', '定期复盘与迭代改进']
+                        }
+                    }
                 },
-                body: JSON.stringify({
-                    model: state.apiModel,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userContent }
-                    ],
-                    temperature: 0.7,
-                    stream: false
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.error?.message || `HTTP ${response.status}`);
+                default: {
+                    coverSubtitle: '专业演示 · 精彩呈现',
+                    sections: ['背景概述', '现状分析', '核心内容', '详细阐述', '关键要点', '实施建议', '总结展望'],
+                    points: {
+                        '背景概述': ['主题背景与重要意义', '发展历程与当前状况', '相关政策与行业环境', '研究目的与范围界定'],
+                        '现状分析': ['当前现状全面梳理', '主要数据指标展示', '优势与劣势分析', '机遇与挑战并存'],
+                        '核心内容': ['核心概念与定义阐释', '关键要素逐一分析', '内在逻辑关系梳理', '核心价值点提炼'],
+                        '详细阐述': ['重点内容深入展开', '典型案例分析说明', '数据支撑与论据论证', '多角度全面解读'],
+                        '关键要点': ['核心要点重点强调', '注意事项与风险提示', '关键成功因素分析', '常见问题与解决方案'],
+                        '实施建议': ['分阶段实施路径', '资源需求与配置建议', '组织保障与团队建设', '配套措施与支撑体系'],
+                        '总结展望': ['主要结论总结归纳', '未来发展趋势预判', '长期目标与短期计划', '行动倡议与期望']
+                    }
+                }
+            },
+            en: {
+                topics: {},
+                default: {
+                    coverSubtitle: 'Professional Presentation',
+                    sections: ['Overview','Current Status','Key Points','Details','Implementation','Results','Conclusion'],
+                    points: {
+                        'Overview':['Background and significance','Development history','Current landscape','Scope and objectives'],
+                        'Current Status':['Current situation overview','Key metrics and data','Strengths and weaknesses','Opportunities and challenges'],
+                        'Key Points':['Core concepts explained','Critical elements analysis','Key relationships identified','Main value propositions'],
+                        'Details':['In-depth elaboration','Case studies and examples','Supporting data and evidence','Multi-perspective analysis'],
+                        'Implementation':['Phased approach roadmap','Resource requirements','Team and organization','Supporting measures'],
+                        'Results':['Expected outcomes','Success metrics','Risk mitigation','Evaluation framework'],
+                        'Conclusion':['Key takeaways summary','Future trends outlook','Long-term goals','Call to action']
+                    }
+                }
             }
+        };
 
-            const data = await response.json();
-            const content = data.choices?.[0]?.message?.content || '';
-            if (onStream) onStream(content);
-            return content;
+        function findMatchingTopic(topic, lang) {
+            const kb = knowledgeBase[lang] || knowledgeBase.zh;
+            const topicLower = topic.toLowerCase();
+            for (const [pattern, data] of Object.entries(kb.topics)) {
+                const keywords = pattern.split('|');
+                if (keywords.some(kw => topicLower.includes(kw.toLowerCase()))) {
+                    return data;
+                }
+            }
+            return kb.default;
         }
 
-        function parseAIResponse(text, expectedCount, isZh) {
-            // 尝试提取JSON
-            let jsonStr = text;
+        function smartGenerateContent(prompt, slideCount, lang) {
+            const isZh = lang === 'zh';
+            const topic = prompt.trim();
+            const topicData = findMatchingTopic(topic, lang);
             
-            // 查找JSON块
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                jsonStr = jsonMatch[0];
+            // 确定章节数
+            const contentSlideCount = Math.max(1, slideCount - 2); // 减去封面和结尾
+            const sections = topicData.sections.slice(0, contentSlideCount);
+            
+            // 如果需要更多页，补充通用章节
+            const extraSections = isZh ? 
+                ['补充说明', '案例分享', '数据展示', '问题解答'] : 
+                ['Additional Notes','Case Studies','Data Insights','Q&A'];
+            while (sections.length < contentSlideCount) {
+                sections.push(extraSections[sections.length % extraSections.length]);
             }
 
-            // 清理可能的markdown标记
-            jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
+            const slides = [];
+            const seed = Date.now();
 
-            let data;
-            try {
-                data = JSON.parse(jsonStr);
-            } catch (e) {
-                console.error('JSON parse error:', e, jsonStr);
-                // 如果解析失败，使用备用方案生成基础内容
-                return generateFallbackContent(isZh ? '演示文稿' : 'Presentation', expectedCount, isZh);
+            // 封面
+            slides.push({
+                type: 'cover',
+                title: topic || (isZh ? '演示文稿' : 'Presentation'),
+                subtitle: topicData.coverSubtitle,
+                points: [],
+                imagePrompt: generateImageKeyword(topic, 'cover', lang),
+                imageSeed: seed + 1
+            });
+
+            // 目录页（超过5页时添加）
+            if (slideCount >= 6) {
+                slides.push({
+                    type: 'toc',
+                    title: isZh ? '目录' : 'Contents',
+                    subtitle: '',
+                    points: sections.map((s, i) => `${isZh ? '' : ''}${s}`),
+                    imagePrompt: 'table of contents business presentation',
+                    imageSeed: seed + 2
+                });
             }
 
-            if (!data.slides || !Array.isArray(data.slides)) {
-                return generateFallbackContent(data.title || 'Presentation', expectedCount, isZh);
-            }
+            // 内容页
+            sections.forEach((section, idx) => {
+                let points = topicData.points[section];
+                if (!points) {
+                    points = (isZh ? [
+                        `${section}相关核心要点一`,
+                        `${section}相关核心要点二`,
+                        `${section}相关核心要点三`,
+                        `${section}相关核心要点四`
+                    ] : [
+                        `Key point 1 about ${section}`,
+                        `Key point 2 about ${section}`,
+                        `Key point 3 about ${section}`,
+                        `Key point 4 about ${section}`
+                    ]);
+                }
+                // 将主题融入要点
+                const themedPoints = points.map(p => {
+                    if (!topic) return p;
+                    return p;
+                });
 
-            // 验证和规范化slides
-            const slides = data.slides.map((s, i) => ({
-                type: s.type || (i === 0 ? 'cover' : (i === data.slides.length - 1 ? 'ending' : 'content')),
-                title: s.title || (isZh ? `第${i+1}页` : `Slide ${i+1}`),
-                subtitle: s.subtitle || '',
-                points: Array.isArray(s.points) ? s.points.filter(p => p) : [],
-                imagePrompt: s.image_prompt || s.imagePrompt || `${data.title} slide ${i+1}`,
-                imageSeed: Math.floor(Math.random() * 100000) + i
-            }));
+                slides.push({
+                    type: 'content',
+                    title: section,
+                    subtitle: '',
+                    points: themedPoints.slice(0, 5),
+                    imagePrompt: generateImageKeyword(topic + ' ' + section, 'content', lang),
+                    imageSeed: seed + 10 + idx
+                });
+            });
+
+            // 结尾页
+            slides.push({
+                type: 'ending',
+                title: isZh ? '感谢观看' : 'Thank You',
+                subtitle: isZh ? 'Q&A · 欢迎交流' : 'Q&A',
+                points: [],
+                imagePrompt: 'thank you closing slide professional',
+                imageSeed: seed + 999
+            });
 
             return {
-                title: data.title || (isZh ? '演示文稿' : 'Presentation'),
+                title: topic || (isZh ? '演示文稿' : 'Presentation'),
                 slides: slides,
                 totalSlides: slides.length
             };
         }
 
-        function generateFallbackContent(topic, count, isZh) {
-            // 备用内容（当AI返回格式错误时使用）
-            const slides = [
-                { type: 'cover', title: topic, subtitle: isZh ? new Date().toLocaleDateString('zh-CN') : new Date().toLocaleDateString('en-US'), points: [], imagePrompt: topic, imageSeed: 1 },
-                { type: 'toc', title: isZh ? '目录' : 'Contents', subtitle: '', points: [], imagePrompt: 'table of contents', imageSeed: 2 }
-            ];
-            
-            for (let i = 0; i < count - 3; i++) {
-                slides.push({
-                    type: 'content',
-                    title: isZh ? `第${i+1}部分` : `Part ${i+1}`,
-                    subtitle: '',
-                    points: isZh ? ['要点一', '要点二', '要点三'] : ['Point one', 'Point two', 'Point three'],
-                    imagePrompt: `${topic} part ${i+1}`,
-                    imageSeed: 10 + i
-                });
+        function generateImageKeyword(topic, type, lang) {
+            const base = topic || 'business';
+            const style = state.imageStyle === 'photo' ? 'professional photography, realistic, 4k' : 'modern flat illustration';
+            const enTopic = base.replace(/[\u4e00-\u9fa5]/g, '').trim() || 'business';
+            return `${style}, ${enTopic}, business presentation, ${type}, professional lighting, no text`;
+        }
+
+        // ==================== 云端AI调用 ====================
+        async function tryCallCloudAI(systemPrompt, userContent, onStream) {
+            const errors = [];
+
+            // 1. Pollinations AI (GET方式，简化prompt)
+            if (state.aiProvider === 'smart' || state.aiProvider === 'pollinations') {
+                try {
+                    const shortPrompt = userContent.substring(0, 300);
+                    const pollinationsUrl = `https://text.pollinations.ai/${encodeURIComponent(shortPrompt)}`;
+                    const resp = await fetch(pollinationsUrl, { 
+                        method: 'GET',
+                        signal: AbortSignal.timeout(15000)
+                    });
+                    if (resp.ok) {
+                        const text = await resp.text();
+                        if (text && text.length > 50) {
+                            if (onStream) onStream(text);
+                            return { success: true, text, source: 'pollinations' };
+                        }
+                    }
+                    errors.push(`Pollinations: HTTP ${resp.status}`);
+                } catch (e) {
+                    errors.push(`Pollinations: ${e.message}`);
+                }
             }
-            
-            slides.push({ type: 'ending', title: isZh ? '感谢观看' : 'Thank You', subtitle: isZh ? 'Q&A' : 'Q&A', points: [], imagePrompt: 'thank you', imageSeed: 999 });
-            
-            return { title: topic, slides, totalSlides: slides.length };
+
+            // 2. OpenAI兼容API
+            if ((state.aiProvider === 'smart' || state.aiProvider === 'openai') && state.apiKey) {
+                try {
+                    const resp = await fetch(`${state.apiBase}/chat/completions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+                        body: JSON.stringify({
+                            model: state.apiModel,
+                            messages: [{role:'system',content:systemPrompt},{role:'user',content:userContent}],
+                            temperature: 0.7, stream: false
+                        }),
+                        signal: AbortSignal.timeout(30000)
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const content = data.choices?.[0]?.message?.content;
+                        if (content) {
+                            if (onStream) onStream(content);
+                            return { success: true, text: content, source: 'openai' };
+                        }
+                    }
+                    errors.push(`OpenAI: HTTP ${resp.status}`);
+                } catch (e) {
+                    errors.push(`OpenAI: ${e.message}`);
+                }
+            }
+
+            return { success: false, errors };
         }
 
         // ==================== 生成流程 ====================
         async function startGeneration() {
             const prompt = document.getElementById('promptInput').value.trim();
-            if (!prompt) {
-                showToast(state.language === 'zh' ? '请输入PPT主题' : 'Please enter a topic', 'error');
-                return;
-            }
+            const isZh = state.language === 'zh';
+            if (!prompt) { showToast(isZh?'请输入PPT主题':'Please enter a topic','error'); return; }
 
             state.isGenerating = true;
             state.generationCancelled = false;
             state.currentSlideIndex = 0;
             state.imageCache = {};
+            state.usedOfflineFallback = false;
 
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('bottomNav').style.display = 'none';
             document.getElementById('progressPage').classList.add('active');
             document.getElementById('generateBtn').disabled = true;
 
-            const isZh = state.language === 'zh';
             const steps = [
-                { title: isZh ? '连接AI服务' : 'Connecting AI', desc: isZh ? '建立云端AI连接' : 'Establishing connection', icon: '🔌' },
-                { title: isZh ? 'AI生成内容' : 'AI Generating', desc: isZh ? '大模型推理生成内容' : 'LLM generating content', icon: '🤖' },
-                { title: isZh ? '生成配图' : 'Generating Images', desc: isZh ? 'AI生成真实配图' : 'Creating AI images', icon: '🖼️' },
-                { title: isZh ? '合成PPT' : 'Assembling', desc: isZh ? '排版合成文档' : 'Building PPT', icon: '📊' }
+                { title: isZh?'分析主题':'Analyzing Topic', desc: isZh?'理解您的需求':'Understanding your needs', icon: '🧠' },
+                { title: isZh?'生成内容':'Generating Content', desc: isZh?'AI智能生成':'AI creating content', icon: '📝' },
+                { title: isZh?'生成配图':'Creating Images', desc: isZh?'AI生成配图':'AI generating images', icon: '🖼️' },
+                { title: isZh?'合成PPT':'Assembling PPT', desc: isZh?'排版合成':'Building presentation', icon: '📊' }
             ];
-
-            document.getElementById('progressSteps').innerHTML = steps.map((s, i) => `
+            document.getElementById('progressSteps').innerHTML = steps.map((s,i)=>`
                 <div class="progress-step" id="step-${i}">
                     <div class="step-icon">${s.icon}</div>
                     <div><div class="step-title">${s.title}</div><div class="step-desc">${s.desc}</div></div>
-                </div>
-            `).join('');
+                </div>`).join('');
 
             try {
-                // 步骤1: 连接AI
-                updateStep(0, 'active');
-                updateProgress(5);
-                document.getElementById('progressStatus').textContent = isZh ? '连接云端AI...' : 'Connecting to AI...';
-                document.getElementById('progressDetail').textContent = isZh ? '正在建立连接' : 'Establishing connection';
-                await sleep(500);
+                // Step 1
+                updateStep(0,'active'); updateProgress(5);
+                document.getElementById('progressStatus').textContent = isZh?'分析主题中...':'Analyzing...';
+                document.getElementById('progressDetail').textContent = isZh?'理解PPT主题和需求':'Understanding topic';
+                await sleep(300);
                 if (state.generationCancelled) return cancelCleanup();
-                updateStep(0, 'completed');
+                updateStep(0,'completed');
 
-                // 步骤2: 调用AI生成内容
-                updateStep(1, 'active');
-                document.getElementById('progressStatus').textContent = isZh ? 'AI正在生成内容...' : 'AI is generating...';
+                // Step 2: 生成内容
+                updateStep(1,'active');
                 document.getElementById('aiStreamBox').style.display = 'block';
                 document.getElementById('aiStreamContent').textContent = '';
-                
-                let aiData;
-                try {
-                    aiData = await callCloudAI(prompt, state.slideCount, state.language, (streamText) => {
-                        const displayText = streamText.substring(0, 500);
-                        document.getElementById('aiStreamContent').textContent = displayText + (streamText.length > 500 ? '...' : '');
-                        document.getElementById('progressDetail').textContent = isZh ? 'AI正在思考中...' : 'AI thinking...';
-                    });
-                } catch (aiErr) {
-                    updateStep(1, 'error');
-                    throw aiErr;
-                }
-                
-                updateProgress(50);
-                document.getElementById('progressDetail').textContent = isZh ? `生成了${aiData.slides.length}页内容` : `Generated ${aiData.slides.length} slides`;
-                updateStep(1, 'completed');
+                updateProgress(15);
 
+                let aiData;
+                let useOffline = false;
+
+                if (state.aiProvider === 'offline') {
+                    document.getElementById('progressStatus').textContent = isZh?'离线智能生成中...':'Offline generation...';
+                    document.getElementById('progressDetail').textContent = isZh?'智能引擎正在组织内容':'Smart engine organizing content';
+                    await sleep(500);
+                    document.getElementById('aiStreamContent').textContent = isZh?'✓ 使用离线智能引擎生成内容':'✓ Using offline smart engine';
+                    aiData = smartGenerateContent(prompt, state.slideCount, state.language);
+                    useOffline = true;
+                    state.usedOfflineFallback = true;
+                } else {
+                    document.getElementById('progressStatus').textContent = isZh?'正在调用AI...':'Calling AI...';
+                    document.getElementById('progressDetail').textContent = isZh?'连接云端AI服务':'Connecting to cloud AI';
+                    
+                    const systemPrompt = isZh ?
+                        `你是PPT内容专家。请根据用户主题生成PPT大纲，返回纯JSON格式：{"title":"标题","slides":[{"type":"cover|toc|content|ending","title":"标题","subtitle":"副标题","points":["要点1","要点2","要点3"],"image_prompt":"english image keywords"}]}. 共${state.slideCount}页，每页3-5个要点。只返回JSON。` :
+                        `Generate a PPT outline in JSON: {"title":"Title","slides":[{"type":"cover|toc|content|ending","title":"title","subtitle":"subtitle","points":["point1","point2","point3"],"image_prompt":"english keywords"}]}. ${state.slideCount} slides, 3-5 points each. Return JSON only.`;
+
+                    const result = await tryCallCloudAI(systemPrompt, prompt, (text) => {
+                        document.getElementById('aiStreamContent').textContent = text.substring(0, 300) + (text.length > 300 ? '...' : '');
+                    });
+
+                    if (result.success) {
+                        document.getElementById('progressDetail').textContent = isZh?`云端AI响应成功（${result.source}）`:`Cloud AI responded (${result.source})`;
+                        aiData = parseAIResponse(result.text, state.slideCount, isZh);
+                        if (!aiData || !aiData.slides || aiData.slides.length < 3) {
+                            throw new Error('AI返回内容格式不正确');
+                        }
+                    } else {
+                        // 云端失败，使用离线智能引擎
+                        if (state.aiProvider === 'smart') {
+                            document.getElementById('progressDetail').textContent = isZh?'云端AI不可用，切换到离线智能引擎':'Cloud unavailable, using offline engine';
+                            document.getElementById('aiStreamContent').textContent = isZh?'⚠️ 云端连接失败，使用离线智能引擎生成\n内容将基于您的主题智能匹配': '⚠️ Cloud failed, using offline smart engine';
+                            await sleep(800);
+                            aiData = smartGenerateContent(prompt, state.slideCount, state.language);
+                            useOffline = true;
+                            state.usedOfflineFallback = true;
+                        } else {
+                            throw new Error(isZh?'AI服务连接失败，请检查网络或切换到「离线智能」模式':'AI connection failed. Check network or try Offline mode');
+                        }
+                    }
+                }
+
+                updateProgress(50);
+                updateStep(1,'completed');
                 if (state.generationCancelled) return cancelCleanup();
 
-                // 构建项目数据
+                // 构建项目
                 const project = {
                     id: Date.now().toString(),
                     title: aiData.title,
@@ -1069,559 +859,339 @@ Return JSON format:
                     createTime: new Date().toISOString(),
                     totalSlides: aiData.slides.length,
                     templateStyle: state.selectedTemplate,
-                    slides: aiData.slides.map((s, i) => ({
-                        ...s,
-                        template: state.selectedTemplate,
-                        imageUrl: generateImageUrl(s.imagePrompt, s.imageSeed)
+                    isOffline: useOffline,
+                    slides: aiData.slides.map((s,i) => ({
+                        ...s, template: state.selectedTemplate,
+                        imageUrl: buildImageUrl(s.imagePrompt, s.imageSeed)
                     }))
                 };
                 state.currentProject = project;
 
-                // 步骤3: 生成图片
-                updateStep(2, 'active');
-                document.getElementById('progressStatus').textContent = isZh ? '生成AI配图...' : 'Generating images...';
+                // Step 3: 图片
+                updateStep(2,'active');
+                document.getElementById('progressStatus').textContent = isZh?'生成配图中...':'Generating images...';
                 document.getElementById('aiStreamBox').style.display = 'none';
-                
-                for (let i = 0; i < project.slides.length; i++) {
+                for (let i=0;i<project.slides.length;i++) {
                     if (state.generationCancelled) return cancelCleanup();
                     const slide = project.slides[i];
-                    const url = generateImageUrl(slide.imagePrompt, slide.imageSeed);
+                    const url = buildImageUrl(slide.imagePrompt, slide.imageSeed);
                     state.imageCache[slide.imageSeed] = url;
-                    
-                    const pct = 50 + Math.round(((i + 1) / project.slides.length) * 35);
-                    updateProgress(pct);
-                    document.getElementById('progressDetail').textContent = isZh ? `图片 ${i+1}/${project.slides.length}` : `Image ${i+1}/${project.slides.length}`;
-                    
-                    // 预加载
-                    const img = new Image();
-                    img.src = url;
-                    await sleep(100);
+                    updateProgress(50 + Math.round(((i+1)/project.slides.length)*35));
+                    document.getElementById('progressDetail').textContent = isZh?`图片 ${i+1}/${project.slides.length}`:`Image ${i+1}/${project.slides.length}`;
+                    await sleep(80);
                 }
-                updateStep(2, 'completed');
+                updateStep(2,'completed');
 
-                // 步骤4: 合成预览
-                updateStep(3, 'active');
-                document.getElementById('progressStatus').textContent = isZh ? '正在合成PPT...' : 'Assembling PPT...';
-                document.getElementById('progressDetail').textContent = isZh ? '渲染预览' : 'Rendering preview';
+                // Step 4
+                updateStep(3,'active');
+                document.getElementById('progressStatus').textContent = isZh?'合成PPT中...':'Assembling...';
+                document.getElementById('progressDetail').textContent = isZh?'渲染预览':'Rendering preview';
                 updateProgress(90);
                 await sleep(300);
                 updateProgress(100);
-                updateStep(3, 'completed');
+                updateStep(3,'completed');
 
                 saveToHistory(project);
-                document.getElementById('progressStatus').textContent = isZh ? '生成完成！' : 'Complete!';
-                document.getElementById('progressDetail').textContent = '';
-                
+                document.getElementById('progressStatus').textContent = isZh?'生成完成！':'Complete!';
+                document.getElementById('progressDetail').textContent = useOffline ? (isZh?'（离线智能生成）':'(Offline generated)') : '';
                 await sleep(500);
                 if (!state.generationCancelled) {
+                    if (useOffline) {
+                        showToast(isZh?'已生成（离线智能模式，内容可编辑修改）':'Generated (offline mode, editable)','warning');
+                    } else {
+                        showToast(isZh?'AI生成完成！':'AI generation complete!','success');
+                    }
                     showPreview(project);
                 }
-            } catch (err) {
+            } catch(err) {
                 console.error(err);
-                showToast(isZh ? '生成失败: ' + err.message : 'Failed: ' + err.message, 'error');
+                updateStep(1,'error');
+                document.getElementById('progressDetail').textContent = err.message;
+                showToast(isZh?'生成失败: '+err.message:'Failed: '+err.message,'error');
+                await sleep(1500);
                 document.getElementById('progressPage').classList.remove('active');
                 document.getElementById('homePage').classList.add('active');
                 document.getElementById('bottomNav').style.display = 'flex';
+                document.getElementById('aiStreamBox').style.display = 'none';
             } finally {
                 state.isGenerating = false;
                 document.getElementById('generateBtn').disabled = false;
             }
         }
 
-        function generateImageUrl(prompt, seed) {
-            const keywords = String(prompt || 'business presentation').replace(/[^\w\s,]/g, '').substring(0, 100);
-            const style = state.imageStyle === 'photo' ? 'professional photograph, realistic, 4k' : 'modern flat illustration';
+        function buildImageUrl(prompt, seed) {
+            const keywords = String(prompt||'business').replace(/[^\w\s,]/g,'').substring(0,80);
+            const style = state.imageStyle==='photo'?'professional photograph, realistic, 4k':'modern flat illustration';
             const fullPrompt = `${style}, ${keywords}, business presentation, no text, no watermark`;
             const encoded = encodeURIComponent(fullPrompt);
             const size = document.getElementById('imageSizeSelect')?.value || '1024x768';
-            const [w, h] = size.split('x');
-            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&seed=${seed}&nologo=true&enhance=true`;
+            const [w,h] = size.split('x');
+            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&seed=${seed}&nologo=true`;
         }
 
-        function updateStep(idx, status) {
-            document.querySelectorAll('.progress-step').forEach((s, i) => {
-                s.classList.remove('active', 'completed');
-                const icon = s.querySelector('.step-icon');
-                if (i < idx || (i === idx && status === 'completed')) {
-                    s.classList.add('completed');
-                    icon.textContent = '✓';
-                } else if (i === idx && status === 'active') {
-                    s.classList.add('active');
-                } else if (i === idx && status === 'error') {
-                    icon.textContent = '✗';
-                    icon.style.background = 'var(--error)';
-                    icon.style.color = 'white';
+        function parseAIResponse(text, expectedCount, isZh) {
+            let jsonStr = text;
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) jsonStr = match[0];
+            jsonStr = jsonStr.replace(/```json/g,'').replace(/```/g,'').trim();
+            try {
+                const data = JSON.parse(jsonStr);
+                if (data.slides && Array.isArray(data.slides)) {
+                    const slides = data.slides.map((s,i)=>({
+                        type: s.type || (i===0?'cover':(i===data.slides.length-1?'ending':'content')),
+                        title: s.title || (isZh?`第${i+1}页`:`Slide ${i+1}`),
+                        subtitle: s.subtitle||'',
+                        points: Array.isArray(s.points)?s.points.filter(p=>p):[],
+                        imagePrompt: s.image_prompt||s.imagePrompt||`${data.title} slide ${i+1}`,
+                        imageSeed: Math.floor(Math.random()*100000)+i
+                    }));
+                    return { title: data.title||(isZh?'演示文稿':'Presentation'), slides, totalSlides: slides.length };
                 }
+            } catch(e) { console.warn('JSON parse failed, using offline fallback'); }
+            return smartGenerateContent(document.getElementById('promptInput').value, expectedCount, isZh);
+        }
+
+        const progressStepIcons = ['🧠','📝','🖼️','📊'];
+        function updateStep(idx, status) {
+            document.querySelectorAll('.progress-step').forEach((s,i)=>{
+                s.classList.remove('active','completed','error');
+                const icon = s.querySelector('.step-icon');
+                if (i<idx||(i===idx&&status==='completed')){s.classList.add('completed');icon.textContent='✓';icon.style.background='';icon.style.color='';}
+                else if(i===idx&&status==='active'){s.classList.add('active');icon.textContent=progressStepIcons[i]||'⏳';icon.style.background='';icon.style.color='';}
+                else if(i===idx&&status==='error'){s.classList.add('error');icon.textContent='✗';}
             });
         }
-
         function updateProgress(pct) {
-            const circ = 2 * Math.PI * 80;
-            document.getElementById('progressRing').style.strokeDashoffset = circ - (pct / 100) * circ;
-            document.getElementById('progressPercent').textContent = Math.round(pct) + '%';
+            const circ = 2*Math.PI*80;
+            document.getElementById('progressRing').style.strokeDashoffset = circ-(pct/100)*circ;
+            document.getElementById('progressPercent').textContent = Math.round(pct)+'%';
         }
-
-        function cancelGeneration() {
-            showConfirm(
-                state.language === 'zh' ? '取消生成' : 'Cancel',
-                state.language === 'zh' ? '确定取消吗？' : 'Cancel generation?',
-                () => { state.generationCancelled = true; }
-            );
-        }
-
-        function cancelCleanup() {
-            state.isGenerating = false;
+        function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+        function cancelGeneration(){showConfirm(state.language==='zh'?'取消生成':'Cancel',state.language==='zh'?'确定取消吗?':'Cancel?',()=>{state.generationCancelled=true;});}
+        function cancelCleanup(){
+            state.isGenerating=false;
             document.getElementById('progressPage').classList.remove('active');
             document.getElementById('homePage').classList.add('active');
-            document.getElementById('bottomNav').style.display = 'flex';
-            document.getElementById('aiStreamBox').style.display = 'none';
+            document.getElementById('bottomNav').style.display='flex';
+            document.getElementById('aiStreamBox').style.display='none';
             updateProgress(0);
-            showToast(state.language === 'zh' ? '已取消' : 'Cancelled', 'error');
+            showToast(state.language==='zh'?'已取消':'Cancelled','error');
         }
-
-        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
         // ==================== 预览 ====================
         function showPreview(project) {
-            state.currentProject = project;
-            state.currentSlideIndex = 0;
+            state.currentProject=project; state.currentSlideIndex=0;
             document.getElementById('progressPage').classList.remove('active');
             document.getElementById('previewPage').classList.add('active');
-            document.getElementById('bottomNav').style.display = 'none';
-            document.getElementById('previewProjectTitle').textContent = 
-                project.title.length > 18 ? project.title.substring(0,18)+'...' : project.title;
-            renderSlides(project);
-            renderThumbnails(project);
-            updatePageIndicator();
+            document.getElementById('bottomNav').style.display='none';
+            document.getElementById('previewProjectTitle').textContent = project.title.length>18?project.title.substring(0,18)+'...':project.title;
+            renderSlides(project); renderThumbnails(project); updatePageIndicator();
         }
-
         function renderSlides(project) {
             const wrapper = document.getElementById('slidesWrapper');
-            const template = templates.find(t => t.id === project.templateStyle);
-
-            wrapper.innerHTML = project.slides.map((slide, i) => {
-                const cls = template.class;
-                const imgUrl = state.imageCache[slide.imageSeed] || slide.imageUrl;
-                const isCover = slide.type === 'cover' || slide.type === 'ending';
-                
-                let html = '';
-                if (isCover) {
-                    html = `
-                        <div class="slide-image-cover" style="background-image:url('${escAttr(imgUrl)}')"></div>
-                        <div class="ai-generated-badge">AI生成</div>
-                        <div class="slide-content-side slide-cover">
-                            <div class="slide-title">${escHtml(slide.title)}</div>
-                            ${slide.subtitle ? `<div class="slide-subtitle">${escHtml(slide.subtitle)}</div>` : ''}
-                        </div>`;
-                } else {
-                    html = `
-                        <div class="slide-image-side" style="background-image:url('${escAttr(imgUrl)}')"></div>
-                        <div class="slide-content-side">
-                            <div class="slide-title">${escHtml(slide.title)}</div>
-                            <ul class="slide-points">${(slide.points||[]).map(p => `<li>${escHtml(p)}</li>`).join('')}</ul>
-                        </div>`;
-                }
-
-                return `
-                    <div class="slide-page">
-                        <div class="slide-card ${cls}">
-                            ${html}
-                            <div class="slide-footer" style="${isCover ? 'color:white;' : ''}">
-                                <span>${escHtml(project.title.substring(0,16))}</span>
-                                <span>${i+1}/${project.slides.length}</span>
-                            </div>
-                        </div>
+            const template = templates.find(t=>t.id===project.templateStyle);
+            wrapper.innerHTML = project.slides.map((slide,i)=>{
+                const cls=template.class; const imgUrl=state.imageCache[slide.imageSeed]||slide.imageUrl;
+                const isCover=slide.type==='cover'||slide.type==='ending';
+                let html='';
+                if(isCover){
+                    html=`<div class="slide-image-cover" style="background-image:url('${escAttr(imgUrl)}')"></div>
+                    <div class="slide-content-side slide-cover">
+                        <div class="slide-title">${escHtml(slide.title)}</div>
+                        ${slide.subtitle?`<div class="slide-subtitle">${escHtml(slide.subtitle)}</div>`:''}
                     </div>`;
-            }).join('');
-
-            let startX = 0;
-            const container = document.querySelector('.slides-container');
-            container.ontouchstart = e => { startX = e.touches[0].clientX; };
-            container.ontouchend = e => {
-                const diff = startX - e.changedTouches[0].clientX;
-                if (Math.abs(diff) > 50) {
-                    if (diff > 0 && state.currentSlideIndex < project.slides.length - 1) goToSlide(state.currentSlideIndex + 1);
-                    else if (diff < 0 && state.currentSlideIndex > 0) goToSlide(state.currentSlideIndex - 1);
+                }else{
+                    html=`<div class="slide-image-side" style="background-image:url('${escAttr(imgUrl)}')"></div>
+                    <div class="slide-content-side">
+                        <div class="slide-title">${escHtml(slide.title)}</div>
+                        <ul class="slide-points">${(slide.points||[]).map(p=>`<li>${escHtml(p)}</li>`).join('')}</ul>
+                    </div>`;
                 }
-            };
-            container.onwheel = e => {
-                e.preventDefault();
-                if (e.deltaY > 0 && state.currentSlideIndex < project.slides.length - 1) goToSlide(state.currentSlideIndex + 1);
-                else if (e.deltaY < 0 && state.currentSlideIndex > 0) goToSlide(state.currentSlideIndex - 1);
-            };
+                return `<div class="slide-page"><div class="slide-card ${cls}">${html}
+                    <div class="slide-footer" style="${isCover?'color:white;':''}">
+                        <span>${escHtml(project.title.substring(0,16))}</span><span>${i+1}/${project.slides.length}</span>
+                    </div></div></div>`;
+            }).join('');
+            let startX=0; const c=document.querySelector('.slides-container');
+            c.ontouchstart=e=>{startX=e.touches[0].clientX;};
+            c.ontouchend=e=>{const d=startX-e.changedTouches[0].clientX;if(Math.abs(d)>50){if(d>0&&state.currentSlideIndex<project.slides.length-1)goToSlide(state.currentSlideIndex+1);else if(d<0&&state.currentSlideIndex>0)goToSlide(state.currentSlideIndex-1);}};
         }
-
-        function renderThumbnails(project) {
-            const container = document.getElementById('thumbnailsScroll');
-            container.innerHTML = project.slides.map((slide, i) => {
-                const url = state.imageCache[slide.imageSeed] || slide.imageUrl;
-                return `<div class="thumbnail ${i===0?'active':''}" data-index="${i}" onclick="goToSlide(${i})" style="padding:0;overflow:hidden;">
-                    <img src="${escAttr(url)}" alt="" loading="lazy">
-                </div>`;
+        function renderThumbnails(project){
+            document.getElementById('thumbnailsScroll').innerHTML=project.slides.map((slide,i)=>{
+                const url=state.imageCache[slide.imageSeed]||slide.imageUrl;
+                return `<div class="thumbnail ${i===0?'active':''}" data-index="${i}" onclick="goToSlide(${i})" style="padding:0;overflow:hidden;"><img src="${escAttr(url)}" alt="" loading="lazy"></div>`;
             }).join('');
         }
-
-        function goToSlide(idx) {
-            if (!state.currentProject) return;
-            state.currentSlideIndex = idx;
-            document.getElementById('slidesWrapper').style.transform = `translateX(-${idx*100}%)`;
-            document.querySelectorAll('.thumbnail').forEach(t => t.classList.toggle('active', parseInt(t.dataset.index) === idx));
+        function goToSlide(idx){
+            if(!state.currentProject)return; state.currentSlideIndex=idx;
+            document.getElementById('slidesWrapper').style.transform=`translateX(-${idx*100}%)`;
+            document.querySelectorAll('.thumbnail').forEach(t=>t.classList.toggle('active',parseInt(t.dataset.index)===idx));
             updatePageIndicator();
-            const active = document.querySelector('.thumbnail.active');
-            if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            document.querySelector('.thumbnail.active')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
         }
-
-        function updatePageIndicator() {
-            if (!state.currentProject) return;
-            document.getElementById('pageIndicator').textContent = `${state.currentSlideIndex+1}/${state.currentProject.slides.length}`;
-        }
-
-        function escHtml(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
-        function escAttr(t) { return String(t).replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+        function updatePageIndicator(){if(!state.currentProject)return;document.getElementById('pageIndicator').textContent=`${state.currentSlideIndex+1}/${state.currentProject.slides.length}`;}
+        function escHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+        function escAttr(t){return String(t).replace(/'/g,"\\'").replace(/"/g,'&quot;');}
 
         // ==================== PPTX下载 ====================
-        async function showDownloadOptions() {
-            const isZh = state.language === 'zh';
-            showConfirm(isZh?'下载PPTX':'Download PPTX', '', ()=>downloadPPTX(false));
-            const modal = document.getElementById('confirmModal');
-            modal.querySelector('.modal-content').innerHTML = `
-                <button class="download-option" id="saveAsBtn">
-                    <span style="font-size:24px">📂</span>
-                    <div><div style="font-weight:600;color:var(--ink);font-size:14px">${isZh?'选择文件夹保存':'Save to Folder'}</div>
-                    <div style="font-size:11px;color:var(--muted)">${isZh?'保存到「文档」等指定位置':'Choose Documents or other folder'}</div></div>
-                </button>
-                <button class="download-option" id="directDlBtn">
-                    <span style="font-size:24px">💾</span>
-                    <div><div style="font-weight:600;color:var(--ink);font-size:14px">${isZh?'直接下载':'Direct Download'}</div>
-                    <div style="font-size:11px;color:var(--muted)">${isZh?'保存到下载文件夹':'Save to Downloads'}</div></div>
-                </button>`;
-            modal.querySelector('.modal-btn.cancel').textContent = isZh?'取消':'Cancel';
-            document.getElementById('modalConfirmBtn').style.display = 'none';
-            document.getElementById('saveAsBtn').onclick = () => { closeModal(); downloadPPTX(true); };
-            document.getElementById('directDlBtn').onclick = () => { closeModal(); downloadPPTX(false); };
+        async function showDownloadOptions(){
+            const isZh=state.language==='zh';
+            const modal=document.getElementById('confirmModal');
+            document.getElementById('modalTitle').textContent=isZh?'下载PPTX':'Download PPTX';
+            document.querySelector('.modal-content').innerHTML=`
+                <button class="download-option" id="saveAsBtn"><span style="font-size:24px">📂</span>
+                <div><div style="font-weight:600;color:var(--ink);font-size:14px">${isZh?'选择文件夹保存':'Save to Folder'}</div>
+                <div style="font-size:11px;color:var(--muted)">${isZh?'保存到「文档」等指定位置':'Choose Documents folder'}</div></div></button>
+                <button class="download-option" id="directDlBtn"><span style="font-size:24px">💾</span>
+                <div><div style="font-weight:600;color:var(--ink);font-size:14px">${isZh?'直接下载':'Direct Download'}</div>
+                <div style="font-size:11px;color:var(--muted)">${isZh?'保存到下载文件夹':'Save to Downloads'}</div></div></button>`;
+            document.querySelector('.modal-btn.cancel').textContent=isZh?'取消':'Cancel';
+            document.getElementById('modalConfirmBtn').style.display='none';
+            modal.classList.add('show');
+            document.getElementById('saveAsBtn').onclick=()=>{closeModal();downloadPPTX(true);};
+            document.getElementById('directDlBtn').onclick=()=>{closeModal();downloadPPTX(false);};
         }
-
-        async function downloadPPTX(usePicker) {
-            if (!state.currentProject) return;
-            const isZh = state.language === 'zh';
-            showToast(isZh?'正在生成PPTX（含AI内容和图片）...':'Generating PPTX with AI content...');
-
-            try {
-                const pptx = new PptxGenJS();
-                const project = state.currentProject;
-                const template = templates.find(t => t.id === project.templateStyle);
-                pptx.layout = 'LAYOUT_WIDE';
-                pptx.title = project.title;
-                pptx.author = 'AI PPT Generator';
-                pptx.subject = 'AI Generated Presentation';
-
-                const colors = {
-                    business: {p:'1E3A5F',t:'FFFFFF',b:'1E3A5F'},
-                    academic: {p:'8B0000',t:'333333',b:'FFFFFF'},
-                    creative: {p:'667EEA',t:'FFFFFF',b:'667EEA'},
-                    minimal: {p:'333333',t:'333333',b:'FFFFFF'},
-                    tech: {p:'00FF88',t:'00FF88',b:'0A0A0A'}
-                };
-                const c = colors[project.templateStyle]||colors.business;
-                const safeTitle = project.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g,'_').substring(0,40);
-                const fileName = `${safeTitle}_${project.slides.length}页_AI生成.pptx`;
-
-                for (let idx=0; idx<project.slides.length; idx++) {
-                    const slide = project.slides[idx];
-                    const ps = pptx.addSlide();
-                    ps.background = {color: c.b};
-
-                    try {
-                        const imgUrl = state.imageCache[slide.imageSeed] || slide.imageUrl;
-                        let imageData = null;
-                        try {
-                            const resp = await fetch(imgUrl);
-                            if (resp.ok) {
-                                const blob = await resp.blob();
-                                imageData = await new Promise(res => {
-                                    const r = new FileReader();
-                                    r.onloadend = () => res(r.result);
-                                    r.readAsDataURL(blob);
-                                });
-                            }
-                        } catch(e) { console.warn('Image load fail'); }
-
-                        if (slide.type === 'cover' || slide.type === 'ending') {
-                            if (imageData) {
-                                ps.addImage({data:imageData, x:0, y:0, w:10, h:5.625});
-                                ps.addShape(pptx.ShapeType.rect, {x:0,y:0,w:10,h:5.625,fill:{color:'000000',transparency:40},line:{color:'000000',transparency:100}});
-                            }
-                            ps.addText(slide.title, {
-                                x:0.5, y:2.0, w:9.0, h:1.2,
-                                fontSize: Math.min(38, Math.max(24, 38 - Math.floor(slide.title.length/8))),
-                                bold:true, color:imageData?'FFFFFF':c.t, align:'center', valign:'middle'
-                            });
-                            if (slide.subtitle) {
-                                ps.addText(slide.subtitle, {
-                                    x:0.5, y:3.4, w:9.0, h:0.5, fontSize:14,
-                                    color:imageData?'FFFFFF':c.t, align:'center', transparency:imageData?20:30
-                                });
-                            }
-                        } else {
-                            if (imageData) {
-                                ps.addImage({data:imageData, x:0, y:0, w:3.8, h:5.625});
-                                for (let g=0;g<5;g++) {
-                                    ps.addShape(pptx.ShapeType.rect, {x:3.5+g*0.1,y:0,w:0.12,h:5.625,fill:{color:c.b,transparency:100-g*20},line:{color:c.b,transparency:100}});
-                                }
-                            }
-                            const xOff = imageData ? 4.1 : 0.5;
-                            const wOff = imageData ? 5.6 : 9.0;
-                            const tc = project.templateStyle==='academic'?c.p:c.t;
-                            ps.addText(slide.title, {
-                                x:xOff, y:0.4, w:wOff, h:0.7,
-                                fontSize: Math.min(26, Math.max(18, 26-Math.floor(slide.title.length/12))),
-                                bold:true, color:tc, valign:'middle'
-                            });
-                            const points = (slide.points||[]).slice(0,6);
-                            const fz = points.length>4 ? 12 : (points.length>3?14:16);
-                            const lh = points.length>4 ? 0.62 : 0.75;
-                            points.forEach((p,pi) => {
-                                const y = (project.templateStyle==='academic'?1.3:1.1) + pi*lh;
-                                if (y+lh <= 5.2) {
-                                    ps.addText(p, {x:xOff+0.2, y:y, w:wOff-0.4, h:lh-0.05, fontSize:fz, color:c.t, valign:'top', bullet:{indent:10}});
-                                }
-                            });
-                        }
-                    } catch(err) {
-                        ps.addText(slide.title, {x:0.5,y:slide.type==='cover'?2.2:0.5,w:9.0,h:1.0,fontSize:slide.type==='cover'?36:28,bold:true,color:c.t,align:slide.type==='cover'?'center':'left'});
-                        if (slide.points) slide.points.slice(0,5).forEach((p,pi) => {
-                            ps.addText(p,{x:0.7,y:1.5+pi*0.7,w:8.8,h:0.6,fontSize:16,color:c.t,bullet:true});
-                        });
-                    }
-                    ps.addText(`${idx+1} / ${project.slides.length}`, {x:8.2,y:5.2,w:1.5,h:0.3,fontSize:9,color:c.t,align:'right',transparency:50});
-                }
-
-                if (usePicker && window.showSaveFilePicker) {
-                    const blob = await pptx.writeFile({fileName});
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: fileName,
-                        types:[{description:'PowerPoint',accept:{'application/vnd.openxmlformats-officedocument.presentationml.presentation':['.pptx']}}]
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    showToast(isZh?`已保存到: ${handle.name}`:`Saved: ${handle.name}`,'success');
-                } else {
-                    await pptx.writeFile({fileName});
-                    showToast(isZh?`已下载: ${fileName}`:`Downloaded: ${fileName}`,'success');
-                }
-            } catch(err) {
-                console.error(err);
-                showToast(isZh?'导出失败: '+err.message:'Export failed: '+err.message,'error');
-            }
-        }
-
-        // ==================== 编辑功能 ====================
-        function openEditPanel() {
-            if (!state.currentProject) return;
-            const c = document.getElementById('editContent');
-            let html = '';
-            state.currentProject.slides.forEach((slide,idx) => {
-                const isCv = slide.type==='cover'||slide.type==='ending';
-                html += `<div class="edit-slide-item">
-                    <div class="edit-slide-num">${isCv?(slide.type==='cover'?'封面':'结尾'):(slide.type==='toc'?'目录':`第${idx}页`)}</div>
-                    <div class="edit-field">
-                        <label class="edit-label">标题</label>
-                        <input class="edit-input" data-s="${idx}" data-f="title" value="${escAttr(slide.title)}">
-                    </div>
-                    ${slide.subtitle!==undefined?`<div class="edit-field">
-                        <label class="edit-label">副标题</label>
-                        <input class="edit-input" data-s="${idx}" data-f="subtitle" value="${escAttr(slide.subtitle||'')}">
-                    </div>`:''}
-                    ${slide.points?`<div class="edit-field">
-                        <label class="edit-label">内容要点</label>
-                        <div id="pts-${idx}">${slide.points.map((p,pi)=>`<div class="edit-point-item">
-                            <input class="edit-input edit-point-input" data-s="${idx}" data-p="${pi}" value="${escAttr(p)}">
-                            <button class="edit-point-del" onclick="removePoint(${idx},${pi})">×</button>
-                        </div>`).join('')}</div>
-                        <button class="add-point-btn" onclick="addPoint(${idx})">+ 添加要点</button>
-                    </div>`:''}
-                </div>`;
-            });
-            c.innerHTML = html;
-            document.getElementById('editPanel').classList.add('active');
-        }
-        function closeEditPanel() { document.getElementById('editPanel').classList.remove('active'); }
-        function addPoint(si) { if(!state.currentProject)return; if(state.currentProject.slides[si].points.length<8){state.currentProject.slides[si].points.push('新要点');openEditPanel();} }
-        function removePoint(si,pi) { if(!state.currentProject)return; state.currentProject.slides[si].points.splice(pi,1); openEditPanel(); }
-        function saveEdits() {
+        async function downloadPPTX(usePicker){
             if(!state.currentProject)return;
-            document.querySelectorAll('.edit-input').forEach(inp=>{
-                const si=parseInt(inp.dataset.s), f=inp.dataset.f, pi=inp.dataset.p;
-                if(pi!==undefined) state.currentProject.slides[si].points[parseInt(pi)]=inp.value;
-                else if(f==='title') { state.currentProject.slides[si].title=inp.value; if(si===0)state.currentProject.title=inp.value; }
-                else if(f==='subtitle') state.currentProject.slides[si].subtitle=inp.value;
+            const isZh=state.language==='zh';
+            showToast(isZh?'正在生成PPTX...':'Generating PPTX...');
+            try{
+                const pptx=new PptxGenJS(); const project=state.currentProject;
+                const template=templates.find(t=>t.id===project.templateStyle);
+                pptx.layout='LAYOUT_WIDE'; pptx.title=project.title; pptx.author='AI PPT Generator';
+                const colors={business:{p:'1E3A5F',t:'FFFFFF',b:'1E3A5F'},academic:{p:'8B0000',t:'333333',b:'FFFFFF'},creative:{p:'667EEA',t:'FFFFFF',b:'667EEA'},minimal:{p:'333333',t:'333333',b:'FFFFFF'},tech:{p:'00FF88',t:'00FF88',b:'0A0A0A'}};
+                const c=colors[project.templateStyle]||colors.business;
+                const safeTitle=project.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g,'_').substring(0,40);
+                const fileName=`${safeTitle}_${project.slides.length}页.pptx`;
+                for(let idx=0;idx<project.slides.length;idx++){
+                    const slide=project.slides[idx]; const ps=pptx.addSlide(); ps.background={color:c.b};
+                    try{
+                        const imgUrl=state.imageCache[slide.imageSeed]||slide.imageUrl; let imageData=null;
+                        try{const resp=await fetch(imgUrl);if(resp.ok){const blob=await resp.blob();imageData=await new Promise(res=>{const r=new FileReader();r.onloadend=()=>res(r.result);r.readAsDataURL(blob);});}}catch(e){}
+                        if(slide.type==='cover'||slide.type==='ending'){
+                            if(imageData){ps.addImage({data:imageData,x:0,y:0,w:10,h:5.625});ps.addShape(pptx.ShapeType.rect,{x:0,y:0,w:10,h:5.625,fill:{color:'000000',transparency:40},line:{color:'000000',transparency:100}});}
+                            ps.addText(slide.title,{x:0.5,y:2.0,w:9.0,h:1.2,fontSize:Math.min(38,Math.max(24,38-Math.floor(slide.title.length/8))),bold:true,color:imageData?'FFFFFF':c.t,align:'center',valign:'middle'});
+                            if(slide.subtitle)ps.addText(slide.subtitle,{x:0.5,y:3.4,w:9.0,h:0.5,fontSize:14,color:imageData?'FFFFFF':c.t,align:'center',transparency:imageData?20:30});
+                        }else{
+                            if(imageData){ps.addImage({data:imageData,x:0,y:0,w:3.8,h:5.625});for(let g=0;g<5;g++)ps.addShape(pptx.ShapeType.rect,{x:3.5+g*0.1,y:0,w:0.12,h:5.625,fill:{color:c.b,transparency:100-g*20},line:{color:c.b,transparency:100}});}
+                            const xOff=imageData?4.1:0.5, wOff=imageData?5.6:9.0; const tc=project.templateStyle==='academic'?c.p:c.t;
+                            ps.addText(slide.title,{x:xOff,y:0.4,w:wOff,h:0.7,fontSize:Math.min(26,Math.max(18,26-Math.floor(slide.title.length/12))),bold:true,color:tc,valign:'middle'});
+                            const pts=(slide.points||[]).slice(0,6); const fz=pts.length>4?12:(pts.length>3?14:16); const lh=pts.length>4?0.62:0.75;
+                            pts.forEach((p,pi)=>{const y=(project.templateStyle==='academic'?1.3:1.1)+pi*lh;if(y+lh<=5.2)ps.addText(p,{x:xOff+0.2,y:y,w:wOff-0.4,h:lh-0.05,fontSize:fz,color:c.t,valign:'top',bullet:{indent:10}});});
+                        }
+                    }catch(err){
+                        ps.addText(slide.title,{x:0.5,y:slide.type==='cover'?2.2:0.5,w:9.0,h:1.0,fontSize:slide.type==='cover'?36:28,bold:true,color:c.t,align:slide.type==='cover'?'center':'left'});
+                        if(slide.points)slide.points.slice(0,5).forEach((p,pi)=>ps.addText(p,{x:0.7,y:1.5+pi*0.7,w:8.8,h:0.6,fontSize:16,color:c.t,bullet:true}));
+                    }
+                    ps.addText(`${idx+1} / ${project.slides.length}`,{x:8.2,y:5.2,w:1.5,h:0.3,fontSize:9,color:c.t,align:'right',transparency:50});
+                }
+                if(usePicker&&window.showSaveFilePicker){
+                    const blob=await pptx.writeFile({fileName});
+                    const handle=await window.showSaveFilePicker({suggestedName:fileName,types:[{description:'PowerPoint',accept:{'application/vnd.openxmlformats-officedocument.presentationml.presentation':['.pptx']}}]});
+                    const writable=await handle.createWritable();await writable.write(blob);await writable.close();
+                    showToast(isZh?`已保存到: ${handle.name}`:`Saved: ${handle.name}`,'success');
+                }else{await pptx.writeFile({fileName});showToast(isZh?`已下载: ${fileName}`:`Downloaded: ${fileName}`,'success');}
+            }catch(err){console.error(err);showToast(isZh?'导出失败: '+err.message:'Export failed: '+err.message,'error');}
+        }
+
+        // ==================== 编辑 ====================
+        function openEditPanel(){if(!state.currentProject)return;const c=document.getElementById('editContent');let html='';
+            state.currentProject.slides.forEach((slide,idx)=>{const isCv=slide.type==='cover'||slide.type==='ending';
+                html+=`<div class="edit-slide-item"><div class="edit-slide-num">${isCv?(slide.type==='cover'?'封面':'结尾'):(slide.type==='toc'?'目录':`第${idx}页`)}</div>
+                <div class="edit-field"><label class="edit-label">标题</label><input class="edit-input" data-s="${idx}" data-f="title" value="${escAttr(slide.title)}"></div>
+                ${slide.subtitle!==undefined?`<div class="edit-field"><label class="edit-label">副标题</label><input class="edit-input" data-s="${idx}" data-f="subtitle" value="${escAttr(slide.subtitle||'')}"></div>`:''}
+                ${slide.points?`<div class="edit-field"><label class="edit-label">内容要点</label><div id="pts-${idx}">${slide.points.map((p,pi)=>`<div class="edit-point-item"><input class="edit-input edit-point-input" data-s="${idx}" data-p="${pi}" value="${escAttr(p)}"><button class="edit-point-del" onclick="removePoint(${idx},${pi})">×</button></div>`).join('')}</div><button class="add-point-btn" onclick="addPoint(${idx})">+ 添加要点</button></div>`:''}</div>`;
             });
-            closeEditPanel();
-            renderSlides(state.currentProject);
-            renderThumbnails(state.currentProject);
+            c.innerHTML=html;document.getElementById('editPanel').classList.add('active');
+        }
+        function closeEditPanel(){document.getElementById('editPanel').classList.remove('active');}
+        function addPoint(si){if(!state.currentProject)return;if(state.currentProject.slides[si].points.length<8){state.currentProject.slides[si].points.push('新要点');openEditPanel();}}
+        function removePoint(si,pi){if(!state.currentProject)return;state.currentProject.slides[si].points.splice(pi,1);openEditPanel();}
+        function saveEdits(){if(!state.currentProject)return;
+            document.querySelectorAll('.edit-input').forEach(inp=>{const si=parseInt(inp.dataset.s),f=inp.dataset.f,pi=inp.dataset.p;
+                if(pi!==undefined)state.currentProject.slides[si].points[parseInt(pi)]=inp.value;
+                else if(f==='title'){state.currentProject.slides[si].title=inp.value;if(si===0)state.currentProject.title=inp.value;}
+                else if(f==='subtitle')state.currentProject.slides[si].subtitle=inp.value;
+            });
+            closeEditPanel();renderSlides(state.currentProject);renderThumbnails(state.currentProject);
             document.getElementById('previewProjectTitle').textContent=state.currentProject.title.length>18?state.currentProject.title.substring(0,18)+'...':state.currentProject.title;
             showToast(state.language==='zh'?'已保存修改！':'Saved!','success');
         }
 
-        // ==================== API面板 ====================
-        function openApiPanel() {
-            document.getElementById('apiKeyInput').value = state.apiKey;
-            document.getElementById('apiBaseInput').value = state.apiBase;
-            document.getElementById('apiModelInput').value = state.apiModel;
-            selectApiProvider(state.apiProvider);
+        // ==================== API设置 ====================
+        function openApiPanel(){
+            document.getElementById('apiKeyInput').value=state.apiKey;
+            document.getElementById('apiBaseInput').value=state.apiBase;
+            document.getElementById('apiModelInput').value=state.apiModel;
+            selectApiProvider(state.aiProvider);
             document.getElementById('apiPanel').classList.add('active');
         }
-        function closeApiPanel() { document.getElementById('apiPanel').classList.remove('active'); }
-        function selectApiProvider(p) {
-            state.apiProvider = p;
-            document.querySelectorAll('.api-provider').forEach(el => el.classList.toggle('selected', el.dataset.provider===p));
-            document.getElementById('openaiSettings').style.display = p==='openai' ? 'block' : 'none';
+        function closeApiPanel(){document.getElementById('apiPanel').classList.remove('active');}
+        function selectApiProvider(p){
+            state.aiProvider=p;
+            document.querySelectorAll('.api-provider').forEach(el=>el.classList.toggle('selected',el.dataset.provider===p));
+            document.getElementById('openaiSettings').style.display=p==='openai'?'block':'none';
         }
-        function saveApiSettings() {
-            if (state.apiProvider==='openai') {
-                state.apiKey = document.getElementById('apiKeyInput').value.trim();
-                state.apiBase = document.getElementById('apiBaseInput').value.trim() || 'https://api.openai.com/v1';
-                state.apiModel = document.getElementById('apiModelInput').value.trim() || 'gpt-3.5-turbo';
+        function saveApiSettings(){
+            if(state.aiProvider==='openai'){
+                state.apiKey=document.getElementById('apiKeyInput').value.trim();
+                state.apiBase=document.getElementById('apiBaseInput').value.trim()||'https://api.openai.com/v1';
+                state.apiModel=document.getElementById('apiModelInput').value.trim()||'gpt-3.5-turbo';
             }
-            localStorage.setItem('pptApiSettings', JSON.stringify({
-                provider: state.apiProvider, key: state.apiKey, base: state.apiBase, model: state.apiModel
-            }));
-            closeApiPanel();
-            checkApiConnection();
-            showToast(state.language==='zh'?'API设置已保存':'API settings saved','success');
+            localStorage.setItem('pptApiSettings',JSON.stringify({provider:state.aiProvider,key:state.apiKey,base:state.apiBase,model:state.apiModel}));
+            closeApiPanel();updateApiStatus();
+            showToast(state.language==='zh'?'设置已保存':'Settings saved','success');
+        }
+        function updateApiStatus(){
+            const dot=document.getElementById('apiStatusDot'); const text=document.getElementById('apiStatusText'); const badge=document.getElementById('aiModeBadge');
+            dot.className='api-status-dot'; text.className='api-status-text';
+            const desc=document.getElementById('currentApiDesc');
+            switch(state.aiProvider){
+                case'smart':dot.classList.add('connected');text.classList.add('connected');text.textContent='智能引擎就绪';badge.className='ai-badge';badge.textContent='智能生成';desc.textContent='智能引擎（推荐）';break;
+                case'pollinations':dot.classList.add('connected');text.classList.add('connected');text.textContent='Pollinations AI';badge.className='ai-badge';badge.textContent='云端AI';desc.textContent='Pollinations AI（免费）';break;
+                case'offline':dot.classList.add('warning');text.classList.add('warning');text.textContent='离线智能模式';badge.className='offline-badge';badge.textContent='离线智能';desc.textContent='离线智能（无需网络）';break;
+                case'openai':if(state.apiKey){dot.classList.add('connected');text.classList.add('connected');text.textContent=`${state.apiModel} 已配置`;badge.className='ai-badge';badge.textContent='自定义API';desc.textContent=`${state.apiModel}（自定义）`;}else{dot.classList.add('error');text.textContent='请配置API Key';badge.className='offline-badge';badge.textContent='需配置';desc.textContent='未配置API Key';}break;
+            }
         }
 
-        // ==================== 其他功能 ====================
-        function fillPrompt(t) { document.getElementById('promptInput').value = t; }
-        function renderTemplates() {
-            document.getElementById('templateScroll').innerHTML = templates.map(t=>`
-                <div class="template-card template-${t.id} ${t.id===state.selectedTemplate?'selected':''}" data-t="${t.id}" onclick="selectTemplate('${t.id}')">
-                    <div class="template-preview">${t.icon}</div><div class="template-name">${t.name}</div>
-                </div>`).join('');
-        }
-        function selectTemplate(id) {
-            state.selectedTemplate=id;
-            document.querySelectorAll('.template-card').forEach(c=>c.classList.remove('selected'));
-            document.querySelector(`[data-t="${id}"]`).classList.add('selected');
-        }
-        function initPageControls() {
-            const sl=document.getElementById('slideCountSlider')||{};
-            const ni=document.getElementById('pageNumberInput');
-            ni.oninput=()=>{let v=parseInt(ni.value)||3;v=Math.max(3,Math.min(50,v));state.slideCount=v;};
-        }
-        function setPageCount(c,e) {
-            c=Math.max(3,Math.min(50,c));state.slideCount=c;
-            document.getElementById('pageNumberInput').value=c;
-            document.querySelectorAll('.page-quick-btn').forEach(b=>b.classList.remove('active'));
-            if(e&&e.target)e.target.classList.add('active');
-        }
-        function setLanguage(l) {
-            state.language=l;
-            document.querySelectorAll('.toggle-group:first-child .toggle-btn').forEach(b=>b.classList.remove('active'));
-            document.querySelector(`.toggle-btn[data-lang="${l}"]`).classList.add('active');
-        }
-        function setImageStyle(s) {
-            state.imageStyle=s;
-            document.querySelectorAll('.toggle-group:last-child .toggle-btn').forEach(b=>b.classList.remove('active'));
-            document.querySelector(`.toggle-btn[data-img="${s}"]`).classList.add('active');
-        }
-        function showPage(p) {
-            document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-            state.currentPage=p;
-            const pm={home:'homePage',history:'historyPage',settings:'settingsPage'};
-            document.getElementById(pm[p]).classList.add('active');
-            document.querySelector(`.nav-item[data-page="${p}"]`)?.classList.add('active');
-            document.getElementById('bottomNav').style.display='flex';
-            if(p==='history')renderHistory();
-        }
-        function goBack() {
-            document.getElementById('previewPage').classList.remove('active');
-            closeEditPanel();
-            showPage('home');
-        }
-        function sharePPT() {
-            if(!state.currentProject)return;
-            if(navigator.share)navigator.share({title:state.currentProject.title,text:`${state.currentProject.slides.length}页AI生成PPT`,url:window.location.href});
-            else{navigator.clipboard.writeText(window.location.href);showToast(state.language==='zh'?'链接已复制':'Link copied','success');}
-        }
-        function regeneratePPT() {
-            showConfirm(state.language==='zh'?'重新生成':'Regenerate',state.language==='zh'?'将重新调用AI生成，确定吗?':'Regenerate with AI?',()=>{
-                document.getElementById('previewPage').classList.remove('active');
-                startGeneration();
-            });
-        }
-        function saveToHistory(p) {
-            try{
-                const h=JSON.parse(localStorage.getItem('pptHistory')||'[]');
-                h.unshift({id:p.id,title:p.title,prompt:p.prompt,createTime:p.createTime,totalSlides:p.slides.length,templateStyle:p.templateStyle,coverSeed:p.slides[0]?.imageSeed,slides:p.slides.map(s=>({title:s.title,subtitle:s.subtitle||'',points:s.points||[],type:s.type,imagePrompt:s.imagePrompt,imageSeed:s.imageSeed}))});
-                if(h.length>20)h.length=20;
-                localStorage.setItem('pptHistory',JSON.stringify(h));state.history=h;
-            }catch(e){}
-        }
-        function loadHistory() {try{state.history=JSON.parse(localStorage.getItem('pptHistory')||'[]');}catch(e){state.history=[];}}
-        function renderHistory() {
-            const c=document.getElementById('historyContent');
-            if(!state.history.length){c.innerHTML=`<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">${state.language==='zh'?'暂无记录':'No History'}</div><div class="empty-desc">${state.language==='zh'?'AI生成的PPT会保存在这里':'AI generated PPTs will appear here'}</div></div>`;return;}
-            c.innerHTML=`<div class="history-list">${state.history.map(p=>{
-                const t=templates.find(x=>x.id===p.templateStyle)||templates[0];
-                const d=new Date(p.createTime);
-                const ds=d.toLocaleDateString('zh-CN')+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-                const tu=p.coverSeed?generateImageUrl('cover',p.coverSeed):'';
-                return `<div class="history-item" onclick="viewHistory('${p.id}')">
-                    <div class="history-thumb" style="background:${t.color}">${tu?`<img src="${escAttr(tu)}" loading="lazy">`:`<div class="history-thumb-placeholder" style="color:${t.textColor}">${t.icon}</div>`}</div>
-                    <div class="history-info">
-                        <div class="history-title">${escHtml(p.title)} <span class="history-ai-badge">AI</span></div>
-                        <div class="history-meta"><span>📄${p.totalSlides}页</span><span>📅${ds}</span></div>
-                    </div>
-                    <button class="history-delete" onclick="event.stopPropagation();deleteHistory('${p.id}')">×</button>
-                </div>`;
+        // ==================== 其他 ====================
+        function fillPrompt(t){document.getElementById('promptInput').value=t;}
+        function renderTemplates(){document.getElementById('templateScroll').innerHTML=templates.map(t=>`<div class="template-card template-${t.id} ${t.id===state.selectedTemplate?'selected':''}" data-t="${t.id}" onclick="selectTemplate('${t.id}')"><div class="template-preview">${t.icon}</div><div class="template-name">${t.name}</div></div>`).join('');}
+        function selectTemplate(id){state.selectedTemplate=id;document.querySelectorAll('.template-card').forEach(c=>c.classList.remove('selected'));document.querySelector(`[data-t="${id}"]`).classList.add('selected');}
+        function setPageCount(c,e){c=Math.max(3,Math.min(50,c));state.slideCount=c;document.getElementById('pageNumberInput').value=c;document.querySelectorAll('.page-quick-btn').forEach(b=>b.classList.remove('active'));if(e&&e.target)e.target.classList.add('active');}
+        function setLanguage(l){state.language=l;document.querySelectorAll('.toggle-group:first-child .toggle-btn').forEach(b=>b.classList.remove('active'));document.querySelector(`.toggle-btn[data-lang="${l}"]`).classList.add('active');}
+        function setImageStyle(s){state.imageStyle=s;document.querySelectorAll('.toggle-group:last-child .toggle-btn').forEach(b=>b.classList.remove('active'));document.querySelector(`.toggle-btn[data-img="${s}"]`).classList.add('active');}
+        function showPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));state.currentPage=p;const pm={home:'homePage',history:'historyPage',settings:'settingsPage'};document.getElementById(pm[p]).classList.add('active');document.querySelector(`.nav-item[data-page="${p}"]`)?.classList.add('active');document.getElementById('bottomNav').style.display='flex';if(p==='history')renderHistory();}
+        function goBack(){document.getElementById('previewPage').classList.remove('active');closeEditPanel();showPage('home');}
+        function sharePPT(){if(!state.currentProject)return;if(navigator.share)navigator.share({title:state.currentProject.title,text:`${state.currentProject.slides.length}页PPT`,url:window.location.href});else{navigator.clipboard.writeText(window.location.href);showToast(state.language==='zh'?'链接已复制':'Link copied','success');}}
+        function regeneratePPT(){showConfirm(state.language==='zh'?'重新生成':'Regenerate',state.language==='zh'?'将重新生成，确定吗?':'Regenerate?',()=>{document.getElementById('previewPage').classList.remove('active');startGeneration();});}
+        function saveToHistory(p){try{const h=JSON.parse(localStorage.getItem('pptHistory')||'[]');h.unshift({id:p.id,title:p.title,prompt:p.prompt,createTime:p.createTime,totalSlides:p.slides.length,templateStyle:p.templateStyle,coverSeed:p.slides[0]?.imageSeed,isOffline:p.isOffline,slides:p.slides.map(s=>({title:s.title,subtitle:s.subtitle||'',points:s.points||[],type:s.type,imagePrompt:s.imagePrompt,imageSeed:s.imageSeed}))});if(h.length>20)h.length=20;localStorage.setItem('pptHistory',JSON.stringify(h));state.history=h;}catch(e){}}
+        function loadHistory(){try{state.history=JSON.parse(localStorage.getItem('pptHistory')||'[]');}catch(e){state.history=[];}}
+        function renderHistory(){const c=document.getElementById('historyContent');
+            if(!state.history.length){c.innerHTML=`<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">${state.language==='zh'?'暂无记录':'No History'}</div><div class="empty-desc">${state.language==='zh'?'生成的PPT会保存在这里':'Generated PPTs appear here'}</div></div>`;return;}
+            c.innerHTML=`<div class="history-list">${state.history.map(p=>{const t=templates.find(x=>x.id===p.templateStyle)||templates[0];const d=new Date(p.createTime);const ds=d.toLocaleDateString('zh-CN')+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});const tu=p.coverSeed?buildImageUrl('cover',p.coverSeed):'';
+                return `<div class="history-item" onclick="viewHistory('${p.id}')"><div class="history-thumb" style="background:${t.color}">${tu?`<img src="${escAttr(tu)}" loading="lazy">`:`<div class="history-thumb-placeholder" style="color:${t.textColor}">${t.icon}</div>`}</div><div class="history-info"><div class="history-title">${escHtml(p.title)}</div><div class="history-meta"><span>📄${p.totalSlides}页</span><span>📅${ds}</span></div></div><button class="history-delete" onclick="event.stopPropagation();deleteHistory('${p.id}')">×</button></div>`;
             }).join('')}</div>`;
         }
-        function viewHistory(id) {
-            const p=state.history.find(x=>x.id===id);
-            if(p){
-                const proj={...p,slides:p.slides.map(s=>({...s,template:p.templateStyle,imageUrl:generateImageUrl(s.imagePrompt,s.imageSeed)}))};
-                proj.slides.forEach(s=>{state.imageCache[s.imageSeed]=generateImageUrl(s.imagePrompt,s.imageSeed);});
-                state.currentProject=proj;showPreview(proj);
-            }
-        }
-        function deleteHistory(id){showConfirm(state.language==='zh'?'删除':'Delete',state.language==='zh'?'删除这条记录?':'Delete this record?',()=>{state.history=state.history.filter(p=>p.id!==id);localStorage.setItem('pptHistory',JSON.stringify(state.history));renderHistory();showToast(state.language==='zh'?'已删除':'Deleted','success');});}
-        function clearHistory(){if(!state.history.length){showToast(state.language==='zh'?'无记录':'No history');return;}showConfirm(state.language==='zh'?'清空':'Clear All',state.language==='zh'?'清空所有记录?':'Clear all history?',()=>{state.history=[];localStorage.removeItem('pptHistory');renderHistory();showToast(state.language==='zh'?'已清空':'Cleared','success');});}
-        function loadSettings() {
-            try{
-                const s=JSON.parse(localStorage.getItem('pptSettings')||'{}');
-                state.darkMode=s.darkMode||false;
-                document.getElementById('darkModeToggle').classList.toggle('active',state.darkMode);
-                applyTheme();
-                const a=JSON.parse(localStorage.getItem('pptApiSettings')||'{}');
-                if(a.provider){state.apiProvider=a.provider;state.apiKey=a.key||'';state.apiBase=a.base||'https://api.openai.com/v1';state.apiModel=a.model||'gpt-3.5-turbo';}
-            }catch(e){}
-        }
-        function toggleDarkMode() {
-            state.darkMode=!state.darkMode;
-            document.getElementById('darkModeToggle').classList.toggle('active',state.darkMode);
-            applyTheme();
-            localStorage.setItem('pptSettings',JSON.stringify({darkMode:state.darkMode}));
-        }
-        function applyTheme() {
-            if(state.darkMode){document.documentElement.style.setProperty('--bg','#0f172a');document.documentElement.style.setProperty('--bg2','#1e293b');document.documentElement.style.setProperty('--ink','#f1f5f9');document.documentElement.style.setProperty('--muted','#94a3b8');document.documentElement.style.setProperty('--rule','#334155');document.documentElement.style.setProperty('--accent-light','#312e81');}
-            else{document.documentElement.style.setProperty('--bg','#ffffff');document.documentElement.style.setProperty('--bg2','#f8fafc');document.documentElement.style.setProperty('--ink','#1e293b');document.documentElement.style.setProperty('--muted','#64748b');document.documentElement.style.setProperty('--rule','#e2e8f0');document.documentElement.style.setProperty('--accent-light','#eef2ff');}
-        }
+        function viewHistory(id){const p=state.history.find(x=>x.id===id);if(p){const proj={...p,slides:p.slides.map(s=>({...s,template:p.templateStyle,imageUrl:buildImageUrl(s.imagePrompt,s.imageSeed)}))};proj.slides.forEach(s=>{state.imageCache[s.imageSeed]=buildImageUrl(s.imagePrompt,s.imageSeed);});state.currentProject=proj;showPreview(proj);}}
+        function deleteHistory(id){showConfirm(state.language==='zh'?'删除':'Delete',state.language==='zh'?'删除这条记录?':'Delete?',()=>{state.history=state.history.filter(p=>p.id!==id);localStorage.setItem('pptHistory',JSON.stringify(state.history));renderHistory();showToast(state.language==='zh'?'已删除':'Deleted','success');});}
+        function clearHistory(){if(!state.history.length){showToast(state.language==='zh'?'无记录':'No history');return;}showConfirm(state.language==='zh'?'清空':'Clear',state.language==='zh'?'清空所有记录?':'Clear all?',()=>{state.history=[];localStorage.removeItem('pptHistory');renderHistory();showToast(state.language==='zh'?'已清空':'Cleared','success');});}
+        function loadSettings(){try{const s=JSON.parse(localStorage.getItem('pptSettings')||'{}');state.darkMode=s.darkMode||false;document.getElementById('darkModeToggle').classList.toggle('active',state.darkMode);applyTheme();const a=JSON.parse(localStorage.getItem('pptApiSettings')||'{}');if(a.provider){state.aiProvider=a.provider;state.apiKey=a.key||'';state.apiBase=a.base||'https://api.openai.com/v1';state.apiModel=a.model||'gpt-3.5-turbo';}}catch(e){}}
+        function toggleDarkMode(){state.darkMode=!state.darkMode;document.getElementById('darkModeToggle').classList.toggle('active',state.darkMode);applyTheme();localStorage.setItem('pptSettings',JSON.stringify({darkMode:state.darkMode}));}
+        function applyTheme(){if(state.darkMode){document.documentElement.style.setProperty('--bg','#0f172a');document.documentElement.style.setProperty('--bg2','#1e293b');document.documentElement.style.setProperty('--ink','#f1f5f9');document.documentElement.style.setProperty('--muted','#94a3b8');document.documentElement.style.setProperty('--rule','#334155');document.documentElement.style.setProperty('--accent-light','#312e81');}else{document.documentElement.style.setProperty('--bg','#ffffff');document.documentElement.style.setProperty('--bg2','#f8fafc');document.documentElement.style.setProperty('--ink','#1e293b');document.documentElement.style.setProperty('--muted','#64748b');document.documentElement.style.setProperty('--rule','#e2e8f0');document.documentElement.style.setProperty('--accent-light','#eef2ff');}}
         function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.classList.remove('show'),3000);}
-        function showConfirm(title,content,onConfirm){
-            document.getElementById('modalTitle').textContent=title;
-            document.getElementById('modalContent').textContent=content;
-            document.getElementById('confirmModal').classList.add('show');
-            document.getElementById('modalConfirmBtn').style.display='block';
-            document.getElementById('modalConfirmBtn').textContent=state.language==='zh'?'确定':'OK';
-            document.querySelector('.modal-btn.cancel').textContent=state.language==='zh'?'取消':'Cancel';
-            document.getElementById('modalConfirmBtn').onclick=()=>{closeModal();if(onConfirm)onConfirm();};
-            document.querySelector('.modal-btn.cancel').onclick=closeModal;
-        }
+        function showConfirm(title,content,onConfirm){document.getElementById('modalTitle').textContent=title;document.getElementById('modalContent').textContent=content;document.getElementById('confirmModal').classList.add('show');document.getElementById('modalConfirmBtn').style.display='block';document.getElementById('modalConfirmBtn').textContent=state.language==='zh'?'确定':'OK';document.querySelector('.modal-btn.cancel').textContent=state.language==='zh'?'取消':'Cancel';document.getElementById('modalConfirmBtn').onclick=()=>{closeModal();if(onConfirm)onConfirm();};document.querySelector('.modal-btn.cancel').onclick=closeModal;}
         function closeModal(){document.getElementById('confirmModal').classList.remove('show');}
         document.getElementById('confirmModal').onclick=e=>{if(e.target.id==='confirmModal')closeModal();};
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings(); renderTemplates(); 
+            const ni=document.getElementById('pageNumberInput');
+            ni.oninput=()=>{let v=parseInt(ni.value)||3;v=Math.max(3,Math.min(50,v));state.slideCount=v;};
+            loadHistory(); updateApiStatus();
+            setTimeout(()=>document.getElementById('splashScreen').classList.add('hidden'),2000);
+        });
     </script>
 </body>
 </html>
