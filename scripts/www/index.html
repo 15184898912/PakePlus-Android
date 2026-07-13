@@ -54,9 +54,12 @@ body { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; fle
 .select-all-btn { font-size: 13px; color: #2563eb; cursor: pointer; padding: 4px 8px; }
 
 /* ===== 表格容器 ===== */
-.table-wrapper { flex: 1; overflow: hidden; position: relative; background: #fff; }
-.table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; width: 100%; height: 100%; }
-.table-container { transform-origin: 0 0; transition: transform 0s; min-width: 100%; }
+.table-wrapper { flex: 1; overflow: hidden; position: relative; background: #fff; display: flex; flex-direction: column; }
+.table-header-fixed { flex-shrink: 0; overflow: hidden; position: relative; z-index: 10; background: #fff; }
+.header-inner { overflow: hidden; will-change: transform; }
+.header-inner table { width: 100%; }
+.table-scroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative; }
+.table-container { transform-origin: 0 0; min-width: 100%; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 thead { position: sticky; top: 0; z-index: 5; }
 th { background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%); color: #fff; font-weight: 600; font-size: 13px; padding: 9px 4px; text-align: center; border-right: 1px solid #444; position: relative; }
@@ -185,7 +188,6 @@ td.cell-model .cell-edit { text-align: left; padding: 0 8px; }
     <span class="search-icon">🔍</span>
     <input type="text" id="searchInput" placeholder="搜索系列或型号" oninput="handleSearch(this.value)">
   </div>
-  <button class="action-btn" id="batchModeBtn" onclick="toggleBatchMode()">批量管理</button>
 </div>
 
 <!-- 工具栏（批量模式） -->
@@ -200,11 +202,12 @@ td.cell-model .cell-edit { text-align: left; padding: 0 8px; }
 
 <!-- 表格区域 -->
 <div class="table-wrapper" id="tableWrapper">
-  <div class="table-scroll" id="tableScroll">
-    <div class="table-container" id="tableContainer">
-      <table id="dataTable">
+  <!-- 固定表头（不缩放、不垂直滚动，水平滚动通过JS同步） -->
+  <div class="table-header-fixed" id="tableHeaderFixed">
+    <div class="header-inner" id="headerInner">
+      <table id="headerTable" style="width:100%;table-layout:fixed;border-collapse:collapse;">
         <thead>
-          <tr>
+          <tr id="headerRow">
             <th class="col-checkbox" id="thCheckbox"></th>
             <th class="col-series">系列</th>
             <th class="col-model">型号</th>
@@ -214,6 +217,13 @@ td.cell-model .cell-edit { text-align: left; padding: 0 8px; }
             <th class="col-price">整机</th>
           </tr>
         </thead>
+      </table>
+    </div>
+  </div>
+  <!-- 可滚动、可缩放的数据区 -->
+  <div class="table-scroll" id="tableScroll">
+    <div class="table-container" id="tableContainer">
+      <table id="dataTable" style="width:100%;table-layout:fixed;border-collapse:collapse;">
         <tbody id="tableBody"></tbody>
       </table>
     </div>
@@ -223,17 +233,20 @@ td.cell-model .cell-edit { text-align: left; padding: 0 8px; }
 
 <!-- 菜单弹窗 -->
 <div class="menu-popup" id="menuPopup">
+  <div class="menu-item" onclick="toggleBatchMode();hideMenu()">
+    <span class="menu-icon">☑️</span><span>批量管理</span>
+  </div>
   <div class="menu-item" onclick="openBrandManager();hideMenu()">
     <span class="menu-icon">🏷️</span><span>品牌管理</span>
+  </div>
+  <div class="menu-item" onclick="openImportDialog();hideMenu()">
+    <span class="menu-icon">📥</span><span>批量导入</span>
   </div>
   <div class="menu-item" onclick="openBatchPriceAdjust();hideMenu()">
     <span class="menu-icon">💰</span><span>批量调价</span>
   </div>
   <div class="menu-item" onclick="openHistoryDialog();hideMenu()">
     <span class="menu-icon">🕐</span><span>版本历史</span>
-  </div>
-  <div class="menu-item" id="importMenu" onclick="openImportDialog();hideMenu()">
-    <span class="menu-icon">📥</span><span>批量导入</span>
   </div>
   <div class="menu-item danger" onclick="confirmClearAll();hideMenu()">
     <span class="menu-icon">🗑️</span><span>清空所有数据</span>
@@ -536,6 +549,7 @@ function renderTable() {
     </td>`;
     tbody.appendChild(tr);
     updateSelectedInfo();
+    if (window._syncHeader) setTimeout(window._syncHeader, 30);
     return;
   }
 
@@ -606,6 +620,8 @@ function renderTable() {
   });
 
   updateSelectedInfo();
+  // 同步表头宽度和位置
+  if (window._syncHeader) setTimeout(window._syncHeader, 30);
 }
 
 // ==================== 单元格编辑 ====================
@@ -737,9 +753,10 @@ function toggleBatchMode() {
   state.batchMode = !state.batchMode;
   state.selectedIds.clear();
   document.getElementById('toolbar').classList.toggle('show', state.batchMode);
-  document.getElementById('batchModeBtn').classList.toggle('active-mode', state.batchMode);
-  document.getElementById('batchModeBtn').textContent = state.batchMode ? '退出批量' : '批量管理';
   renderTable();
+  if (state.batchMode) {
+    toast('已进入批量管理模式，可勾选多行操作');
+  }
 }
 
 function toggleSelect(id, checked) {
@@ -1554,6 +1571,10 @@ function toast(msg) {
   const container = document.getElementById('tableContainer');
   const wrapper = document.getElementById('tableWrapper');
   const scroll = document.getElementById('tableScroll');
+  const headerFixed = document.getElementById('tableHeaderFixed');
+  const headerInner = document.getElementById('headerInner');
+  const headerTable = document.getElementById('headerTable');
+  const dataTable = document.getElementById('dataTable');
   const hint = document.getElementById('zoomHint');
   let initialDistance = 0;
   let initialScale = 1;
@@ -1566,15 +1587,36 @@ function toast(msg) {
     return Math.sqrt(dx*dx + dy*dy);
   }
 
+  function syncHeader() {
+    // 同步表头宽度和水平滚动位置
+    const bodyWidth = dataTable.getBoundingClientRect().width;
+    const scrollWidth = dataTable.scrollWidth;
+    // zoom缩放后，dataTable的视觉宽度
+    const visualWidth = Math.max(bodyWidth, scrollWidth);
+    if (visualWidth > 0) {
+      headerTable.style.width = visualWidth + 'px';
+    }
+    // 同步水平滚动
+    headerInner.style.transform = `translateX(-${scroll.scrollLeft}px)`;
+  }
+
   function updateScale(newScale) {
-    currentScale = Math.max(0.5, Math.min(3, newScale));
-    container.style.transform = `scale(${currentScale})`;
-    container.style.width = (100 / currentScale) + '%';
+    currentScale = Math.max(0.6, Math.min(3, newScale));
+    // 使用CSS zoom，Android Chrome/WebView完美支持，布局自动调整
+    container.style.zoom = currentScale;
+    // 同步表头
+    requestAnimationFrame(syncHeader);
+    // 更新提示
     hint.textContent = Math.round(currentScale * 100) + '%';
     hint.classList.add('show');
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => hint.classList.remove('show'), 1500);
   }
+
+  // 同步表头水平滚动
+  scroll.addEventListener('scroll', () => {
+    syncHeader();
+  });
 
   wrapper.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
@@ -1593,19 +1635,14 @@ function toast(msg) {
     }
   }, { passive: false });
 
-  wrapper.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) {
-      // Keep scale
-    }
-  });
-
   // 双击重置缩放
   let lastTap = 0;
   wrapper.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTap < 300 && e.touches.length === 0) {
+    if (e.touches.length === 0 && now - lastTap < 300) {
       updateScale(1);
       currentScale = 1;
+      scroll.scrollLeft = 0;
     }
     lastTap = now;
   });
@@ -1618,6 +1655,15 @@ function toast(msg) {
       updateScale(currentScale + delta);
     }
   }, { passive: false });
+
+  // 窗口大小变化时同步
+  window.addEventListener('resize', () => {
+    setTimeout(syncHeader, 100);
+  });
+
+  // 暴露全局方法供渲染后调用
+  window._syncHeader = syncHeader;
+  window._resetZoom = () => { currentScale = 1; container.style.zoom = 1; setTimeout(syncHeader, 50); };
 })();
 
 // ==================== 初始化 ====================
