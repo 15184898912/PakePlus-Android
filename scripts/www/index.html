@@ -59,7 +59,8 @@ body { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; fle
 .header-inner { overflow: hidden; will-change: transform; }
 .header-inner table { width: 100%; }
 .table-scroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative; }
-.table-container { transform-origin: 0 0; min-width: 100%; }
+.table-container { transform-origin: 0 0; min-width: 100%; position: absolute; top: 0; left: 0; }
+.scale-spacer { width: 1px; height: 1px; pointer-events: none; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 thead { position: sticky; top: 0; z-index: 5; }
 th { background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%); color: #fff; font-weight: 600; font-size: 13px; padding: 9px 4px; text-align: center; border-right: 1px solid #444; position: relative; }
@@ -227,6 +228,7 @@ td.cell-model .cell-edit { text-align: left; padding: 0 8px; }
         <tbody id="tableBody"></tbody>
       </table>
     </div>
+    <div class="scale-spacer" id="scaleSpacer"></div>
   </div>
   <div class="zoom-hint" id="zoomHint">100%</div>
 </div>
@@ -1575,11 +1577,16 @@ function toast(msg) {
   const headerInner = document.getElementById('headerInner');
   const headerTable = document.getElementById('headerTable');
   const dataTable = document.getElementById('dataTable');
+  const spacer = document.getElementById('scaleSpacer');
   const hint = document.getElementById('zoomHint');
   let initialDistance = 0;
   let initialScale = 1;
   let currentScale = 1;
   let hintTimer;
+  let isPinching = false;
+  let lastTouchEndTime = 0;
+  let lastTouchCount = 0;
+  let pinchEndTime = 0;
 
   function getDistance(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -1587,83 +1594,102 @@ function toast(msg) {
     return Math.sqrt(dx*dx + dy*dy);
   }
 
+  function applyScale() {
+    container.style.transform = 'scale(' + currentScale + ')';
+    container.style.transformOrigin = '0 0';
+    container.style.width = scroll.clientWidth + 'px';
+    // 使用spacer撑开滚动区域到缩放后的尺寸
+    requestAnimationFrame(function() {
+      const tw = dataTable.offsetWidth;
+      const th = dataTable.offsetHeight;
+      spacer.style.width = Math.ceil(tw * currentScale) + 'px';
+      spacer.style.height = Math.ceil(th * currentScale) + 'px';
+      syncHeader();
+    });
+  }
+
   function syncHeader() {
-    // 同步表头宽度和水平滚动位置
-    const bodyWidth = dataTable.getBoundingClientRect().width;
-    const scrollWidth = dataTable.scrollWidth;
-    // zoom缩放后，dataTable的视觉宽度
-    const visualWidth = Math.max(bodyWidth, scrollWidth);
-    if (visualWidth > 0) {
-      headerTable.style.width = visualWidth + 'px';
-    }
-    // 同步水平滚动
-    headerInner.style.transform = `translateX(-${scroll.scrollLeft}px)`;
+    headerTable.style.width = dataTable.offsetWidth + 'px';
+    headerFixed.style.width = scroll.clientWidth + 'px';
+    headerInner.style.transform = 'translateX(-' + scroll.scrollLeft + 'px)';
   }
 
   function updateScale(newScale) {
     currentScale = Math.max(0.6, Math.min(3, newScale));
-    // 使用CSS zoom，Android Chrome/WebView完美支持，布局自动调整
-    container.style.zoom = currentScale;
-    // 同步表头
-    requestAnimationFrame(syncHeader);
-    // 更新提示
+    applyScale();
     hint.textContent = Math.round(currentScale * 100) + '%';
     hint.classList.add('show');
     clearTimeout(hintTimer);
-    hintTimer = setTimeout(() => hint.classList.remove('show'), 1500);
+    hintTimer = setTimeout(function(){ hint.classList.remove('show'); }, 1500);
   }
 
   // 同步表头水平滚动
-  scroll.addEventListener('scroll', () => {
+  scroll.addEventListener('scroll', function() {
     syncHeader();
   });
 
-  wrapper.addEventListener('touchstart', (e) => {
+  wrapper.addEventListener('touchstart', function(e) {
     if (e.touches.length === 2) {
+      isPinching = true;
       initialDistance = getDistance(e.touches);
       initialScale = currentScale;
       e.preventDefault();
     }
   }, { passive: false });
 
-  wrapper.addEventListener('touchmove', (e) => {
+  wrapper.addEventListener('touchmove', function(e) {
     if (e.touches.length === 2) {
-      const distance = getDistance(e.touches);
-      const scale = initialScale * (distance / initialDistance);
+      isPinching = true;
+      var distance = getDistance(e.touches);
+      var scale = initialScale * (distance / initialDistance);
       updateScale(scale);
       e.preventDefault();
     }
   }, { passive: false });
 
-  // 双击重置缩放
-  let lastTap = 0;
-  wrapper.addEventListener('touchend', (e) => {
-    const now = Date.now();
-    if (e.touches.length === 0 && now - lastTap < 300) {
-      updateScale(1);
-      currentScale = 1;
-      scroll.scrollLeft = 0;
+  wrapper.addEventListener('touchend', function(e) {
+    if (isPinching) {
+      // 双指操作结束，标记时间防止误触双击重置
+      pinchEndTime = Date.now();
+      if (e.touches.length < 2) {
+        isPinching = false;
+      }
+      return;
     }
-    lastTap = now;
+    // 双击重置：需要确保不是刚结束捏合，且是单指快速点击
+    var now = Date.now();
+    if (e.touches.length === 0 && now - pinchEndTime > 500) {
+      if (now - lastTouchEndTime < 300 && lastTouchCount === 1) {
+        updateScale(1);
+        currentScale = 1;
+        setTimeout(function(){ scroll.scrollLeft = 0; scroll.scrollTop = 0; }, 50);
+      }
+      lastTouchEndTime = now;
+      lastTouchCount = e.changedTouches.length;
+    }
+  });
+
+  wrapper.addEventListener('touchcancel', function() {
+    isPinching = false;
   });
 
   // 鼠标滚轮缩放（桌面调试用）
-  wrapper.addEventListener('wheel', (e) => {
+  wrapper.addEventListener('wheel', function(e) {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      var delta = e.deltaY > 0 ? -0.1 : 0.1;
       updateScale(currentScale + delta);
     }
   }, { passive: false });
 
   // 窗口大小变化时同步
-  window.addEventListener('resize', () => {
-    setTimeout(syncHeader, 100);
+  window.addEventListener('resize', function() {
+    setTimeout(function(){ applyScale(); }, 100);
   });
 
   // 暴露全局方法供渲染后调用
-  window._syncHeader = syncHeader;
-  window._resetZoom = () => { currentScale = 1; container.style.zoom = 1; setTimeout(syncHeader, 50); };
+  window._syncHeader = function() { applyScale(); };
+  window._resetZoom = function() { currentScale = 1; applyScale(); setTimeout(function(){ scroll.scrollLeft = 0; }, 50); };
 })();
 
 // ==================== 初始化 ====================
@@ -1672,6 +1698,8 @@ function init() {
   document.getElementById('dateText').textContent = state.dateStr;
   renderBrands();
   renderTable();
+  // 初始化缩放容器尺寸
+  setTimeout(function() { if (window._syncHeader) window._syncHeader(); }, 200);
 }
 
 // 防止双击缩放
