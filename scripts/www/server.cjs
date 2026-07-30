@@ -627,6 +627,49 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`  本机访问:   http://localhost:${PORT}`);
   console.log(`  局域网访问: http://<本机IP>:${PORT}`);
   console.log(`  TTS 代理:   http://localhost:${PORT}/tts-proxy`);
+  console.log(`  健康检查:   http://localhost:${PORT}/tts-health`);
   console.log(`  LLM 代理:   http://localhost:${PORT}/llm-proxy`);
   console.log(`============================================\n`);
+});
+
+// ========== 防崩溃处理：确保服务长期运行 ==========
+
+// 捕获未处理的 Promise rejection（防止 TTS/LLM 异步操作崩溃服务器）
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Server] 未处理的 Promise Rejection:", reason);
+  // 不退出进程，仅记录错误
+});
+
+// 捕获未处理的同步异常
+process.on("uncaughtException", (err) => {
+  console.error("[Server] 未处理的异常:", err.message);
+  console.error(err.stack);
+  // 记录错误但不退出，让服务继续运行
+  // 如果是严重错误（如端口占用），keep_alive.cjs 守护进程会自动重启
+});
+
+// 捕获 HTTP 请求中的异常（防止客户端异常断开导致崩溃）
+server.on("clientError", (err, socket) => {
+  console.warn("[Server] 客户端错误:", err.message);
+  try {
+    socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+  } catch {
+    // socket 已关闭，忽略
+  }
+});
+
+// 优雅退出
+process.on("SIGINT", () => {
+  console.log("\n[Server] 收到退出信号，正在关闭...");
+  server.close(() => {
+    console.log("[Server] 已关闭");
+    process.exit(0);
+  });
+  // 5 秒后强制退出
+  setTimeout(() => process.exit(0), 5000);
+});
+
+process.on("SIGTERM", () => {
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000);
 });
