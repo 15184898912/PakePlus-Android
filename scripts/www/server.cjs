@@ -321,9 +321,9 @@ function synthesizeViaWorker(text, voice, rate, pitch) {
     const tmpTextFile = path.join(os.tmpdir(), `tts_text_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`);
     const workerScript = path.join(__dirname, "tts_worker.cjs");
 
-    // ★ 将文本写入临时文件，避免命令行参数编码问题
+    // ★ 将文本写入临时文件，使用 base64 编码避免编码问题
     try {
-      fs.writeFileSync(tmpTextFile, text, "utf-8");
+      fs.writeFileSync(tmpTextFile, Buffer.from(text, "utf-8").toString("base64"));
     } catch (e) {
       reject(new Error(`写入文本文件失败: ${e.message}`));
       return;
@@ -459,7 +459,7 @@ async function handleTtsProxy(req, res) {
 
   console.log(`[TTS Proxy] 开始合成: voice=${voice}, rate=${rateStr}, pitch=${pitchStr}, text长度=${text.length}`);
 
-  // ★ 方案 1：优先使用 tts_worker 子进程（最可靠，解决进程内 WebSocket 不收音频的问题）
+  // ★ 方案 1：优先使用 tts_worker 子进程（最可靠，独立进程 WebSocket 连接稳定）
   try {
     const audioData = await synthesizeViaWorker(text, voice, rateStr, pitchStr);
     res.writeHead(200, {
@@ -470,10 +470,24 @@ async function handleTtsProxy(req, res) {
     res.end(audioData);
     return;
   } catch (workerErr) {
-    console.warn(`[TTS Proxy] tts_worker 失败: ${workerErr.message}，回退到 Python`);
+    console.warn(`[TTS Proxy] tts_worker 失败: ${workerErr.message}，回退到进程内 WebSocket`);
   }
 
-  // 方案 2：回退到 Python edge-tts CLI（需要安装 Python + edge_tts 包）
+  // ★ 方案 2：进程内 WebSocket 直连（tts_worker 失败时的可靠回退）
+  try {
+    const audioData = await synthesizeViaWebSocket(text, voice, rateStr, pitchStr);
+    res.writeHead(200, {
+      "Content-Type": "audio/mp3",
+      "Access-Control-Allow-Origin": "*",
+      "Content-Length": audioData.length,
+    });
+    res.end(audioData);
+    return;
+  } catch (wsErr) {
+    console.warn(`[TTS Proxy] 进程内 WebSocket 失败: ${wsErr.message}，回退到 Python`);
+  }
+
+  // 方案 3：最后回退到 Python edge-tts CLI（需要安装 Python + edge_tts 包）
   try {
     const audioData = await synthesizeViaPython(text, voice, rateStr, pitchStr);
     res.writeHead(200, {
@@ -483,7 +497,7 @@ async function handleTtsProxy(req, res) {
     });
     res.end(audioData);
   } catch (pyErr) {
-    console.error("[TTS Proxy] Python 也失败:", pyErr.message);
+    console.error("[TTS Proxy] 所有方案均失败:", pyErr.message);
     res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify({ error: `TTS 合成失败: ${pyErr.message}` }));
   }
@@ -544,6 +558,22 @@ async function handleLlmProxy(req, res) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
+
+  // ★ TTS 健康检查（轻量级，用于客户端预检服务是否可用）
+  if (pathname === "/tts-health" || pathname === "/api/tts-health") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-cache",
+    });
+    res.end(JSON.stringify({
+      status: "ok",
+      service: "tts-proxy",
+      timestamp: Date.now(),
+      methods: ["worker", "websocket", "python"],
+    }));
+    return;
+  }
 
   // TTS 代理（同时支持 /tts-proxy 和 /api/tts 两个路径）
   if (pathname === "/tts-proxy" || pathname === "/api/tts") {
