@@ -28,7 +28,9 @@ const outputFile = process.argv[6] || "";
 let text = "";
 if (useFile && arg1) {
   try {
-    text = fs.readFileSync(arg1, "utf-8");
+    // ★ 读取 base64 编码的文本并解码为 UTF-8，避免编码问题
+    const raw = fs.readFileSync(arg1, "ascii");
+    text = Buffer.from(raw, "base64").toString("utf-8");
     console.error(`[Worker] 从文件读取文本: ${text.length} 字`);
   } catch (e) {
     console.log(`ERROR:读取文本文件失败: ${e.message}`);
