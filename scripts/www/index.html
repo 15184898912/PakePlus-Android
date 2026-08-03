@@ -138,7 +138,7 @@ body{background:#000;font-family:var(--font);min-height:100vh;overflow:hidden}
 .sc-step{flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px 8px;text-align:center}
 .sc-step-num{font-size:11px;color:rgba(255,255,255,.7)}
 .sc-step-txt{font-size:12px;font-weight:600;color:#fff;margin-top:2px}
-.sc-body{padding:16px;background:var(--bg-black);min-height:400px}
+.sc-body{padding:16px;padding-bottom:80px;background:var(--bg-black);min-height:400px}
 .sc-section{margin-bottom:20px}
 .sc-sec-title{font-size:14px;font-weight:600;color:var(--tw);margin-bottom:10px}
 .voice-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
@@ -157,7 +157,7 @@ body{background:#000;font-family:var(--font);min-height:100vh;overflow:hidden}
 .er-label{font-size:14px;color:var(--tw)}
 .er-value{font-size:13px;color:var(--tg)}
 .er-arrow{color:var(--td)}
-.sc-bottom{position:sticky;bottom:0;background:var(--bg-dark);padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px}
+.sc-bottom{position:fixed;bottom:68px;left:0;right:0;background:var(--bg-dark);padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px;z-index:80}
 .stepper{display:flex;align-items:center;gap:10px;background:var(--bg-card);border-radius:999px;padding:4px 10px}
 .stepper-btn{width:28px;height:28px;border-radius:50%;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;color:var(--tw);font-size:16px;cursor:pointer}
 .stepper-val{font-size:16px;font-weight:600;color:var(--tw);min-width:24px;text-align:center}
@@ -1005,7 +1005,7 @@ body{background:#000;font-family:var(--font);min-height:100vh;overflow:hidden}
       <label class="form-label">关于</label>
       <div class="form-input" style="display:flex;justify-content:space-between;align-items:center">
         <span>版本号</span>
-        <span style="color:var(--td)">v2.9.0</span>
+        <span style="color:var(--td)">v2.9.1</span>
       </div>
       <div class="form-input" style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;cursor:pointer" onclick="showAboutUs()">
         <span>关于我们</span>
@@ -2209,31 +2209,17 @@ function getSelectedVoice() {
   return VOICES[selectedVoice] || VOICES[0];
 }
 
-// 真实语音试听 - 使用Web Speech API 调用系统内置真人语音
+// 真实语音试听 - 优先使用本地TTS服务器，回退到系统SpeechSynthesis
 function previewVoice(idx, btnEl) {
   // 如果正在播放同一个语音，停止
   if (speakingVoiceIdx === idx) {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    speakingVoiceIdx = -1;
-    restoreBgmVolume();
-    renderVoiceScroll();
+    stopPreviewVoice();
     return;
   }
   // 停止之前的播放
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
+  stopPreviewVoice();
   speakingVoiceIdx = idx;
   renderVoiceScroll();
-  
-  if (!window.speechSynthesis) {
-    showToast('您的浏览器不支持语音合成功能，请使用Chrome/Edge浏览器');
-    speakingVoiceIdx = -1;
-    renderVoiceScroll();
-    return;
-  }
   
   // 播放语音时降低BGM音量（侧链闪避）
   duckBgmForVoice();
@@ -2246,7 +2232,6 @@ function previewVoice(idx, btnEl) {
   } else {
     v = VOICES[idx];
   }
-  var utter = new SpeechSynthesisUtterance();
   // 试听文案 - 根据音色类型使用不同的示例文案
   var sampleTexts = {
     '抖音小姐姐': '大家好呀，今天给大家推荐一款超好用的产品，保证你用了都说好！',
@@ -2259,26 +2244,103 @@ function previewVoice(idx, btnEl) {
     '魔湘玉': '来来来，尝尝我们家的招牌菜，吃了保你还想来，实在人做实在事！',
     '魔知夏': '知识改变命运，学习成就未来。今天我们来聊一聊这个话题。'
   };
-  utter.text = sampleTexts[v.name] || (v.isCloned ? '大家好，这是我的克隆声音试听，感谢使用正商诸葛AI。' : '大家好，这是一段配音试听示例。');
+  var sampleText = sampleTexts[v.name] || (v.isCloned ? '大家好，这是我的克隆声音试听，感谢使用正商诸葛AI。' : '大家好，这是一段配音试听示例。');
+  
+  // 优先尝试本地TTS服务器（音质更好，支持神经语音）
+  var ttsVoice = (v.voicePref === 'male') ? 'male' : 'female';
+  var ttsRate = (voiceSpeed || 1.0) * (v.rate || 1.0);
+  ttsRate = Math.max(0.5, Math.min(2.0, ttsRate));
+  var ttsUrl = 'http://127.0.0.1:8765/tts?text=' + encodeURIComponent(sampleText) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
+  
+  console.log('[试听] 尝试本地TTS服务器...');
+  var ttsAudio = new Audio();
+  ttsAudio.src = ttsUrl;
+  ttsAudio.volume = voiceVolume / 100;
+  ttsAudio.oncanplay = function() {
+    console.log('[试听] 本地TTS音频已就绪');
+  };
+  ttsAudio.onplay = function() {
+    console.log('[试听] 本地TTS开始播放');
+  };
+  ttsAudio.onended = function() {
+    speakingVoiceIdx = -1;
+    restoreBgmVolume();
+    renderVoiceScroll();
+  };
+  ttsAudio.onerror = function() {
+    console.warn('[试听] 本地TTS不可用，回退到系统语音合成');
+    _previewWithSystemTTS(idx, v, sampleText);
+  };
+  
+  // 设置超时：如果2秒内无法加载，回退到系统TTS
+  var ttsTimeout = setTimeout(function() {
+    if (speakingVoiceIdx === idx && ttsAudio.readyState < 2) {
+      console.warn('[试听] 本地TTS超时，回退到系统语音合成');
+      try { ttsAudio.pause(); } catch(e) {}
+      _previewWithSystemTTS(idx, v, sampleText);
+    }
+  }, 2000);
+  
+  // 播放
+  var playPromise = ttsAudio.play();
+  if (playPromise) {
+    playPromise.then(function() {
+      clearTimeout(ttsTimeout);
+      console.log('[试听] 本地TTS播放成功');
+    }).catch(function(e) {
+      clearTimeout(ttsTimeout);
+      console.warn('[试听] 本地TTS播放失败:', e.message, '，回退到系统语音合成');
+      _previewWithSystemTTS(idx, v, sampleText);
+    });
+  }
+  
+  // 保存引用以便停止
+  window.__previewAudio = ttsAudio;
+}
+
+// 停止试听播放
+function stopPreviewVoice() {
+  if (window.__previewAudio) {
+    try { window.__previewAudio.pause(); } catch(e) {}
+    window.__previewAudio = null;
+  }
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  speakingVoiceIdx = -1;
+  restoreBgmVolume();
+  renderVoiceScroll();
+}
+
+// 使用系统SpeechSynthesis试听（回退方案）
+function _previewWithSystemTTS(idx, v, sampleText) {
+  if (!window.speechSynthesis) {
+    showToast('语音服务不可用，请确保已启动TTS服务或使用Chrome浏览器');
+    speakingVoiceIdx = -1;
+    restoreBgmVolume();
+    renderVoiceScroll();
+    return;
+  }
+  
+  window.speechSynthesis.cancel();
+  
+  var utter = new SpeechSynthesisUtterance();
+  utter.text = sampleText;
   utter.lang = 'zh-CN';
-  // 强制使用最大音量（Web Speech API上限为1.0）
   utter.rate = voiceSpeed * (v.rate || 1.0);
   utter.pitch = v.pitch || 1.0;
-  utter.volume = 1.0; // 始终使用最大音量
+  utter.volume = voiceVolume / 100;
   
-  // 尝试匹配系统语音 - 调用系统内置真人语音引擎
   var voices = window.speechSynthesis.getVoices();
   if (voices.length === 0) {
-    // 语音列表可能还没加载，等待加载后重试
     window.speechSynthesis.onvoiceschanged = function() {
       _doPreviewVoice(idx, v, utter);
     };
-    // 同时尝试直接获取
     setTimeout(function() {
       if (speakingVoiceIdx === idx) {
         _doPreviewVoice(idx, v, utter);
       }
-    }, 200);
+    }, 300);
     return;
   }
   _doPreviewVoice(idx, v, utter);
@@ -2598,7 +2660,14 @@ function toggleBgmPlay(i, el) {
   
   // 使用共享的audio元素
   bgmAudioEl = document.getElementById('audio-bgm');
-  bgmAudioEl.src = bgm.url;
+  // 使用绝对路径确保PWA安装后也能正确加载BGM文件
+  var bgmUrl = bgm.url;
+  if (bgmUrl.indexOf('http') !== 0) {
+    // 相对路径转绝对路径
+    var baseHref = location.href.substring(0, location.href.lastIndexOf('/') + 1);
+    bgmUrl = baseHref + bgmUrl;
+  }
+  bgmAudioEl.src = bgmUrl;
   bgmAudioEl.volume = bgmVolume / 100; // 直接使用 volume 属性控制音量（0.0-1.0）
   bgmAudioEl.loop = true;
   
@@ -3860,7 +3929,7 @@ function showAboutUs() {
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
     '<span style="font-size:14px;color:var(--tg)">版本号</span>' +
-    '<span style="font-size:14px;color:var(--td)">v2.9.0</span>' +
+    '<span style="font-size:14px;color:var(--td)">v2.9.1</span>' +
     '</div>';
   document.getElementById('info-overlay').classList.add('show');
 }
@@ -4126,7 +4195,14 @@ function _loadAndRender(videoMaterials, imageMaterials, text, tplName, voiceInfo
     var titleStyle = (selectedTitle >= 0) ? TITLE_STYLES[selectedTitle] : null;
     var bgmUrl = '';
     if (bgmVal && bgmVal !== '点击选择' && selectedBgm >= 0) {
-      bgmUrl = BGM_LIST[selectedBgm].url;
+      // 使用绝对路径确保PWA安装后也能正确加载BGM
+      var rawBgmUrl = BGM_LIST[selectedBgm].url;
+      if (rawBgmUrl.indexOf('http') !== 0) {
+        var baseHref = location.href.substring(0, location.href.lastIndexOf('/') + 1);
+        bgmUrl = baseHref + rawBgmUrl;
+      } else {
+        bgmUrl = rawBgmUrl;
+      }
     }
     
     // 加载视频素材
@@ -4620,8 +4696,12 @@ function startVideoRecording(stream, text, tplName, voiceInfo, subStyle, titleSt
     } else if (window.speechSynthesis && voiceInfo) {
       // 回退：使用系统TTS（通过扬声器播放，不会被录入视频）
       console.warn('[配音] 本地TTS不可用，使用系统SpeechSynthesis（不录入视频）');
-      showToast('提示：TTS服务未启动，配音仅通过扬声器播放，不会录入视频');
+      showToast('提示：本地TTS服务未启动，配音仅通过扬声器播放，不会录入视频。请运行start-tts.bat启动TTS服务');
       playSystemTTS();
+    } else {
+      // 无任何TTS可用，继续生成视频但无配音
+      console.warn('[配音] 无TTS可用，视频将无配音');
+      showToast('提示：无配音服务可用，视频将仅包含背景音乐和字幕');
     }
     
     // 系统TTS回退函数（仅扬声器播放，不录入视频）
@@ -5737,7 +5817,7 @@ function gerowPreview() {
   }
   
   if (!window.speechSynthesis) {
-    showToast('您的浏览器不支持语音合成');
+    showToast('语音合成不可用，请启动本地TTS服务');
     return;
   }
   
@@ -6458,8 +6538,8 @@ function init() {
 
     // 创建内联Service Worker - v5版本，强制网络优先
     var swCode = `
-      var CACHE_NAME = 'zhushang-zhuge-v27';
-      var CACHE_VERSION = '27.0.0';
+      var CACHE_NAME = 'zhushang-zhuge-v28';
+      var CACHE_VERSION = '28.0.0';
       self.addEventListener('install', function(e) {
         self.skipWaiting();
         e.waitUntil(caches.open(CACHE_NAME).then(function(cache) {
