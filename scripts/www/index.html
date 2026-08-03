@@ -145,7 +145,7 @@ body{background:#000;font-family:var(--font);min-height:100vh;overflow:hidden}
 .voice-scroll::-webkit-scrollbar{display:none}
 .voice-item{flex-shrink:0;width:80px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
 .voice-avatar{width:60px;height:60px;border-radius:50%;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid transparent;position:relative}
-.voice-item.selected .voice-avatar{border-color:var(--acc-blue);box-shadow:0 0 10px rgba(79,195,247,.3)}
+.voice-item.selected .voice-avatar{border-color:var(--acc-blue);box-shadow:0 0 0 3px rgba(79,195,247,.25),0 0 16px rgba(79,195,247,.5);animation:voiceGlow 2s ease-in-out infinite}
 .voice-name{font-size:11px;color:var(--tg);text-align:center}
 .voice-item.selected .voice-name{color:var(--acc-blue)}
 .voice-add{width:60px;height:60px;border-radius:50%;border:2px dashed var(--td);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--td)}
@@ -429,6 +429,7 @@ body{background:#000;font-family:var(--font);min-height:100vh;overflow:hidden}
 .voice-play-btn{width:24px;height:24px;border-radius:50%;background:rgba(79,195,247,.15);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--acc-blue);margin-top:4px;cursor:pointer;border:1px solid rgba(79,195,247,.3)}
 .voice-play-btn.playing{background:var(--acc-blue);color:#fff;animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes voiceGlow{0%,100%{box-shadow:0 0 0 3px rgba(79,195,247,.25),0 0 16px rgba(79,195,247,.5)}50%{box-shadow:0 0 0 5px rgba(79,195,247,.35),0 0 24px rgba(79,195,247,.7)}}
 .bgm-audio-row{display:flex;align-items:center;gap:8px;margin-top:6px}
 .bgm-audio-row audio{height:32px;flex:1;border-radius:14px;filter:invert(0.9) hue-rotate(180deg)}
 .bgm-play-btn{width:36px;height:36px;border-radius:50%;background:rgba(79,195,247,.12);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--acc-blue);cursor:pointer;flex-shrink:0}
@@ -1005,7 +1006,7 @@ body{background:#000;font-family:var(--font);min-height:100vh;overflow:hidden}
       <label class="form-label">关于</label>
       <div class="form-input" style="display:flex;justify-content:space-between;align-items:center">
         <span>版本号</span>
-        <span style="color:var(--td)">v2.9.3</span>
+        <span style="color:var(--td)">v2.9.4</span>
       </div>
       <div class="form-input" style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;cursor:pointer" onclick="showAboutUs()">
         <span>关于我们</span>
@@ -1717,6 +1718,184 @@ function isPwaMode() {
          window.navigator.standalone === true;
 }
 
+// ==================== TTS服务可用性检测与域名配置提醒 ====================
+// 等效于小程序的域名白名单配置提醒
+// 检测TTS服务器是否可访问，并输出配置指导日志
+function checkTtsServiceAvailability() {
+  var ttsBaseUrl = getTtsBaseUrl();
+  var isDev = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
+  var isPWA = isPwaMode();
+  
+  console.log('========================================');
+  console.log('[TTS配置] TTS服务地址:', ttsBaseUrl);
+  console.log('[TTS配置] 当前模式:', isPWA ? 'PWA(手机安装版)' : '浏览器', '|', isDev ? '开发环境' : '生产环境');
+  
+  if (isDev) {
+    console.log('[TTS配置] 开发环境：TTS服务应在本地运行(start-tts.bat)');
+  } else {
+    console.warn('[TTS配置] 生产环境提醒：');
+    console.warn('  1. 确保TTS服务器(tts-server.py)正在运行，且监听0.0.0.0:8765');
+    console.warn('  2. 手机与电脑必须在同一WiFi局域网下');
+    console.warn('  3. 电脑防火墙需放行8765端口(TCP入站)');
+    console.warn('  4. 如部署到服务器，请在服务器上运行tts-server.py并配置反向代理');
+    console.warn('  5. BGM音频文件需与app.html同目录(bgm/文件夹下)');
+  }
+  console.log('========================================');
+  
+  // 异步检测TTS服务是否可用
+  fetch(ttsBaseUrl + '/health', { method: 'GET' })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+      if (data.status === 'ok' && data.engine_available) {
+        console.log('[TTS配置] ✓ TTS服务可用, 引擎:', data.engine, ', 语音数:', (data.voices || []).length);
+      } else {
+        console.warn('[TTS配置] ✗ TTS服务异常:', data.engine_error || '引擎不可用');
+        console.warn('[TTS配置] 请检查 .env 文件中 TTS_ENGINE 配置，并确保 edge-tts 已安装');
+      }
+    })
+    .catch(function(e) {
+      console.warn('[TTS配置] ✗ TTS服务不可达:', e.message);
+      console.warn('[TTS配置] 请在电脑上运行 start-tts.bat 启动TTS语音服务');
+      if (!isDev) {
+        console.warn('[TTS配置] 手机访问提示：确保电脑IP正确，当前检测地址:', ttsBaseUrl);
+      }
+    });
+  
+  // 预加载BGM文件到本地缓存
+  setTimeout(function() {
+    preloadBgmFiles();
+  }, 2000);
+}
+
+// ==================== BGM音频预下载缓存机制 ====================
+// 等效于小程序的 wx.downloadFile + 本地缓存策略
+// 在PWA中：fetch -> Blob -> ObjectURL（内存缓存）+ IndexedDB（持久缓存）
+var bgmBlobCache = {}; // 内存缓存：{ 'bgm/song1.mp3': blobUrl }
+
+// 初始化IndexedDB用于持久化BGM缓存
+function _initBgmDB() {
+  return new Promise(function(resolve, reject) {
+    if (!window.indexedDB) { resolve(null); return; }
+    var req = indexedDB.open('bgm-cache-db', 1);
+    req.onupgradeneeded = function(e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('bgm-blobs')) {
+        db.createObjectStore('bgm-blobs', { keyPath: 'url' });
+      }
+    };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror = function(e) { resolve(null); };
+  });
+}
+
+// 从IndexedDB获取缓存的BGM Blob
+function _getBgmFromDB(db, url) {
+  return new Promise(function(resolve) {
+    if (!db) { resolve(null); return; }
+    try {
+      var tx = db.transaction(['bgm-blobs'], 'readonly');
+      var store = tx.objectStore('bgm-blobs');
+      var req = store.get(url);
+      req.onsuccess = function(e) {
+        var result = e.target.result;
+        resolve(result ? result.blob : null);
+      };
+      req.onerror = function() { resolve(null); };
+    } catch(e) { resolve(null); }
+  });
+}
+
+// 保存BGM Blob到IndexedDB
+function _saveBgmToDB(db, url, blob) {
+  if (!db) return;
+  try {
+    var tx = db.transaction(['bgm-blobs'], 'readwrite');
+    var store = tx.objectStore('bgm-blobs');
+    store.put({ url: url, blob: blob, ts: Date.now() });
+  } catch(e) { console.warn('[BGM缓存] 保存到IndexedDB失败:', e); }
+}
+
+// 核心函数：获取BGM的本地Blob URL（等效于wx.downloadFile + wxfile://路径）
+// 优先级：内存缓存 > IndexedDB持久缓存 > 网络下载
+function getBgmBlobUrl(bgmRelativeUrl) {
+  // 1. 检查内存缓存
+  if (bgmBlobCache[bgmRelativeUrl]) {
+    console.log('[BGM缓存] 命中内存缓存:', bgmRelativeUrl);
+    return Promise.resolve(bgmBlobCache[bgmRelativeUrl]);
+  }
+  
+  // 2. 构建完整URL
+  var fullUrl = bgmRelativeUrl;
+  if (fullUrl.indexOf('http') !== 0) {
+    fullUrl = getBaseUrl() + fullUrl;
+  }
+  
+  // 3. 检查IndexedDB持久缓存
+  return _initBgmDB().then(function(db) {
+    return _getBgmFromDB(db, bgmRelativeUrl);
+  }).then(function(cachedBlob) {
+    if (cachedBlob && cachedBlob.size > 1000) {
+      // 命中IndexedDB缓存，创建Blob URL
+      console.log('[BGM缓存] 命中IndexedDB缓存:', bgmRelativeUrl, '大小:', cachedBlob.size);
+      var blobUrl = URL.createObjectURL(cachedBlob);
+      bgmBlobCache[bgmRelativeUrl] = blobUrl;
+      return blobUrl;
+    }
+    
+    // 4. 网络下载（等效于wx.downloadFile）
+    console.log('[BGM缓存] 网络下载:', fullUrl);
+    return fetch(fullUrl)
+      .then(function(resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.blob();
+      })
+      .then(function(blob) {
+        if (blob.size < 1000) throw new Error('音频数据过小: ' + blob.size + ' bytes');
+        console.log('[BGM缓存] 下载成功:', bgmRelativeUrl, '大小:', blob.size, 'bytes');
+        // 创建Blob URL（等效于wxfile://临时路径）
+        var blobUrl = URL.createObjectURL(blob);
+        bgmBlobCache[bgmRelativeUrl] = blobUrl;
+        // 保存到IndexedDB持久缓存
+        _initBgmDB().then(function(db) {
+          _saveBgmToDB(db, bgmRelativeUrl, blob);
+        });
+        return blobUrl;
+      });
+  });
+}
+
+// 预下载所有BGM文件（应用启动时调用，后台静默执行）
+function preloadBgmFiles() {
+  console.log('[BGM预下载] 开始预加载', BGM_LIST.length, '个BGM文件...');
+  BGM_LIST.forEach(function(bgm, idx) {
+    getBgmBlobUrl(bgm.url).then(function(blobUrl) {
+      console.log('[BGM预下载] ✓', bgm.url, '已缓存');
+    }).catch(function(e) {
+      console.warn('[BGM预下载] ✗', bgm.url, '失败:', e.message);
+    });
+  });
+}
+
+// 获取TTS音频的Blob URL（用于渲染时录入视频）
+// 等效于 wx.downloadFile：先下载到本地Blob，再用blob: URL播放
+function getTtsBlobUrl(text, voicePref) {
+  var ttsBaseUrl = getTtsBaseUrl();
+  var ttsVoice = (voicePref === 'male') ? 'male' : 'female';
+  var ttsUrl = ttsBaseUrl + '/api/tts/synthesize?text=' + encodeURIComponent(text.substring(0, 2000)) + '&voice=' + ttsVoice + '&rate=1.0';
+  
+  console.log('[TTS缓存] 下载音频到本地Blob:', ttsUrl.substring(0, 80));
+  return fetch(ttsUrl)
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('TTS HTTP ' + resp.status);
+      return resp.blob();
+    })
+    .then(function(blob) {
+      if (blob.size < 100) throw new Error('TTS数据为空');
+      console.log('[TTS缓存] 下载成功:', blob.size, 'bytes');
+      return URL.createObjectURL(blob);
+    });
+}
+
 const VOICES=[
 {name:"抖音小姐姐",gender:"female",desc:"甜美清新的年轻女声，适合美食、美妆、生活类口播，亲和力强。",rate:1.0,pitch:1.3,voicePref:"female"},
 {name:"魔云熙",gender:"female",desc:"温柔知性的成熟女声，适合人设类、故事类口播，富有感染力。",rate:0.9,pitch:1.0,voicePref:"female"},
@@ -2295,8 +2474,7 @@ function deleteCloneVoice(idx) {
       var realIdx = VOICES.length + idx;
       if (selectedVoice === realIdx) selectedVoice = 0;
       if (speakingVoiceIdx === realIdx) {
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        speakingVoiceIdx = -1;
+        stopPreviewVoice();
       }
       clonedVoices.splice(idx, 1);
       renderVoiceScroll();
@@ -2351,51 +2529,90 @@ function previewVoice(idx, btnEl) {
   };
   var sampleText = sampleTexts[v.name] || (v.isCloned ? '大家好，这是我的克隆声音试听，感谢使用正商诸葛AI。' : '大家好，这是一段配音试听示例。');
   
-  // ===== 第1级：尝试本地TTS服务器 =====
+  // ===== 通过后端TTS服务合成，先下载到本地Blob再播放（等效于wx.downloadFile + wxfile://路径）=====
   var ttsVoice = (v.voicePref === 'male') ? 'male' : 'female';
   var ttsRate = (voiceSpeed || 1.0) * (v.rate || 1.0);
   ttsRate = Math.max(0.5, Math.min(2.0, ttsRate));
   var ttsBaseUrl = getTtsBaseUrl();
-  var ttsUrl = ttsBaseUrl + '/tts?text=' + encodeURIComponent(sampleText) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
+  var ttsUrl = ttsBaseUrl + '/api/tts/synthesize?text=' + encodeURIComponent(sampleText) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
   
-  console.log('[试听] 第1级：尝试本地TTS服务器:', ttsBaseUrl);
-  var ttsAudio = new Audio();
-  ttsAudio.crossOrigin = 'anonymous';
-  ttsAudio.src = ttsUrl;
-  ttsAudio.volume = voiceVolume / 100;
-  ttsAudio.oncanplay = function() { console.log('[试听] 本地TTS音频已就绪'); };
-  ttsAudio.onplay = function() { console.log('[试听] 本地TTS开始播放'); };
-  ttsAudio.onended = function() {
-    speakingVoiceIdx = -1;
-    restoreBgmVolume();
-    renderVoiceScroll();
-  };
-  ttsAudio.onerror = function() {
-    console.warn('[试听] 本地TTS不可用，尝试云端TTS');
-    _previewWithCloudTTS(idx, v, sampleText);
-  };
+  console.log('[试听] 通过后端TTS合成并下载到本地:', ttsBaseUrl);
   
-  // 设置超时：如果1.5秒内无法加载，回退到云端TTS
-  var ttsTimeout = setTimeout(function() {
-    if (speakingVoiceIdx === idx && ttsAudio.readyState < 2) {
-      console.warn('[试听] 本地TTS超时，尝试云端TTS');
-      try { ttsAudio.pause(); } catch(e) {}
-      _previewWithCloudTTS(idx, v, sampleText);
+  // fetch下载 → Blob → ObjectURL播放（确保音频先下载到本地再播放）
+  fetch(ttsUrl).then(function(resp) {
+    if (!resp.ok) throw new Error('TTS服务返回 HTTP ' + resp.status);
+    return resp.blob();
+  }).then(function(blob) {
+    if (blob.size < 100) throw new Error('TTS音频数据为空(size=' + blob.size + ')');
+    console.log('[试听] TTS音频下载成功:', blob.size, 'bytes, 类型:', blob.type);
+    
+    // 创建本地Blob URL（等效于wxfile://临时路径）
+    var blobUrl = URL.createObjectURL(blob);
+    var ttsAudio = new Audio();
+    ttsAudio.src = blobUrl;
+    ttsAudio.volume = voiceVolume / 100;
+    
+    ttsAudio.oncanplay = function() { console.log('[试听] TTS音频已就绪'); };
+    ttsAudio.onplay = function() { console.log('[试听] TTS开始播放'); };
+    ttsAudio.onended = function() {
+      speakingVoiceIdx = -1;
+      restoreBgmVolume();
+      renderVoiceScroll();
+      // 释放Blob URL
+      URL.revokeObjectURL(blobUrl);
+    };
+    
+    // 音频加载错误处理 - 显示具体错误码
+    ttsAudio.onerror = function(e) {
+      var errCode = (e.target && e.target.error) ? e.target.error.code : 'unknown';
+      var errMap = { 1: 'MEDIA_ERR_ABORTED(加载中止)', 2: 'MEDIA_ERR_NETWORK(网络错误)', 3: 'MEDIA_ERR_DECODE(解码失败)', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED(格式不支持)' };
+      var errMsg = errMap[errCode] || ('错误码:' + errCode);
+      console.error('[试听] 音频播放错误:', errMsg);
+      speakingVoiceIdx = -1;
+      restoreBgmVolume();
+      renderVoiceScroll();
+      showToast('音频加载失败[' + errMsg + ']，请检查网络或重试');
+      URL.revokeObjectURL(blobUrl);
+    };
+    
+    window.__previewAudio = ttsAudio;
+    
+    // 播放
+    var playPromise = ttsAudio.play();
+    if (playPromise) {
+      playPromise.then(function() {
+        console.log('[试听] TTS播放成功');
+      }).catch(function(e) {
+        console.warn('[试听] TTS播放失败:', e.name, e.message);
+        speakingVoiceIdx = -1;
+        restoreBgmVolume();
+        renderVoiceScroll();
+        if (e.name === 'NotAllowedError') {
+          showToast('浏览器阻止了自动播放，请再次点击试听按钮');
+        } else {
+          showToast('语音播放失败[' + e.name + ']：' + e.message);
+        }
+        URL.revokeObjectURL(blobUrl);
+      });
     }
-  }, 1500);
-  
-  // 播放
-  var playPromise = ttsAudio.play();
-  if (playPromise) {
-    playPromise.then(function() {
-      clearTimeout(ttsTimeout);
-      console.log('[试听] 本地TTS播放成功');
-    }).catch(function(e) {
-      clearTimeout(ttsTimeout);
-      console.warn('[试听] 本地TTS播放失败:', e.message, '，尝试云端TTS');
-      _previewWithCloudTTS(idx, v, sampleText);
-    });
-  }
+    
+    // 如果3秒内仍未开始播放，尝试云端TTS
+    var fallbackTimeout = setTimeout(function() {
+      if (speakingVoiceIdx === idx && ttsAudio.readyState < 2) {
+        console.warn('[试听] 本地TTS超时3s，尝试云端TTS');
+        try { ttsAudio.pause(); } catch(e) {}
+        _previewWithCloudTTS(idx, v, sampleText);
+      }
+    }, 3000);
+    
+    ttsAudio.onplaying = function() {
+      clearTimeout(fallbackTimeout);
+    };
+    
+  }).catch(function(e) {
+    console.warn('[试听] 本地TTS不可用:', e.message, '，尝试云端TTS');
+    _previewWithCloudTTS(idx, v, sampleText);
+  });
   
   // 保存引用以便停止
   window.__previewAudio = ttsAudio;
@@ -2416,17 +2633,23 @@ function _previewWithCloudTTS(idx, v, sampleText) {
       renderVoiceScroll();
     },
     function(e) { // onError
-      console.warn('[试听] 云端TTS也不可用，回退到系统语音合成');
-      _previewWithSystemTTS(idx, v, sampleText);
+      console.error('[试听] 云端TTS也不可用，TTS服务全部失败');
+      speakingVoiceIdx = -1;
+      restoreBgmVolume();
+      renderVoiceScroll();
+      showToast('语音服务不可用，请在电脑上运行start-tts.bat启动TTS服务，并确保手机与电脑同一WiFi');
     }
   );
   
-  // 设置超时：如果3秒内无法加载，回退到系统TTS
+  // 设置超时：如果3秒内无法加载，提示错误
   var cloudTimeout = setTimeout(function() {
     if (speakingVoiceIdx === idx && cloudAudio.readyState < 2) {
-      console.warn('[试听] 云端TTS超时，回退到系统语音合成');
+      console.warn('[试听] 云端TTS超时，TTS服务不可用');
       try { cloudAudio.pause(); } catch(e) {}
-      _previewWithSystemTTS(idx, v, sampleText);
+      speakingVoiceIdx = -1;
+      restoreBgmVolume();
+      renderVoiceScroll();
+      showToast('语音服务超时，请在电脑上运行start-tts.bat启动TTS服务');
     }
   }, 3000);
   
@@ -2444,50 +2667,9 @@ function stopPreviewVoice() {
     try { window.__previewAudio.pause(); } catch(e) {}
     window.__previewAudio = null;
   }
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
   speakingVoiceIdx = -1;
   restoreBgmVolume();
   renderVoiceScroll();
-}
-
-// 使用系统SpeechSynthesis试听（回退方案）
-function _previewWithSystemTTS(idx, v, sampleText) {
-  if (!window.speechSynthesis) {
-    showToast('语音服务不可用，请在电脑上运行start-tts.bat启动TTS服务');
-    speakingVoiceIdx = -1;
-    restoreBgmVolume();
-    renderVoiceScroll();
-    return;
-  }
-  
-  // 先取消之前的播放
-  window.speechSynthesis.cancel();
-  
-  var utter = new SpeechSynthesisUtterance();
-  utter.text = sampleText;
-  utter.lang = 'zh-CN';
-  utter.rate = (voiceSpeed || 1.0) * (v.rate || 1.0);
-  utter.pitch = v.pitch || 1.0;
-  utter.volume = voiceVolume / 100;
-  
-  // 获取可用语音列表
-  var voices = window.speechSynthesis.getVoices();
-  if (voices.length === 0) {
-    // 语音列表可能还未加载，等待加载后重试
-    window.speechSynthesis.onvoiceschanged = function() {
-      _doPreviewVoice(idx, v, utter);
-    };
-    // 同时设置超时，如果300ms后还没加载，直接尝试播放
-    setTimeout(function() {
-      if (speakingVoiceIdx === idx) {
-        _doPreviewVoice(idx, v, utter);
-      }
-    }, 300);
-    return;
-  }
-  _doPreviewVoice(idx, v, utter);
 }
 
 // BGM闪避：播放语音时降低BGM音量
@@ -2510,55 +2692,6 @@ function restoreBgmVolume() {
   }
 }
 
-function _doPreviewVoice(idx, v, utter) {
-  var voices = window.speechSynthesis.getVoices();
-  var matchedVoice = null;
-  // 优先匹配中文语音
-  var zhVoices = voices.filter(function(vc) { return vc.lang && vc.lang.toLowerCase().startsWith('zh'); });
-  if (v.voicePref === 'male') {
-    matchedVoice = zhVoices.find(function(vc) { return vc.name.includes('Male') || vc.name.includes('男'); }) || zhVoices[0];
-  } else {
-    matchedVoice = zhVoices.find(function(vc) { return vc.name.includes('Female') || vc.name.includes('女'); }) || zhVoices[0];
-  }
-  if (!matchedVoice && zhVoices.length > 0) {
-    matchedVoice = zhVoices[0];
-  }
-  // 如果没有中文语音，使用任何可用语音
-  if (!matchedVoice && voices.length > 0) {
-    console.warn('[试听] 未找到中文语音，使用默认语音:', voices[0].name);
-    matchedVoice = voices[0];
-  }
-  if (matchedVoice) {
-    utter.voice = matchedVoice;
-  }
-  
-  utter.onend = function() {
-    speakingVoiceIdx = -1;
-    restoreBgmVolume();
-    renderVoiceScroll();
-  };
-  utter.onerror = function(e) {
-    console.error('[试听] 系统TTS播放错误:', e);
-    speakingVoiceIdx = -1;
-    restoreBgmVolume();
-    renderVoiceScroll();
-    showToast('语音播放失败，请在电脑上运行start-tts.bat启动TTS服务');
-  };
-  
-  // iOS/Chrome需要延迟
-  setTimeout(function() {
-    try {
-      window.speechSynthesis.speak(utter);
-      console.log('[试听] 系统TTS开始播放, voice:', matchedVoice ? matchedVoice.name : 'default');
-    } catch(e) {
-      console.error('语音播放失败:', e);
-      speakingVoiceIdx = -1;
-      restoreBgmVolume();
-      renderVoiceScroll();
-    }
-  }, 100);
-}
-
 // ==================== 人声音量和语速控制 ====================
 function setVoiceVolFromClick(event, slider) {
   event.stopPropagation();
@@ -2566,9 +2699,9 @@ function setVoiceVolFromClick(event, slider) {
   var pos = (event.clientX - rect.left) / rect.width;
   voiceVolume = Math.max(0, Math.min(100, Math.round(pos * 100)));
   updateVoiceVolUI();
-  // 实时更新正在播放的语音音量
-  if (window.speechSynthesis && window.speechSynthesis.speaking) {
-    // Web Speech API 不支持实时调整音量，需要重新合成
+  // 实时更新正在播放的TTS音频音量
+  if (window.__previewAudio) {
+    window.__previewAudio.volume = voiceVolume / 100;
   }
 }
 
@@ -2733,31 +2866,29 @@ function callTemplate(cat, idx) {
   console.log('[调用模板] 使用模板原文案:', t.name, '已清除改写文案');
   // 返回智能云剪页面
   showPage('page-smart-cut');
-  // 播放语音预览 - 使用当前选中的配音音色和音量语速设置
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    var utter = new SpeechSynthesisUtterance(t.content);
-    utter.lang = 'zh-CN';
-    var v = getSelectedVoice();
-    if (v) {
-      utter.rate = voiceSpeed * (v.rate || 1.0);
-      utter.pitch = v.pitch || 1.0;
-      utter.volume = 1.0; // 强制最大音量
-    }
-    var voices = window.speechSynthesis.getVoices();
-    var zhVoices = voices.filter(function(vc) { return vc.lang && vc.lang.toLowerCase().startsWith('zh'); });
-    if (v && v.voicePref === 'male') {
-      utter.voice = zhVoices.find(function(vc) { return vc.name.includes('Male') || vc.name.includes('男'); }) || zhVoices[0];
-    } else {
-      utter.voice = zhVoices.find(function(vc) { return vc.name.includes('Female') || vc.name.includes('女'); }) || zhVoices[0];
-    }
-    if (!utter.voice && zhVoices.length > 0) utter.voice = zhVoices[0];
-    if (!utter.voice && voices.length > 0) utter.voice = voices[0];
-    setTimeout(function() {
-      window.speechSynthesis.speak(utter);
-    }, 100);
-  }
-  showToast('已调用模板：' + t.name + '\n\nAI正在用' + (getSelectedVoice() ? getSelectedVoice().name : '默认音色') + '生成配音预览...');
+  // 播放语音预览 - 通过后端TTS服务合成（fetch → Blob → 播放）
+  var v = getSelectedVoice();
+  var ttsVoice = (v && v.voicePref === 'male') ? 'male' : 'female';
+  var ttsRate = (voiceSpeed || 1.0) * (v ? (v.rate || 1.0) : 1.0);
+  ttsRate = Math.max(0.5, Math.min(2.0, ttsRate));
+  var ttsBaseUrl = getTtsBaseUrl();
+  var ttsUrl = ttsBaseUrl + '/api/tts/synthesize?text=' + encodeURIComponent(t.content.substring(0, 2000)) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
+  console.log('[调用模板] 通过后端TTS合成配音:', ttsBaseUrl);
+  fetch(ttsUrl).then(function(resp) {
+    if (!resp.ok) throw new Error('TTS HTTP ' + resp.status);
+    return resp.blob();
+  }).then(function(blob) {
+    if (blob.size < 100) throw new Error('TTS音频数据为空');
+    var blobUrl = URL.createObjectURL(blob);
+    var audio = new Audio(blobUrl);
+    audio.volume = voiceVolume / 100;
+    audio.play().catch(function(e) {
+      console.warn('[调用模板] TTS播放失败:', e.message);
+    });
+  }).catch(function(e) {
+    console.warn('[调用模板] TTS服务不可用:', e.message);
+  });
+  showToast('已调用模板：' + t.name + '\n\nAI正在用' + (v ? v.name : '默认音色') + '生成配音预览...');
 }
 
 // ==================== BGM列表 ====================
@@ -2810,49 +2941,55 @@ function toggleBgmPlay(i, el) {
   
   // 使用共享的audio元素
   bgmAudioEl = document.getElementById('audio-bgm');
-  // 使用getBaseUrl()确保PWA安装后也能正确加载BGM文件
-  var bgmUrl = bgm.url;
-  if (bgmUrl.indexOf('http') !== 0) {
-    bgmUrl = getBaseUrl() + bgmUrl;
-  }
-  console.log('[BGM] 加载URL:', bgmUrl);
-  bgmAudioEl.src = bgmUrl;
-  bgmAudioEl.volume = bgmVolume / 100; // 直接使用 volume 属性控制音量（0.0-1.0）
+  bgmAudioEl.volume = bgmVolume / 100;
   bgmAudioEl.loop = true;
   
-  // BGM加载错误处理
-  bgmAudioEl.onerror = function() {
-    console.error('[BGM] 音频加载失败:', bgmUrl);
-    playingBgmIdx = -1;
-    renderBgmList();
-    showToast('背景音乐加载失败，请检查网络连接或刷新页面重试');
-  };
-  
-  // 设置音量（不再使用 createMediaElementSource，避免 AudioContext 挂起导致静音）
-  updateBgmGain();
-  // 重置闪避状态，确保新播放的BGM音量正常
+  // 重置闪避状态
   _duckedBgmVolume = -1;
+  updateBgmGain();
   
   playingBgmIdx = i;
   renderBgmList();
   
-  // 播放
-  var playPromise = bgmAudioEl.play();
-  if (playPromise) {
-    playPromise.then(function() {
-      console.log('[BGM] 播放成功:', bgm.name);
-    }).catch(function(err) {
-      console.error('[BGM] 播放失败:', err);
-      playingBgmIdx = -1;
-      renderBgmList();
-      // 如果自动播放被阻止，提示用户点击播放
-      if (err.name === 'NotAllowedError') {
-        showToast('浏览器阻止了自动播放，请再次点击播放按钮即可播放背景音乐');
-      } else {
-        showToast('背景音乐播放失败：' + err.message);
-      }
-    });
-  }
+  // ===== 关键修复：通过Blob URL播放（等效于wx.downloadFile + wxfile://路径）=====
+  // 先下载到本地Blob，再用blob: URL赋值给audio.src，避免http请求被Service Worker拦截
+  getBgmBlobUrl(bgm.url).then(function(blobUrl) {
+    console.log('[BGM] 使用本地Blob URL播放:', bgm.name);
+    bgmAudioEl.src = blobUrl;
+    
+    // 播放
+    var playPromise = bgmAudioEl.play();
+    if (playPromise) {
+      playPromise.then(function() {
+        console.log('[BGM] 播放成功:', bgm.name);
+      }).catch(function(err) {
+        console.error('[BGM] 播放失败:', err.name, err.message);
+        playingBgmIdx = -1;
+        renderBgmList();
+        if (err.name === 'NotAllowedError') {
+          showToast('浏览器阻止了自动播放，请再次点击播放按钮');
+        } else {
+          showToast('背景音乐播放失败[' + err.name + ']：' + err.message);
+        }
+      });
+    }
+  }).catch(function(e) {
+    console.error('[BGM] 音频下载失败:', e.message);
+    playingBgmIdx = -1;
+    renderBgmList();
+    showToast('音频加载失败：' + e.message + '，请检查网络或重试');
+  });
+  
+  // BGM加载错误处理（详细错误码）
+  bgmAudioEl.onerror = function(e) {
+    var errCode = (e.target && e.target.error) ? e.target.error.code : 'unknown';
+    var errMap = { 1: 'MEDIA_ERR_ABORTED(加载中止)', 2: 'MEDIA_ERR_NETWORK(网络错误)', 3: 'MEDIA_ERR_DECODE(解码失败)', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED(格式不支持)' };
+    var errMsg = errMap[errCode] || ('错误码:' + errCode);
+    console.error('[BGM] 音频错误:', errMsg, 'src:', bgmAudioEl.src ? bgmAudioEl.src.substring(0, 80) : 'null');
+    playingBgmIdx = -1;
+    renderBgmList();
+    showToast('音频加载失败[' + errMsg + ']，请检查网络或重试');
+  };
   
   // 播放结束时重置状态
   bgmAudioEl.onpause = function() {
@@ -4086,7 +4223,7 @@ function showAboutUs() {
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
     '<span style="font-size:14px;color:var(--tg)">版本号</span>' +
-    '<span style="font-size:14px;color:var(--td)">v2.9.3</span>' +
+    '<span style="font-size:14px;color:var(--td)">v2.9.4</span>' +
     '</div>';
   document.getElementById('info-overlay').classList.add('show');
 }
@@ -4595,15 +4732,23 @@ function proceedWithVideoRender(text, tplName, voiceInfo, bgmUrl, subStyle, titl
     // ===== 并行加载BGM和TTS =====
     var loadPromises = [];
     
-    // 加载BGM - fetch本地MP3 + decodeAudioData
+    // 加载BGM - 通过Blob URL缓存机制加载（等效于wx.downloadFile + 本地播放）
     if (bgmUrl) {
       updateRenderProgress(20, '加载背景音乐...');
-      console.log('[音频] 加载BGM URL:', bgmUrl);
+      console.log('[音频] 加载BGM (通过缓存机制):', bgmUrl);
+      // 从bgmUrl中提取相对路径用于缓存查找
+      var bgmRelUrl = bgmUrl;
+      var baseUrl = getBaseUrl();
+      if (bgmRelUrl.indexOf(baseUrl) === 0) {
+        bgmRelUrl = bgmRelUrl.substring(baseUrl.length);
+      }
+      
       loadPromises.push(
-        fetch(bgmUrl)
-          .then(function(resp) {
-            if (!resp.ok) throw new Error('BGM HTTP ' + resp.status);
-            return resp.arrayBuffer();
+        getBgmBlobUrl(bgmRelUrl)
+          .then(function(blobUrl) {
+            console.log('[音频] BGM Blob URL已获取，开始解码...');
+            // 从Blob URL获取ArrayBuffer进行解码
+            return fetch(blobUrl).then(function(resp) { return resp.arrayBuffer(); });
           })
           .then(function(buf) {
             if (buf.byteLength < 100) throw new Error('BGM数据为空');
@@ -4639,7 +4784,7 @@ function proceedWithVideoRender(text, tplName, voiceInfo, bgmUrl, subStyle, titl
       ttsRate = Math.max(0.5, Math.min(2.0, ttsRate));
       var ttsText = text.substring(0, 2000);
       var ttsTimingUrl = getTtsBaseUrl() + '/tts-timing?text=' + encodeURIComponent(ttsText) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
-      var ttsFallbackUrl = getTtsBaseUrl() + '/tts?text=' + encodeURIComponent(ttsText) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
+      var ttsFallbackUrl = getTtsBaseUrl() + '/api/tts/synthesize?text=' + encodeURIComponent(ttsText) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
       
       console.log('[配音] 第1级：请求本地TTS服务, URL:', getTtsBaseUrl(), 'voice:', ttsVoice, 'len:', ttsText.length);
       updateRenderProgress(22, '生成配音音频...');
@@ -4668,8 +4813,8 @@ function proceedWithVideoRender(text, tplName, voiceInfo, bgmUrl, subStyle, titl
             return renderAudioCtx.decodeAudioData(bytes.buffer);
           })
           .catch(function(e) {
-            console.warn('[配音] /tts-timing 不可用，尝试 /tts 回退:', e.message);
-            // 回退到普通 /tts 接口（无时间戳）
+            console.warn('[配音] /tts-timing 不可用，尝试 /api/tts/synthesize 回退:', e.message);
+            // 回退到 /api/tts/synthesize 接口（无时间戳）
             return fetch(ttsFallbackUrl)
               .then(function(resp) {
                 if (!resp.ok) throw new Error('TTS服务返回 ' + resp.status);
@@ -4897,75 +5042,13 @@ function startVideoRecording(stream, text, tplName, voiceInfo, subStyle, titleSt
         if (window.__bgmGainNode) {
           window.__bgmGainNode.gain.setValueAtTime(0.4, renderAudioCtx.currentTime);
         }
-        playSystemTTS();
+        showToast('配音播放失败，视频将仅包含背景音乐和字幕。请检查TTS服务是否正常运行');
       }
       
-    } else if (window.speechSynthesis && voiceInfo) {
-      // 回退：使用系统TTS（通过扬声器播放，不会被录入视频）
-      console.warn('[配音] TTS服务不可用，使用系统SpeechSynthesis（不录入视频）');
-      showToast('提示：TTS服务不可用，配音仅通过扬声器播放，不会录入视频。请在电脑上运行start-tts.bat并确保手机与电脑同一WiFi');
-      playSystemTTS();
     } else {
-      // 无任何TTS可用，继续生成视频但无配音
-      console.warn('[配音] 无TTS可用，视频将无配音');
-      showToast('提示：无配音服务可用，视频将仅包含背景音乐和字幕');
-    }
-    
-    // 系统TTS回退函数（仅扬声器播放，不录入视频）
-    function playSystemTTS() {
-      if (!window.speechSynthesis || !voiceInfo) return;
-      console.log('[配音] 使用系统SpeechSynthesis播放(回退)');
-      window.__ttsUseSystem = true;
-      window.speechSynthesis.cancel();
-      var utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'zh-CN';
-      
-      var baseRate = voiceSpeed * (voiceInfo.rate || 1.0);
-      var estimatedDur = text.length * 0.35 / baseRate;
-      var targetRate = baseRate;
-      if (estimatedDur > renderDuration && renderDuration > 0) {
-        targetRate = baseRate * (estimatedDur / renderDuration);
-        targetRate = Math.min(targetRate, baseRate * 3.0);
-      }
-      targetRate = Math.max(0.3, Math.min(3.0, targetRate));
-      
-      utter.rate = targetRate;
-      utter.pitch = voiceInfo.pitch || 1.0;
-      utter.volume = 1.0;
-      
-      var voices = window.speechSynthesis.getVoices();
-      var zhVoices = voices.filter(function(vc) { return vc.lang && vc.lang.toLowerCase().startsWith('zh'); });
-      var matchedVoice = null;
-      if (voiceInfo.voicePref === 'male') {
-        matchedVoice = zhVoices.find(function(vc) { return vc.name.includes('Male') || vc.name.includes('男'); }) || zhVoices[0];
-      } else {
-        matchedVoice = zhVoices.find(function(vc) { return vc.name.includes('Female') || vc.name.includes('女'); }) || zhVoices[0];
-      }
-      if (!matchedVoice && zhVoices.length > 0) matchedVoice = zhVoices[0];
-      if (!matchedVoice && voices.length > 0) matchedVoice = voices[0];
-      if (matchedVoice) utter.voice = matchedVoice;
-      
-      utter.onstart = function() {
-        window.__ttsActive = true;
-        window.__ttsStartTime = performance.now() / 1000;
-        if (window.__bgmGainNode) window.__bgmGainNode.gain.value = 0.1;
-      };
-      utter.onend = function() {
-        window.__ttsActive = false;
-        window.__ttsEnded = true;
-        if (window.__bgmGainNode) window.__bgmGainNode.gain.value = 0.4;
-      };
-      utter.onerror = function(e) {
-        window.__ttsActive = false;
-        if (window.__bgmGainNode) window.__bgmGainNode.gain.value = 0.4;
-      };
-      utter.onboundary = function(event) {
-        if (event.charIndex !== undefined) {
-          window.__ttsCharIndex = event.charIndex || 0;
-        }
-      };
-      
-      window.speechSynthesis.speak(utter);
+      // TTS服务不可用，继续生成视频但无配音
+      console.warn('[配音] TTS服务不可用，视频将无配音');
+      showToast('提示：TTS服务不可用，视频将仅包含背景音乐和字幕。请在电脑上运行start-tts.bat并确保手机与电脑同一WiFi');
     }
     
     // ===== 播放用户上传的视频素材，逐帧绘制到Canvas =====
@@ -5181,8 +5264,6 @@ function startVideoRecording(stream, text, tplName, voiceInfo, subStyle, titleSt
         if (window.__bgmSourceNode) { try { window.__bgmSourceNode.stop(); } catch(e) {} }
         // 停止TTS（AudioBufferSourceNode）
         if (window.__ttsSourceNode) { try { window.__ttsSourceNode.stop(); } catch(e) {} }
-        // 停止系统语音（回退用）
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
         
         // 延迟停止MediaRecorder，确保最后的音频数据被写入
         setTimeout(function() {
@@ -6023,27 +6104,29 @@ function gerowPreview() {
     text = '欢迎使用Gerow-AI一键智能成片。请先完善企业信息库，AI将为您自动生成个性化爆款视频。';
   }
   
-  if (!window.speechSynthesis) {
-    showToast('语音合成不可用，请启动本地TTS服务');
-    return;
-  }
-  
-  window.speechSynthesis.cancel();
-  var utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'zh-CN';
+  // 通过后端TTS服务合成语音（fetch → Blob → 播放）
   var v = getSelectedVoice();
-  if (v) {
-    utter.rate = voiceSpeed * (v.rate || 1.0);
-    utter.pitch = v.pitch || 1.0;
-    utter.volume = 1.0; // 强制最大音量
-  }
-  
-  var voices = window.speechSynthesis.getVoices();
-  var zhVoices = voices.filter(function(vc) { return vc.lang && vc.lang.toLowerCase().startsWith('zh'); });
-  var matchedVoice = zhVoices[0] || voices[0];
-  if (matchedVoice) utter.voice = matchedVoice;
-  
-  window.speechSynthesis.speak(utter);
+  var ttsVoice = (v && v.voicePref === 'male') ? 'male' : 'female';
+  var ttsRate = (voiceSpeed || 1.0) * (v ? (v.rate || 1.0) : 1.0);
+  ttsRate = Math.max(0.5, Math.min(2.0, ttsRate));
+  var ttsBaseUrl = getTtsBaseUrl();
+  var ttsUrl = ttsBaseUrl + '/api/tts/synthesize?text=' + encodeURIComponent(text.substring(0, 2000)) + '&voice=' + ttsVoice + '&rate=' + ttsRate;
+  console.log('[Gerow] 通过后端TTS合成:', ttsBaseUrl);
+  fetch(ttsUrl).then(function(resp) {
+    if (!resp.ok) throw new Error('TTS HTTP ' + resp.status);
+    return resp.blob();
+  }).then(function(blob) {
+    if (blob.size < 100) throw new Error('TTS音频数据为空');
+    var blobUrl = URL.createObjectURL(blob);
+    var audio = new Audio(blobUrl);
+    audio.volume = voiceVolume / 100;
+    audio.play().catch(function(e) {
+      console.warn('[Gerow] TTS播放失败:', e.message);
+    });
+  }).catch(function(e) {
+    console.warn('[Gerow] TTS服务不可用:', e.message);
+    showToast('TTS服务不可用，请在电脑上运行start-tts.bat启动语音服务');
+  });
   showToast('Gerow-AI 开始智能成片！\n\n' + text);
 }
 
@@ -6531,23 +6614,25 @@ function callAndRewriteTemplate(evt) {
         // 跳转到智能云剪页面
         showPage('page-smart-cut');
         
-        // 播放语音反馈
-        if (window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-          var utter = new SpeechSynthesisUtterance('AI改写完成，' + styleName + '风格，已调用到智能云剪。');
-          utter.lang = 'zh-CN';
-          var v = getSelectedVoice();
-          if (v) {
-            utter.rate = voiceSpeed * (v.rate || 1.0);
-            utter.pitch = v.pitch || 1.0;
-            utter.volume = 1.0;
-          }
-          var voices = window.speechSynthesis.getVoices();
-          var zhVoices = voices.filter(function(vc) { return vc.lang && vc.lang.toLowerCase().startsWith('zh'); });
-          if (zhVoices.length > 0) utter.voice = zhVoices[0];
-          else if (voices.length > 0) utter.voice = voices[0];
-          try { window.speechSynthesis.speak(utter); } catch(e) {}
-        }
+        // 播放语音反馈 - 通过后端TTS服务
+        var feedbackText = 'AI改写完成，' + styleName + '风格，已调用到智能云剪。';
+        var fbVoice = getSelectedVoice();
+        var fbTtsVoice = (fbVoice && fbVoice.voicePref === 'male') ? 'male' : 'female';
+        var fbTtsRate = (voiceSpeed || 1.0) * (fbVoice ? (fbVoice.rate || 1.0) : 1.0);
+        fbTtsRate = Math.max(0.5, Math.min(2.0, fbTtsRate));
+        var fbTtsUrl = getTtsBaseUrl() + '/api/tts/synthesize?text=' + encodeURIComponent(feedbackText) + '&voice=' + fbTtsVoice + '&rate=' + fbTtsRate;
+        fetch(fbTtsUrl).then(function(resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.blob();
+        }).then(function(blob) {
+          if (blob.size < 100) throw new Error('音频为空');
+          var blobUrl = URL.createObjectURL(blob);
+          var audio = new Audio(blobUrl);
+          audio.volume = voiceVolume / 100;
+          audio.play().catch(function() {});
+        }).catch(function(e) {
+          console.warn('[模板改写] 语音反馈TTS不可用:', e.message);
+        });
         
         // 恢复按钮文字
         setTimeout(function() {
@@ -6735,16 +6820,8 @@ function init() {
   // 初始化BGM音量滑块显示
   bgmVolChange(0);
   
-  // 初始化语音合成 - 加载系统语音
-  if (window.speechSynthesis) {
-    // 某些浏览器需要异步加载语音列表
-    window.speechSynthesis.onvoiceschanged = function() {
-      var voices = window.speechSynthesis.getVoices();
-      console.log('语音合成已就绪，可用' + voices.length + '个系统语音');
-    };
-    // 触发语音加载
-    window.speechSynthesis.getVoices();
-  }
+  // 检测TTS服务可用性并输出域名配置提醒
+  checkTtsServiceAvailability();
   
   // PWA Service Worker 注册（使用独立sw.js文件，确保正确的作用域和音频文件处理）
   if ('serviceWorker' in navigator) {
