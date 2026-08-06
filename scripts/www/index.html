@@ -917,7 +917,7 @@ body {
   try {
     const client = await import('/@vite/client');
     const hmr = client.createHotContext('hmr-handler/fake.js');
-    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786024783765']);
+    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786026395062']);
   } catch {}
 })();</script><style>.buttonsCard-bTXa5j {
   padding: var(--spacer-4);
@@ -1274,7 +1274,7 @@ body {
   try {
     const client = await import('/@vite/client');
     const hmr = client.createHotContext('hmr-handler/fake.js');
-    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786024783786']);
+    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786026395083']);
   } catch {}
 })();</script><style>.buttonsCard-bTXa5j {
   padding: var(--spacer-4);
@@ -4877,12 +4877,92 @@ function genReqId() {
   return s;
 }
 
+var cloudTTSSource = null; // Web Audio API source节点
+
 function stopCloudTTS() {
   if (cloudTTSWS) { try{cloudTTSWS.close();}catch(e){} cloudTTSWS=null; }
   if (cloudTTSAudio) { try{cloudTTSAudio.pause();cloudTTSAudio.currentTime=0;}catch(e){} cloudTTSAudio=null; }
+  if (cloudTTSSource) { try{cloudTTSSource.stop();}catch(e){} cloudTTSSource=null; }
 }
 
-// Edge TTS - 通过WebSocket连接微软朗读服务，免费支持中文多声音+语速音调
+// 核心函数：通过Web Audio API播放音频数据(和BGM用同一个通道，移动端可靠)
+function playAudioThroughWA(audioData, onEnd, onError) {
+  var ctx = waCtx || waInit();
+  if (!ctx) { if(onError)onError(new Error('no audio ctx')); return; }
+  if (ctx.state === 'suspended') { ctx.resume(); }
+
+  function decodeAndPlay(arrayBuffer) {
+    try {
+      ctx.decodeAudioData(arrayBuffer, function(buffer) {
+        if (!buffer || buffer.length === 0) { if(onError)onError(new Error('empty buffer')); return; }
+        var src = ctx.createBufferSource();
+        src.buffer = buffer;
+        var gain = ctx.createGain();
+        gain.gain.value = 1.0;
+        src.connect(gain);
+        if (waMasterGain) gain.connect(waMasterGain);
+        else gain.connect(ctx.destination);
+        src.onended = function() { cloudTTSSource = null; if(onEnd)onEnd(); };
+        src.start(0);
+        cloudTTSSource = src;
+      }, function(e) { if(onError)onError(new Error('decode failed: '+(e.message||''))); });
+    } catch(e) { if(onError)onError(e); }
+  }
+
+  if (audioData instanceof Blob) {
+    var reader = new FileReader();
+    reader.onload = function() { decodeAndPlay(reader.result); };
+    reader.onerror = function() { if(onError)onError(new Error('file read error')); };
+    reader.readAsArrayBuffer(audioData);
+  } else if (audioData instanceof ArrayBuffer) {
+    decodeAndPlay(audioData);
+  } else {
+    if(onError)onError(new Error('invalid audio data type'));
+  }
+}
+
+// 通过XHR获取音频并用Web Audio API播放(绕过Audio元素限制)
+function fetchAndPlayWA(url, onEnd, onError, timeoutMs) {
+  timeoutMs = timeoutMs || 10000;
+  var ctx = waCtx || waInit();
+  if (!ctx) { if(onError)onError(new Error('no audio ctx')); return; }
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', url, true);
+  xhr.responseType = 'arraybuffer';
+  var done = false;
+  var timer = setTimeout(function() {
+    if (!done) { done = true; xhr.abort(); if(onError)onError(new Error('xhr timeout')); }
+  }, timeoutMs);
+
+  xhr.onload = function() {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    if (xhr.status === 200 && xhr.response) {
+      playAudioThroughWA(xhr.response, onEnd, onError);
+    } else {
+      if(onError)onError(new Error('xhr status ' + xhr.status));
+    }
+  };
+  xhr.onerror = function() {
+    if (done) return;
+    done = true; clearTimeout(timer);
+    if(onError)onError(new Error('xhr network error'));
+  };
+  xhr.ontimeout = function() {
+    if (done) return;
+    done = true;
+    if(onError)onError(new Error('xhr timeout'));
+  };
+  try {
+    xhr.send();
+  } catch(e) {
+    if (!done) { done = true; clearTimeout(timer); if(onError)onError(e); }
+  }
+}
+
+// Edge TTS - WebSocket获取MP3数据，用Web Audio API播放
 function edgeTTS(text, v, onEnd, onError) {
   var vn = mapVoiceToEdgeTTS(v);
   var rate = (v&&v.rate)?v.rate:1.0;
@@ -4893,8 +4973,8 @@ function edgeTTS(text, v, onEnd, onError) {
   var chunks = [];
   var done = false;
   var timer = setTimeout(function(){
-    if(!done){done=true;try{cloudTTSWS.close();}catch(e){}cloudTTSWS=null;if(onError)onError(new Error('timeout'));}
-  },10000);
+    if(!done){done=true;try{cloudTTSWS.close();}catch(e){}cloudTTSWS=null;if(onError)onError(new Error('edge timeout'));}
+  },12000);
   try {
     cloudTTSWS = new WebSocket(wsUrl);
     cloudTTSWS.binaryType = 'arraybuffer';
@@ -4919,18 +4999,14 @@ function edgeTTS(text, v, onEnd, onError) {
           done=true;try{cloudTTSWS.close();}catch(e){}cloudTTSWS=null;
           if(chunks.length>0){
             var blob=new Blob(chunks,{type:'audio/mp3'});
-            var url=URL.createObjectURL(blob);
-            cloudTTSAudio=new Audio(url);
-            cloudTTSAudio.onended=function(){URL.revokeObjectURL(url);if(onEnd)onEnd();};
-            cloudTTSAudio.onerror=function(){URL.revokeObjectURL(url);if(onError)onError(new Error('play error'));};
-            cloudTTSAudio.play().catch(function(e){URL.revokeObjectURL(url);if(onError)onError(e);});
-          } else { if(onError)onError(new Error('no audio')); }
+            playAudioThroughWA(blob, onEnd, onError);
+          } else { if(onError)onError(new Error('edge: no audio data')); }
         }
       }
     };
     cloudTTSWS.onerror = function() {
       clearTimeout(timer);
-      if(!done){done=true;cloudTTSWS=null;if(onError)onError(new Error('ws error'));}
+      if(!done){done=true;cloudTTSWS=null;if(onError)onError(new Error('edge ws error'));}
     };
     cloudTTSWS.onclose = function() {
       clearTimeout(timer);cloudTTSWS=null;
@@ -4938,12 +5014,8 @@ function edgeTTS(text, v, onEnd, onError) {
         done=true;
         if(chunks.length>0){
           var blob=new Blob(chunks,{type:'audio/mp3'});
-          var url=URL.createObjectURL(blob);
-          cloudTTSAudio=new Audio(url);
-          cloudTTSAudio.onended=function(){URL.revokeObjectURL(url);if(onEnd)onEnd();};
-          cloudTTSAudio.onerror=function(){URL.revokeObjectURL(url);if(onError)onError(new Error('play error'));};
-          cloudTTSAudio.play().catch(function(e){URL.revokeObjectURL(url);if(onError)onError(e);});
-        } else { if(onError)onError(new Error('closed')); }
+          playAudioThroughWA(blob, onEnd, onError);
+        } else { if(onError)onError(new Error('edge: closed no data')); }
       }
     };
   } catch(e) {
@@ -4952,55 +5024,40 @@ function edgeTTS(text, v, onEnd, onError) {
   }
 }
 
-// 百度TTS - 通过Audio元素播放，简单快速，国内移动端最稳定
+// 百度TTS - XHR获取MP3 + Web Audio API播放(国内移动端首选)
 function baiduTTS(text, v, onEnd, onError) {
   try {
     var t = text.substring(0, 200);
-    // 根据声音性别和语速调整百度TTS参数
-    var spd = 3; // 默认语速 1-9
+    var spd = 3;
     if (v) {
       var rate = v.rate || 1.0;
       spd = Math.round(3 * rate);
       spd = Math.max(1, Math.min(9, spd));
     }
     var url = 'https://fanyi.baidu.com/gettts?lan=zh&text='+encodeURIComponent(t)+'&spd='+spd+'&source=web';
-    cloudTTSAudio = new Audio(url);
-    cloudTTSAudio.crossOrigin = 'anonymous';
-    // 设置超时检测
-    var baiduTimer = setTimeout(function() {
-      if (cloudTTSAudio) {
-        try { cloudTTSAudio.pause(); } catch(e) {}
-        if (onError) onError(new Error('baidu timeout'));
-      }
-    }, 8000);
-    cloudTTSAudio.onended = function(){ clearTimeout(baiduTimer); if(onEnd)onEnd(); };
-    cloudTTSAudio.onerror = function(){ clearTimeout(baiduTimer); if(onError)onError(new Error('baidu tts error')); };
-    cloudTTSAudio.play().catch(function(e){ clearTimeout(baiduTimer); if(onError)onError(e); });
+    fetchAndPlayWA(url, onEnd, onError, 8000);
   } catch(e) { if(onError)onError(e); }
 }
 
-// Google Translate TTS - 通过Audio元素播放
+// Google Translate TTS - XHR获取MP3 + Web Audio API播放
 function googleTTS(text, onEnd, onError) {
   try {
     var t = text.substring(0, 180);
     var url = 'https://translate.google.com/translate_tts?ie=UTF-8&q='+encodeURIComponent(t)+'&tl=zh-CN&client=tw-ob';
-    cloudTTSAudio = new Audio(url);
-    cloudTTSAudio.onended = function(){ if(onEnd)onEnd(); };
-    cloudTTSAudio.onerror = function(){ if(onError)onError(new Error('google tts error')); };
-    cloudTTSAudio.play().catch(function(e){ if(onError)onError(e); });
+    fetchAndPlayWA(url, onEnd, onError, 8000);
   } catch(e) { if(onError)onError(e); }
 }
 
-// 云端TTS主函数 - 移动端优先百度(国内最稳定)，桌面端优先Edge(音质更好)
+// 云端TTS主函数 - 全部使用Web Audio API播放(和BGM同一通道)
 function cloudTTS(text, v, onEnd, onError) {
-  // 解锁Audio播放
-  unlockCloudAudio();
+  // 确保AudioContext已初始化(必须在用户手势内)
+  waInit();
   
   if (isMobileWebView()) {
-    // 移动端: 百度TTS → Edge TTS → Google TTS
-    baiduTTS(text, v, function(){if(onEnd)onEnd();}, function(err1) {
+    // 移动端: 百度TTS(XHR+WA) → Edge TTS(WS+WA) → Google TTS(XHR+WA)
+    baiduTTS(text, v, onEnd, function(err1) {
       edgeTTS(text, v, onEnd, function(err2) {
-        googleTTS(text, function(){if(onEnd)onEnd();}, function(err3) {
+        googleTTS(text, onEnd, function(err3) {
           if(onError)onError(err3);
         });
       });
@@ -5008,8 +5065,8 @@ function cloudTTS(text, v, onEnd, onError) {
   } else {
     // 桌面端: Edge TTS → 百度TTS → Google TTS
     edgeTTS(text, v, onEnd, function(err1) {
-      baiduTTS(text, v, function(){if(onEnd)onEnd();}, function(err2) {
-        googleTTS(text, function(){if(onEnd)onEnd();}, function(err3) {
+      baiduTTS(text, v, onEnd, function(err2) {
+        googleTTS(text, onEnd, function(err3) {
           if(onError)onError(err3);
         });
       });
@@ -5590,6 +5647,10 @@ function playCompositeVideo(work, options) {
       voiceSpeaking = true;
       applyBgmVol();
       showSubtitle(currentLineIdx);
+      // 首行时显示Toast提示
+      if (currentLineIdx === 0) {
+        showToast('正在获取云端配音语音...');
+      }
       cloudTTS(lineText0, voiceObj,
         function() {
           voiceSpeaking = false;
@@ -5599,6 +5660,8 @@ function playCompositeVideo(work, options) {
           setTimeout(speakNextLine, 200);
         },
         function(err) {
+          // 云端TTS全部失败，显示具体错误
+          showToast('云端语音获取失败: ' + (err.message || '未知错误') + '，使用模拟语音');
           fallbackSpeakLine(lineText0);
         }
       );
@@ -6115,7 +6178,7 @@ function openCamera() {
           cameraMediaRecorder.start(1000); // 每秒收集一次数据
           cameraRecording = true;
           captureBtn.style.background = 'var(--red-end)';
-          captureBtn.innerHTML = '<div style="width:28px;height:28px;border-radius:4px;background:#fff;"></div>';
+          captureBtn.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:4px;background:#fff;"></div>';
           recIndicator.style.display = 'flex';
           // 开始计时
           cameraRecSeconds = 0;
