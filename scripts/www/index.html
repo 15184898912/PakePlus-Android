@@ -917,7 +917,7 @@ body {
   try {
     const client = await import('/@vite/client');
     const hmr = client.createHotContext('hmr-handler/fake.js');
-    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786018194110']);
+    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786019301124']);
   } catch {}
 })();</script><style>.buttonsCard-bTXa5j {
   padding: var(--spacer-4);
@@ -1274,7 +1274,7 @@ body {
   try {
     const client = await import('/@vite/client');
     const hmr = client.createHotContext('hmr-handler/fake.js');
-    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786018194131']);
+    hmr.on('vite:afterUpdate', window['__ICUBE_WEBVIEW_HMR_CALLBACK_1786019301145']);
   } catch {}
 })();</script><style>.buttonsCard-bTXa5j {
   padding: var(--spacer-4);
@@ -4794,7 +4794,8 @@ function selectVoice(id) {
 
 function playVoicePreview(v) {
   if (!('speechSynthesis' in window)) {
-    showToast('浏览器不支持语音合成');
+    // Fallback: use Web Audio API to generate a voice-like tone preview
+    fallbackVoicePreview(v);
     return;
   }
 
@@ -4828,22 +4829,39 @@ function playVoicePreview(v) {
     }
     if (cnVoice) utter.voice = cnVoice;
 
+    // Timeout detection: if TTS doesn't start within 2s, fall back
+    var ttsStarted = false;
+    var fallbackTimer = setTimeout(function() {
+      if (!ttsStarted) {
+        try { window.speechSynthesis.cancel(); } catch(e) {}
+        fallbackVoicePreview(v);
+      }
+    }, 2000);
+
     utter.onstart = function() {
+      ttsStarted = true;
+      clearTimeout(fallbackTimer);
       playingVoiceId = v.id;
       renderVoices();
     };
     utter.onend = function() {
+      clearTimeout(fallbackTimer);
       playingVoiceId = null;
       renderVoices();
     };
     utter.onerror = function(event) {
+      clearTimeout(fallbackTimer);
       // Filter out cancellation/interruption errors - these are expected when switching voices
       if (event.error === 'canceled' || event.error === 'interrupted' || event.error === 'cancelled') {
         return;
       }
+      // If no voices available or not-allowed, fall back to Web Audio tone
+      if (event.error === 'not-allowed' || event.error === 'synthesis-failed' || event.error === 'audio-busy') {
+        fallbackVoicePreview(v);
+        return;
+      }
       playingVoiceId = null;
       renderVoices();
-      // Only show error for real failures
       showToast('语音播放失败: ' + (event.error || '未知错误'));
     };
 
@@ -4851,6 +4869,54 @@ function playVoicePreview(v) {
     window.speechSynthesis.speak(utter);
     showToast('正在试听: ' + v.name);
   }
+}
+
+// Fallback voice preview using Web Audio API when speechSynthesis is unavailable
+// Generates a melodic tone sequence that varies by voice character's pitch and rate
+function fallbackVoicePreview(v) {
+  var ctx = waInit();
+  if (!ctx) {
+    showToast('当前浏览器不支持语音合成，建议在Chrome浏览器中使用');
+    return;
+  }
+  playingVoiceId = v.id;
+  renderVoices();
+  showToast('正在试听(模拟语音): ' + v.name);
+
+  var baseFreq = 220; // base frequency
+  // Adjust by pitch: higher pitch = higher frequency
+  var pitch = v.pitch || 1.0;
+  var rate = v.rate || 1.0;
+  // Gender adjustment: male voices use lower freq
+  if (v.gender === 'male') baseFreq = 150;
+  var freq = baseFreq * pitch;
+
+  // Generate a short melodic sequence to simulate speech rhythm
+  var notes = [freq, freq * 1.12, freq * 0.95, freq * 1.06, freq * 0.89, freq];
+  var noteDur = 0.25 / rate; // faster rate = shorter notes
+  var startTime = ctx.currentTime;
+
+  notes.forEach(function(f, i) {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = (v.gender === 'male') ? 'triangle' : 'sine';
+    osc.frequency.value = f;
+    var t = startTime + i * noteDur;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
+    gain.gain.linearRampToValueAtTime(0.25, t + noteDur * 0.7);
+    gain.gain.linearRampToValueAtTime(0, t + noteDur * 0.95);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + noteDur);
+  });
+
+  var totalDur = notes.length * noteDur * 1000;
+  setTimeout(function() {
+    playingVoiceId = null;
+    renderVoices();
+  }, totalDur + 200);
 }
 
 function stopVoicePreview() {
@@ -5257,7 +5323,7 @@ function playCompositeVideo(work, options) {
 
   // Speak each subtitle line sequentially, syncing subtitle display with TTS
   function speakNextLine() {
-    if (!('speechSynthesis' in window) || currentLineIdx >= subtitleLines.length) {
+    if (currentLineIdx >= subtitleLines.length) {
       // All lines done - loop back to start for continuous playback
       if (subtitleLines.length > 0) {
         currentLineIdx = 0;
@@ -5268,6 +5334,12 @@ function playCompositeVideo(work, options) {
 
     // Check if player is still open
     if (!document.getElementById('composite-player-overlay')) return;
+
+    // If speechSynthesis is not available, use fallback tone-based voice
+    if (!('speechSynthesis' in window)) {
+      fallbackSpeakLine(subtitleLines[currentLineIdx]);
+      return;
+    }
 
     var lineText = subtitleLines[currentLineIdx];
     var utter = new SpeechSynthesisUtterance();
@@ -5287,14 +5359,26 @@ function playCompositeVideo(work, options) {
     }
     if (cnVoice) utter.voice = cnVoice;
 
+    // Timeout detection: if TTS doesn't start within 2s, fall back
+    var ttsStarted = false;
+    var lineFallbackTimer = setTimeout(function() {
+      if (!ttsStarted) {
+        try { window.speechSynthesis.cancel(); } catch(e) {}
+        fallbackSpeakLine(lineText);
+      }
+    }, 2000);
+
     // When TTS starts speaking this line, show the corresponding subtitle
     utter.onstart = function() {
+      ttsStarted = true;
+      clearTimeout(lineFallbackTimer);
       voiceSpeaking = true;
       applyBgmVol(); // duck BGM down
       showSubtitle(currentLineIdx);
     };
 
     utter.onend = function() {
+      clearTimeout(lineFallbackTimer);
       voiceSpeaking = false;
       applyBgmVol(); // restore BGM volume
       hideSubtitle();
@@ -5304,7 +5388,13 @@ function playCompositeVideo(work, options) {
     };
 
     utter.onerror = function(event) {
+      clearTimeout(lineFallbackTimer);
       if (event.error === 'canceled' || event.error === 'interrupted' || event.error === 'cancelled') return;
+      // If synthesis failed or not allowed, fall back to Web Audio tone
+      if (event.error === 'not-allowed' || event.error === 'synthesis-failed' || event.error === 'audio-busy') {
+        fallbackSpeakLine(lineText);
+        return;
+      }
       // On error, still advance to keep subtitle in sync
       voiceSpeaking = false;
       applyBgmVol();
@@ -5314,6 +5404,90 @@ function playCompositeVideo(work, options) {
     };
 
     window.speechSynthesis.speak(utter);
+  }
+
+  // Fallback: generate voice-like tone for a subtitle line using Web Audio API
+  // Simulates speech rhythm with varying pitches, synced with subtitle display
+  function fallbackSpeakLine(lineText) {
+    var ctx = waCtx || waInit();
+    if (!ctx) {
+      // No audio at all - just show subtitles on a timer
+      voiceSpeaking = true;
+      applyBgmVol();
+      showSubtitle(currentLineIdx);
+      var charCount = lineText.length;
+      var estimatedDur = Math.max(1500, Math.min(5000, charCount * 200));
+      setTimeout(function() {
+        voiceSpeaking = false;
+        applyBgmVol();
+        hideSubtitle();
+        currentLineIdx++;
+        setTimeout(speakNextLine, 200);
+      }, estimatedDur);
+      return;
+    }
+
+    voiceSpeaking = true;
+    applyBgmVol(); // duck BGM down
+    showSubtitle(currentLineIdx);
+
+    // Calculate note sequence based on text length
+    var baseFreq = 220;
+    var pitch = (voiceObj && voiceObj.pitch) ? voiceObj.pitch : 1.0;
+    var rate = (voiceObj && voiceObj.rate) ? voiceObj.rate : 1.0;
+    if (voiceObj && voiceObj.gender === 'male') baseFreq = 150;
+    var freq = baseFreq * pitch;
+
+    // Split line into segments (simulate phrases)
+    var segments = lineText.split(/[，,、：:]+/).filter(function(s) { return s.trim().length > 0; });
+    if (segments.length === 0) segments = [lineText];
+
+    var noteIdx = 0;
+    var totalDur = 0;
+    var startTime = ctx.currentTime + 0.05;
+
+    segments.forEach(function(seg) {
+      // Each character gets a note, pitch varies to simulate intonation
+      var chars = seg.trim().split('');
+      var noteDur = 0.18 / rate;
+      chars.forEach(function(ch) {
+        if (ch.trim().length === 0) return;
+        // Vary frequency slightly for each character to simulate speech
+        var variation = [1.0, 1.05, 0.97, 1.02, 0.94, 1.08, 0.99][noteIdx % 7];
+        var noteFreq = freq * variation;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = (voiceObj && voiceObj.gender === 'male') ? 'triangle' : 'sine';
+        osc.frequency.value = noteFreq;
+        var t = startTime + totalDur;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
+        gain.gain.linearRampToValueAtTime(0.2, t + noteDur * 0.6);
+        gain.gain.linearRampToValueAtTime(0, t + noteDur * 0.9);
+        osc.connect(gain);
+        if (waMasterGain) {
+          gain.connect(waMasterGain);
+        } else {
+          gain.connect(ctx.destination);
+        }
+        osc.start(t);
+        osc.stop(t + noteDur);
+        totalDur += noteDur;
+        noteIdx++;
+      });
+      // Pause between segments
+      totalDur += 0.1 / rate;
+    });
+
+    // After the tone sequence ends, advance to next line
+    var totalMs = totalDur * 1000 + 200;
+    setTimeout(function() {
+      voiceSpeaking = false;
+      applyBgmVol(); // restore BGM volume
+      hideSubtitle();
+      currentLineIdx++;
+      setTimeout(speakNextLine, 200);
+    }, totalMs);
   }
 
   // Start everything after a small delay
