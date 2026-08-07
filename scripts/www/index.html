@@ -5395,7 +5395,14 @@ function renderCompositeVideo(work, onComplete, onError) {
     }
     // Now safe to stop the silent oscillator (recording is done)
     stopSilentOscillator();
-    // Free canvas memory (critical for mobile - prevents OOM when saving)
+    // Free canvas memory: clearRect first to release pixel data, then shrink to release VRAM
+    // This prevents OOM when saving large videos on mobile
+    try {
+      if (canvas && ctx2d) {
+        ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+        ctx2d.filter = 'none';
+      }
+    } catch(e) {}
     try {
       if (canvas) {
         canvas.width = 1;
@@ -5404,8 +5411,12 @@ function renderCompositeVideo(work, onComplete, onError) {
     } catch(e) {}
     // Free TTS buffers
     ttsBuffers = [];
-    // NOTE: chunks is NOT cleared here - it's cleared after blob creation in recorder.onstop
-    // chunks = []; // REMOVED: was clearing data before blob was created!
+    // Clear chunks array (blob already created from it in recorder.onstop)
+    // This releases all recorded data chunks from memory
+    chunks.length = 0;
+    // Null out internal references to help GC
+    video = null;
+    image = null;
   }
 
   function finishRecording() {
@@ -6691,21 +6702,32 @@ function blobToDataURL(blob, callback) {
 
 function freeOverlayVideoMemory() {
   // 保存前彻底释放内存，防止 OOM 闪退
-  console.log('Memory: Freeing overlay video memory...');
+  // 核心原则：先 clearRect 释放像素数据，再缩小尺寸释放显存，最后置空引用
+  console.log('Memory: Freeing overlay video memory (enhanced)...');
 
-  // 1. 暂停并释放视频元素
+  // 1. 暂停视频元素并释放解码器内存
   var vEl = document.getElementById('comp-video');
   if (vEl && vEl.tagName === 'VIDEO') {
     try {
       vEl.pause();
       try { vEl.currentTime = 0; } catch(e) {}
-      // 移除 src 释放解码器内存（保存时不需要播放）
-      // 保存后会重新设置 src 用于重播
+    } catch(e) {}
+    // 移除 src 释放视频解码器内存（保存时不需要播放）
+    // 注意：保存后需要重新设置 src 用于重播
+    try {
+      var oldSrc = vEl.src;
+      vEl.removeAttribute('src');
+      vEl.load();
+      // 保存 oldSrc 供重播使用
+      if (oldSrc && !window._lastVideoSrc) {
+        window._lastVideoSrc = oldSrc;
+      }
     } catch(e) {}
   }
 
   // 2. 释放 TTS 音频缓冲区引用
   if (typeof ttsBuffers !== 'undefined') {
+    ttsBuffers.length = 0;
     ttsBuffers = [];
   }
 
@@ -6713,22 +6735,41 @@ function freeOverlayVideoMemory() {
   if (typeof waMasterGain !== 'undefined' && waMasterGain) {
     try { waMasterGain.gain.value = 0; } catch(e) {}
   }
+  if (typeof scheduledTtsSources !== 'undefined') {
+    scheduledTtsSources.length = 0;
+    scheduledTtsSources = [];
+  }
+  if (typeof scheduledTimers !== 'undefined') {
+    scheduledTimers.forEach(function(t) { try { clearTimeout(t); } catch(e) {} });
+    scheduledTimers = [];
+  }
 
-  // 4. 缩小 Canvas 释放显存（不影响已生成的 blob）
+  // 4. Canvas 清理：先 clearRect 释放像素数据，再缩小尺寸释放显存
+  // clearRect 是关键步骤：它会释放 canvas 内部的像素缓冲区
+  // 仅仅缩小 width/height 不会立即释放像素数据
   try {
     var canvases = document.querySelectorAll('canvas');
     canvases.forEach(function(c) {
       if (c.id !== 'comp-video' && c.width > 100) {
+        try {
+          var ctx = c.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, c.width, c.height);
+            ctx.filter = 'none';
+            ctx = null;
+          }
+        } catch(e) {}
         c.width = 1;
         c.height = 1;
       }
     });
   } catch(e) {}
 
-  // 5. 触发垃圾回收（如果引擎支持）
+  // 5. 释放全局渲染中间变量（保留 lastRenderedBlob 用于保存和重播）
+  // 6. 触发垃圾回收（如果引擎支持）
   if (window.gc) { try { window.gc(); } catch(e) {} }
 
-  console.log('Memory: Overlay video memory freed');
+  console.log('Memory: Overlay video memory freed (canvas cleared + buffers released + video src removed)');
 }
 
 function showLongPressSaveGuide(url) {
@@ -6785,7 +6826,7 @@ async function saveVideoToAlbum(url, title) {
     return;
   }
 
-  // ====== 防重复点击 ======
+  // ====== 防重复点击（立即禁用） ======
   if (window._saveInProgress) {
     console.log('Save: Already in progress, ignoring duplicate click');
     return;
@@ -6801,7 +6842,15 @@ async function saveVideoToAlbum(url, title) {
   }
 
   var videoSizeMB = savedBlob.size / 1024 / 1024;
-  console.log('Save: blob size = ' + videoSizeMB.toFixed(1) + 'MB');
+  console.log('Save: blob size = ' + videoSizeMB.toFixed(1) + 'MB, type: ' + (savedBlob.type || 'unknown'));
+
+  // ====== 内存检查：如果数据 > 500MB，直接拒绝防止 OOM ======
+  var MAX_SIZE_MB = 500;
+  if (videoSizeMB > MAX_SIZE_MB) {
+    showToast('视频过大(' + videoSizeMB.toFixed(0) + 'MB)，请降低画质或缩短时长');
+    window._saveInProgress = false;
+    return;
+  }
 
   // ====== 禁用按钮，显示进度 ======
   var btn = document.getElementById('comp-save-btn');
@@ -6814,10 +6863,10 @@ async function saveVideoToAlbum(url, title) {
   // 创建进度提示
   var progressEl = document.createElement('div');
   progressEl.id = 'save-progress';
-  progressEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.9);color:white;padding:24px 32px;border-radius:16px;z-index:99999;text-align:center;min-width:200px;';
-  progressEl.innerHTML = '<div style="font-size:14px;margin-bottom:12px;">正在保存视频...</div>' +
-    '<div style="width:200px;height:6px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;">' +
-    '<div id="save-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#4CAF50,#45a049);border-radius:3px;transition:width 0.3s;"></div>' +
+  progressEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);color:white;padding:24px 32px;border-radius:16px;z-index:99999;text-align:center;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.5);';
+  progressEl.innerHTML = '<div style="font-size:15px;margin-bottom:12px;font-weight:600;">正在保存视频...</div>' +
+    '<div style="width:200px;height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;">' +
+    '<div id="save-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#D32F2F,#FF5252);border-radius:3px;transition:width 0.3s;"></div>' +
     '</div>' +
     '<div id="save-progress-text" style="font-size:12px;color:#aaa;margin-top:8px;">准备中...</div>';
   document.body.appendChild(progressEl);
@@ -6836,7 +6885,7 @@ async function saveVideoToAlbum(url, title) {
 
   function restoreBtn() {
     if (btn) {
-      btn.textContent = '💾 保存到相册';
+      btn.textContent = '保存到相册';
       btn.style.opacity = '1';
       btn.style.pointerEvents = 'auto';
     }
@@ -6850,144 +6899,204 @@ async function saveVideoToAlbum(url, title) {
   var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
 
   try {
-    // ====== 第一步：释放内存（防止 OOM） ======
-    updateProgress(10, '释放内存中...');
+    // ====== Step 1: 释放渲染器内存（防止 OOM 闪退） ======
+    // 调用 freeOverlayVideoMemory 会：
+    // - 暂停视频并移除 src（释放解码器内存）
+    // - clearRect + 缩小 canvas（释放显存）
+    // - 清空 TTS 缓冲区（释放音频内存）
+    updateProgress(5, '释放渲染内存...');
     freeOverlayVideoMemory();
 
-    // ====== 第二步：等待 GC（200ms） ======
-    updateProgress(15, '准备数据中...');
+    // ====== Step 2: 等待 GC（200ms，让引擎回收内存） ======
+    updateProgress(10, '准备数据中...');
     await new Promise(function(resolve) { setTimeout(resolve, 200); });
 
     // ==========================================
     // 方法1: Tauri2 原生 FS API (PakePlus 环境)
-    // 异步写入，不阻塞 UI，不经过 WebView 下载
+    // 全异步、分块写入，不阻塞 UI，不经过 WebView 下载
     // ==========================================
     if (window.__TAURI__ && window.__TAURI__.fs) {
       try {
-        console.log('Save: Using Tauri FS API');
-        console.log('Save: TAURI.fs keys =', Object.keys(window.__TAURI__.fs));
+        console.log('Save: Tauri FS available, methods:', Object.keys(window.__TAURI__.fs));
 
-        updateProgress(30, '转换视频数据...');
-
-        // 将 Blob 转为 ArrayBuffer（异步，不阻塞）
-        var arrayBuffer = await savedBlob.arrayBuffer();
-        var uint8array = new Uint8Array(arrayBuffer);
-
-        // 释放原始 blob 引用（如果 Tauri 写入成功就不需要了）
-        // 但不释放 lastRenderedBlob，因为重播还需要
-
-        updateProgress(50, '写入文件中...');
-
-        // 获取 BaseDirectory 枚举
+        var totalBytes = savedBlob.size;
         var BD = window.__TAURI__.fs.BaseDirectory;
         var downloadDir = BD ? (BD.Download || 7) : 7;
         var videoDir = BD ? (BD.Video || 12) : 12;
 
         var saved = false;
 
-        // 尝试 writeFile (Tauri2 新API)
-        if (!saved && typeof window.__TAURI__.fs.writeFile === 'function') {
+        // ====== 方法1A: 分块写入 (大文件 >10MB)
+        // 核心防闪退机制：使用 blob.slice() 分块，每块只加载 4MB 到内存
+        // 避免一次性将整个视频转为 ArrayBuffer 导致 OOM
+        if (!saved && videoSizeMB > 10 && typeof window.__TAURI__.fs.open === 'function') {
+          var fileHandle = null;
           try {
-            console.log('Save: writeFile to Download dir');
-            await window.__TAURI__.fs.writeFile(fileName, uint8array, { baseDir: downloadDir });
-            saved = true;
-            console.log('Save: writeFile to Download succeeded');
-          } catch(e1) {
-            console.log('Save: Download dir failed, trying Video dir:', e1);
+            console.log('Save: Chunked write (open/write/close), 4MB chunks');
+            updateProgress(15, '创建文件...');
+
+            // 尝试在 Download 目录创建文件
             try {
+              fileHandle = await window.__TAURI__.fs.open(fileName, {
+                write: true, create: true, truncate: true, baseDir: downloadDir
+              });
+            } catch(e1) {
+              console.log('Save: Download dir failed, trying Video dir:', e1);
+              try {
+                fileHandle = await window.__TAURI__.fs.open(fileName, {
+                  write: true, create: true, truncate: true, baseDir: videoDir
+                });
+              } catch(e2) {
+                console.log('Save: Video dir also failed:', e2);
+              }
+            }
+
+            if (fileHandle) {
+              var CHUNK_SIZE = 4 * 1024 * 1024; // 4MB per chunk
+              var offset = 0;
+
+              while (offset < totalBytes) {
+                var end = Math.min(offset + CHUNK_SIZE, totalBytes);
+
+                // blob.slice() 不会立即加载到内存，只有 arrayBuffer() 才会
+                // 这确保每次只有 4MB 数据在内存中
+                var chunkBlob = savedBlob.slice(offset, end);
+                var chunkBuffer = await chunkBlob.arrayBuffer();
+                var chunkData = new Uint8Array(chunkBuffer);
+
+                // 写入当前分块到文件
+                await fileHandle.write(chunkData);
+
+                // 立即释放当前分块的内存引用（关键：防止累积 OOM）
+                chunkData = null;
+                chunkBuffer = null;
+                chunkBlob = null;
+
+                offset = end;
+                var pct = 15 + Math.round((offset / totalBytes) * 75); // 15% -> 90%
+                updateProgress(pct, '写入中... ' + (offset/1024/1024).toFixed(1) + '/' + videoSizeMB.toFixed(1) + 'MB');
+
+                // 让出主线程，防止 ANR（应用无响应）
+                await new Promise(function(r) { setTimeout(r, 0); });
+              }
+
+              // 关闭文件句柄
+              await fileHandle.close();
+              fileHandle = null;
+              saved = true;
+              console.log('Save: Chunked write succeeded (' + videoSizeMB.toFixed(1) + 'MB)');
+            }
+          } catch(e) {
+            console.error('Save: Chunked write failed:', e);
+            // 确保文件句柄关闭，防止资源泄漏
+            try { if (fileHandle) await fileHandle.close(); } catch(e2) {}
+            fileHandle = null;
+          }
+        }
+
+        // ====== 方法1B: 整体写入 (小文件 <=50MB 或 open 不可用)
+        // 对于小文件，一次性写入的内存开销可以接受
+        if (!saved && videoSizeMB <= 50 && typeof window.__TAURI__.fs.writeFile === 'function') {
+          try {
+            console.log('Save: writeFile (file <= 50MB)');
+            updateProgress(30, '转换视频数据...');
+
+            var arrayBuffer = await savedBlob.arrayBuffer();
+            var uint8array = new Uint8Array(arrayBuffer);
+
+            updateProgress(50, '写入文件中...');
+
+            try {
+              await window.__TAURI__.fs.writeFile(fileName, uint8array, { baseDir: downloadDir });
+              saved = true;
+              console.log('Save: writeFile to Download succeeded');
+            } catch(e1) {
+              console.log('Save: Download dir failed, trying Video dir:', e1);
               await window.__TAURI__.fs.writeFile(fileName, uint8array, { baseDir: videoDir });
               saved = true;
               console.log('Save: writeFile to Video dir succeeded');
-            } catch(e2) {
-              console.log('Save: Video dir also failed:', e2);
             }
+
+            // 立即释放引用并触发 GC
+            uint8array = null;
+            arrayBuffer = null;
+            if (window.gc) { try { window.gc(); } catch(e) {} }
+          } catch(e) {
+            console.error('Save: writeFile failed:', e);
           }
         }
 
-        // 尝试 writeBinaryFile (旧API)
-        if (!saved && typeof window.__TAURI__.fs.writeBinaryFile === 'function') {
+        // ====== 方法1C: writeBinaryFile (旧 API 兼容) ======
+        if (!saved && videoSizeMB <= 50 && typeof window.__TAURI__.fs.writeBinaryFile === 'function') {
           try {
-            console.log('Save: writeBinaryFile (object style)');
-            await window.__TAURI__.fs.writeBinaryFile({
-              path: fileName,
-              contents: uint8array
-            }, { dir: downloadDir });
-            saved = true;
-          } catch(e3) {
-            console.log('Save: writeBinaryFile object style failed, trying separate args');
-            await window.__TAURI__.fs.writeBinaryFile(fileName, uint8array, { baseDir: downloadDir });
-            saved = true;
+            console.log('Save: writeBinaryFile (legacy API)');
+            updateProgress(40, '写入文件中...');
+            var ab2 = await savedBlob.arrayBuffer();
+            var u8_2 = new Uint8Array(ab2);
+            try {
+              await window.__TAURI__.fs.writeBinaryFile({
+                path: fileName, contents: u8_2
+              }, { dir: downloadDir });
+              saved = true;
+            } catch(e3) {
+              await window.__TAURI__.fs.writeBinaryFile(fileName, u8_2, { baseDir: downloadDir });
+              saved = true;
+            }
+            u8_2 = null;
+            ab2 = null;
+            if (window.gc) { try { window.gc(); } catch(e) {} }
+          } catch(e) {
+            console.error('Save: writeBinaryFile failed:', e);
           }
-        }
-
-        // 尝试 writeTextFile (base64 编码)
-        if (!saved && typeof window.__TAURI__.fs.writeTextFile === 'function') {
-          console.log('Save: writeTextFile with base64');
-          updateProgress(60, '编码视频数据...');
-          var reader = new FileReader();
-          var b64Promise = new Promise(function(resolve, reject) {
-            reader.onload = function() { resolve(reader.result); };
-            reader.onerror = function() { reject(reader.error); };
-          });
-          reader.readAsDataURL(savedBlob);
-          var b64Data = await b64Promise;
-          var b64Content = b64Data.split(',')[1];
-          updateProgress(80, '写入文件中...');
-          await window.__TAURI__.fs.writeTextFile({
-            path: fileName,
-            contents: b64Content
-          }, { dir: downloadDir });
-          saved = true;
         }
 
         if (saved) {
           updateProgress(100, '保存成功！');
-          await new Promise(function(resolve) { setTimeout(resolve, 500); });
+          await new Promise(function(resolve) { setTimeout(resolve, 600); });
           restoreBtn();
-          showToast('✓ 视频已保存到下载文件夹');
+          showToast('视频已保存到下载文件夹');
           return;
         }
 
-        console.warn('Save: No suitable Tauri FS method found');
+        console.warn('Save: All Tauri FS methods failed, falling back to browser download');
       } catch(e) {
-        console.error('Save: Tauri FS failed:', e);
-        // 继续尝试浏览器下载
+        console.error('Save: Tauri FS error:', e);
       }
     } else {
-      console.log('Save: window.__TAURI__ not available');
+      console.log('Save: window.__TAURI__ not available, using browser download');
     }
 
     // ==========================================
-    // 方法2: 浏览器 <a download> (桌面环境)
+    // 方法2: 浏览器 <a download> (桌面环境/非PakePlus)
+    // 直接使用 blob URL，不创建额外的内存副本
     // ==========================================
-    if (!window.__TAURI__) {
-      updateProgress(70, '下载中...');
-      try {
-        var freshUrl = URL.createObjectURL(savedBlob);
-        var a = document.createElement('a');
-        a.href = freshUrl;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
+    updateProgress(60, '下载中...');
+    try {
+      var freshUrl = URL.createObjectURL(savedBlob);
+      var a = document.createElement('a');
+      a.href = freshUrl;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
 
-        var clickEvent = document.createEvent('MouseEvents');
-        clickEvent.initEvent('click', true, true);
-        a.dispatchEvent(clickEvent);
+      var clickEvent = document.createEvent('MouseEvents');
+      clickEvent.initEvent('click', true, true);
+      a.dispatchEvent(clickEvent);
 
-        updateProgress(100, '下载已启动');
-        await new Promise(function(resolve) { setTimeout(resolve, 800); });
+      updateProgress(100, '下载已启动');
+      await new Promise(function(resolve) { setTimeout(resolve, 800); });
 
-        setTimeout(function() {
-          try { if (a.parentElement) document.body.removeChild(a); } catch(e) {}
-          setTimeout(function() { try { URL.revokeObjectURL(freshUrl); } catch(e) {} }, 10000);
-        }, 1000);
+      // 延迟清理 DOM 元素和 URL
+      setTimeout(function() {
+        try { if (a.parentElement) document.body.removeChild(a); } catch(e) {}
+        setTimeout(function() { try { URL.revokeObjectURL(freshUrl); } catch(e) {} }, 10000);
+      }, 1000);
 
-        restoreBtn();
-        showToast('✓ 视频已开始下载，请到相册或下载文件夹查看');
-        return;
-      } catch(e) {
-        console.error('Save: <a download> failed:', e);
-      }
+      restoreBtn();
+      showToast('视频已开始下载，请到下载文件夹查看');
+      return;
+    } catch(e) {
+      console.error('Save: <a download> failed:', e);
     }
 
     // ==========================================
@@ -7006,10 +7115,22 @@ async function saveVideoToAlbum(url, title) {
   } catch(err) {
     console.error('Save: Unexpected error:', err);
     restoreBtn();
-    showToast('保存失败: ' + (err.message || err));
+
+    // 根据错误类型给出具体提示，而非静默崩溃
+    var errMsg = (err && err.message) ? err.message : String(err);
+    if (errMsg.indexOf('memory') >= 0 || errMsg.indexOf('OOM') >= 0 || errMsg.indexOf('heap') >= 0) {
+      showToast('内存不足，请降低画质后重试');
+    } else if (errMsg.indexOf('permission') >= 0 || errMsg.indexOf('denied') >= 0 || errMsg.indexOf('auth') >= 0) {
+      showToast('权限不足，请在系统设置中允许存储权限');
+    } else if (errMsg.indexOf('space') >= 0 || errMsg.indexOf('full') >= 0 || errMsg.indexOf('quota') >= 0) {
+      showToast('存储空间不足，请清理后重试');
+    } else if (errMsg.indexOf('network') >= 0 || errMsg.indexOf('timeout') >= 0) {
+      showToast('网络超时，请重试');
+    } else {
+      showToast('保存失败: ' + errMsg);
+    }
   }
 }
-
 function uploadCurrentToWorkLib() {
   try {
   // 获取当前作品信息（多种方式fallback）
