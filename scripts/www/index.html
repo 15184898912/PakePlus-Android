@@ -2614,7 +2614,15 @@ var EXTRA_HOOKS = [
   '朋友圈刷屏系列', '本地人私藏清单', '错过真的会后悔',
   '被惊艳到了', '这也太香了吧', '本地老饕才知道',
   '排队也要去', '藏在巷子里的宝藏', '第一口就沦陷',
-  '朋友圈问疯了', '谁去谁知道', '真心推荐不踩雷'
+  '朋友圈问疯了', '谁去谁知道', '真心推荐不踩雷',
+  '没想到还能这样', '打开新世界的大门', '后悔没早点知道',
+  '这也太绝了吧', '宝藏中的宝藏', '一去就停不下来',
+  '被圈粉了彻底圈粉', '这价格也太香了', '质感拉满细节控狂喜',
+  '不看真的亏大了', '终于找到满意的', '第一次遇到这么靠谱的',
+  '朋友圈都在问链接', '种草到不行', '闭眼入就对了',
+  '回购N次还在买', '良心推荐不忽悠', '体验过才知道多值',
+  '简直是宝藏发现', '圈内人都在推', '小众但绝对惊艳',
+  '试过就没失望过', '这个必须安利', '良心好店必须曝光'
 ];
 
 // 改写计数器，确保每次改写使用不同的文案模式
@@ -2631,7 +2639,19 @@ var EXTRA_CTAS = [
   '私信回复"优惠"领取专属折扣',
   '到店说看视频来的，额外赠送福利',
   '扫码进群，群内专属福利天天有',
-  '今日到店前30名免单/半价'
+  '今日到店前30名免单/半价',
+  '转发给好友，两人到店同享优惠',
+  '限时3天，抢完恢复原价',
+  '预约成功额外赠送体验礼包',
+  '会员积分双倍，兑换好礼',
+  '下单备注视频来源，顺丰包邮',
+  '到店免费体验，满意再付款',
+  '分享本视频，截图到店领红包',
+  '新客户专享首单立减50元',
+  '满减叠加优惠券，折上折',
+  '直播间专属价，仅限今晚',
+  '老带新双方各得100元券',
+  '周末到店，免费停车+茶饮'
 ];
 
 // 额外的结尾文案
@@ -2643,7 +2663,15 @@ var EXTRA_CLOSINGS = [
   '想了解更多{industry}内容？关注{brand}就对啦！\n评论区留言，下期内容你来定~',
   '觉得不错就点赞+关注！{brand}持续分享{industry}干货，\n转发给需要的朋友，一起涨知识！',
   '关注{brand}不迷路！每天一个{industry}小技巧，\n评论区留下你的问题，我来解答！',
-  '如果你也喜欢{industry}，一定要关注{brand}！\n点个赞，让更多人看到好内容~'
+  '如果你也喜欢{industry}，一定要关注{brand}！\n点个赞，让更多人看到好内容~',
+  '感谢看到最后！关注{brand}，\n每周更新{industry}实用攻略，不见不散！',
+  '有用就收藏，喜欢就关注！\n{brand}带你玩转{industry}，评论区互动有惊喜~',
+  '关注{brand}，做你最靠谱的{industry}向导！\n点赞+转发，让更多人受益~',
+  '想省钱又省心？关注{brand}就对了！\n更多{industry}避坑指南持续更新中~',
+  '一键三连支持{brand}！\n你的鼓励是我分享{industry}干货的最大动力~',
+  '关注{brand}，带你发现{industry}的美好！\n留言告诉我，你还想看什么内容？',
+  '每天学一点{industry}小知识，\n关注{brand}，一起变成内行人！',
+  '如果这条视频对你有帮助，\n请关注{brand}，更多{industry}干货等着你~'
 ];
 
 // 生成随机结尾文案
@@ -2932,11 +2960,11 @@ function onRewrite() {
       + '2. 必须结合' + pIndustry + '行业特点，体现行业专业性\n'
       + '3. 开头要有强吸引力的钩子，中间展示卖点，结尾有明确的行动号召\n'
       + '4. 语气自然口语化，适合真人配音播报\n'
-      + '5. 每次创作都要用完全不同的切入角度和表达方式（如：故事引入、数据背书、情感共鸣、对比反差、悬念吸引、场景代入、痛点共鸣、逆袭反转等），绝对不要用相同的结构和句式\n'
+      + '5. 每次创作都要用完全不同的切入角度和表达方式（如：疑问悬念、故事引入、数据背书、对比反差、情感共鸣、热点借势、清单盘点、问答互动、第一人称体验、反常识、朋友圈种草、地域标签、痛点直击、好奇心驱动、UGC口碑等15种以上风格），绝对不要用相同的结构和句式\n'
       + '6. 只输出文案正文，不要加标题、序号或解释说明\n'
       + '7. 可以适当使用emoji表情增加亲和力\n'
       + '8. 如果有联系电话，在文案结尾自然带出\n'
-      + '9. 这是第' + rewriteCounter + '次改写，请务必使用与之前完全不同的创作角度和风格'
+      + '9. 这是第' + rewriteCounter + '次改写，系统支持15种不同结构的文案模式，请务必使用与之前完全不同的创作角度和风格'
 
     // 生成随机种子，确保每次调用结果不同
     var seed = Date.now() + Math.floor(Math.random() * 10000);
@@ -2974,14 +3002,14 @@ function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDe
     var descLine = pDesc ? '店铺特色：' + pDesc + '\n\n' : '\n';
 
     // 使用计数器选择模式，确保连续改写使用不同模式
-    var patternIdx = rewriteCounter % 5;
+    var patternIdx = (rewriteCounter * 7 + Math.floor(Math.random() * 3)) % 15;
     console.log('本地智能改写: hook=' + hook + ', cat=' + cat + ', industry=' + pIndustry + ', pattern=' + patternIdx + ', counter=' + rewriteCounter);
 
     // Build rewritten copy - 每个类别有多种不同结构的文案模式
     var rewritten = '';
 
     if (cat === 'TRAFFIC') {
-      // 流量型：5种不同结构的文案模式
+      // 流量型：15种不同结构的文案模式
       var trafficPatterns = [
         // 模式1: 疑问悬念式
         hook + '！\n' +
@@ -3016,12 +3044,83 @@ function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDe
         hook + '！\n' +
         pSelling + '，\n' +
         '每一位' + pAudience + '都能感受到诚意。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式6: 热点借势式
+        '最近' + pIndustry + '圈都在讨论一件事——\n' +
+        pCity + '的' + pBrand + '真的火了！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '都在疯狂安利。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式7: 清单盘点式
+        '去' + pBrand + '必体验的3件事：\n' +
+        '① ' + pSelling + '\n' +
+        '② 感受' + pIndustry + '专业服务\n' +
+        '③ 享受' + pAudience + '专属关怀\n\n' +
+        hook + '！\n' +
+        pCity + pIndustry + '打卡清单已备好。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式8: 问答互动式
+        'Q：为什么' + pCity + '的' + pAudience + '都在推荐' + pBrand + '？\n' +
+        'A：因为' + pSelling + '。\n\n' +
+        hook + '！\n' +
+        '去过的人都说好，\n' +
+        pIndustry + '圈口碑炸裂不是吹的。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式9: 第一人称体验式
+        '作为' + pAudience + '，\n' +
+        '第一次去' + pBrand + '就被圈粉了。\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '在' + pCity + '能遇到这么用心的' + pIndustry + '店，\n' +
+        '真的太难得了。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式10: 反常识式
+        '谁说' + pIndustry + '都是千篇一律？\n' +
+        pBrand + '偏不！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '打破' + pCity + pAudience + '对' + pIndustry + '的所有刻板印象。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式11: 朋友圈种草式
+        '被闺蜜疯狂安利的' + pCity + pBrand + '，\n' +
+        '终于来打卡了！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '闭眼冲不踩雷。\n' +
+        '发朋友圈已经被问爆了！\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式12: 地域标签式
+        pCity + '人自己的' + pIndustry + '宝藏——' + pBrand + '！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '本地' + pAudience + '私藏已久。\n' +
+        '外地朋友来' + pCity + '必打卡！\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式13: 痛点直击式
+        pAudience + '的烦恼，' + pBrand + '都懂！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '专治' + pCity + pIndustry + '的各种不满意。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式14: 好奇心驱动式
+        '在' + pCity + '开了这么久，\n' +
+        pBrand + '凭什么让' + pAudience + '反复回头？\n\n' +
+        hook + '！\n' +
+        '答案就是：' + pSelling + '。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式15: UGC口碑式
+        '翻了100多条评价，\n' +
+        pBrand + '的口碑是这样的——\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pCity + pAudience + '真实好评刷屏。\n' +
         descLine + finalCTA + '\n' + phoneLine + closing
       ];
       rewritten = trafficPatterns[patternIdx];
 
     } else if (cat === 'PERSONA') {
-      // 人设型：5种不同结构的文案模式
+      // 人设型：15种不同结构的文案模式
       var personaPatterns = [
         // 模式1: 创业初心式
         '我是' + pBrand + '的创始人，\n' +
@@ -3082,15 +3181,121 @@ function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDe
         '感谢' + pCity + '的' + pAudience + '，\n' +
         '是你们让' + pBrand + '越来越好！\n' +
         (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
-        '关注我，见证' + pBrand + '的成长~'
+        '关注我，见证' + pBrand + '的成长~',
+        // 模式6: 理想使命式
+        '有人说做' + pIndustry + '太辛苦，\n' +
+        '但' + pBrand + '的使命就是——\n' +
+        '让每一位' + pAudience + '都能满意而归。\n\n' +
+        pSelling + '，\n' +
+        '这不是口号，是我们每天都在做的事。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + '的' + pAudience + '，\n' +
+        pBrand + '值得你信赖！\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，一起见证' + pIndustry + '的改变~',
+        // 模式7: 粉丝互动式
+        '很多粉丝问我：\n' +
+        pBrand + '到底有什么不一样？\n\n' +
+        '今天统一回答：\n' +
+        pSelling + '。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        '在' + pCity + '做' + pIndustry + '，\n' +
+        '我们靠实力说话。\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '评论区告诉我，你最关心什么？',
+        // 模式8: 幕后揭秘式
+        '带你看看' + pBrand + '的幕后——\n' +
+        '做' + pIndustry + '这件事，\n' +
+        '我们比你想的更认真。\n\n' +
+        pSelling + '，\n' +
+        '每一个细节都反复打磨。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + pAudience + '的认可，\n' +
+        '是我们最大的骄傲。\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，揭秘更多' + pIndustry + '幕后故事~',
+        // 模式9: 节日关怀式
+        '又到一年中最温暖的时节，\n' +
+        pBrand + '想对' + pCity + '的' + pAudience + '说——\n' +
+        '感谢一路相伴！\n\n' +
+        pSelling + '，\n' +
+        '这是我们送给你最好的节日礼物。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，' + pBrand + '陪你过每一个节日~',
+        // 模式10: 专业科普式
+        '做了这么多年' + pIndustry + '，\n' +
+        '今天跟' + pAudience + '分享一个干货：\n' +
+        pSelling + '。\n\n' +
+        '很多人不知道这些，\n' +
+        '但' + pBrand + '一直坚持做到最好。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + '的朋友，\n' +
+        '选' + pIndustry + '就认准' + pBrand + '！\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，学更多' + pIndustry + '知识~',
+        // 模式11: 生活日常式
+        '又是忙碌的一天，\n' +
+        '在' + pBrand + '为' + pAudience + '服务。\n\n' +
+        '虽然累，但看到客户满意，\n' +
+        '一切都值了。\n\n' +
+        pSelling + '，\n' +
+        '这是我们对' + pCity + pIndustry + '的承诺。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，记录' + pBrand + '的每一天~',
+        // 模式12: 挑战自我式
+        '做' + pIndustry + '这些年，\n' +
+        pBrand + '遇到过很多挑战。\n\n' +
+        '但每次想到' + pAudience + '的期待，\n' +
+        '我们就咬牙坚持下来。\n\n' +
+        pSelling + '，\n' +
+        '这是我们突破自我的结果。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + '的朋友，\n' +
+        pBrand + '只会越来越好！\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，看' + pBrand + '如何不断进化~',
+        // 模式13: 感恩回馈式
+        '今天想认真说一声谢谢！\n' +
+        '感谢' + pCity + '每一位' + pAudience + '的信任。\n\n' +
+        pBrand + '能走到今天，\n' +
+        '全靠你们的支持。\n' +
+        pSelling + '，\n' +
+        '这是我们的回报。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，' + pBrand + '感恩有你~',
+        // 模式14: 未来展望式
+        pBrand + '的下一步是什么？\n' +
+        '更专业的' + pIndustry + '服务，\n' +
+        '更贴心的' + pAudience + '体验。\n\n' +
+        pSelling + '只是起点，\n' +
+        '我们还有更多计划。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + '的朋友，\n' +
+        '和' + pBrand + '一起见证未来！\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，看' + pBrand + '的下一步~',
+        // 模式15: 价值观输出式
+        '做' + pIndustry + '，我们信奉一个原则：\n' +
+        '诚信比什么都重要。\n\n' +
+        pBrand + '从不搞虚假宣传，\n' +
+        pSelling + '，\n' +
+        '说到就一定做到。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + pAudience + '的眼睛是雪亮的，\n' +
+        '真金不怕火炼。\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，听' + pIndustry + '人的真心话~'
       ];
       rewritten = personaPatterns[patternIdx];
 
     } else if (cat === 'CONVERSION') {
-      // 成交型：5种不同结构的文案模式
+      // 成交型：15种不同结构的文案模式
       var conversionPatterns = [
         // 模式1: 限时秒杀式
-        '【' + pBrand + ' 限时福利】\n' +
+        '[' + pBrand + ' 限时福利]\n' +
         pCity + pIndustry + '超值活动来了！\n\n' +
         hook + '！\n' +
         pSelling + '，\n' +
@@ -3137,19 +3342,119 @@ function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDe
         (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
         finalCTA + '\n' + phoneLine +
         '老带新还有额外惊喜！\n' +
-        '快来' + pBrand + '，等你！'
+        '快来' + pBrand + '，等你！',
+        // 模式6: 节日特惠式
+        '[' + pBrand + ' 节日特惠]\n' +
+        pCity + pIndustry + '节日大放送！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '专属节日福利！\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '节日限时：' + finalCTA + '\n' + phoneLine +
+        '节日专属价，仅限本周！\n' +
+        '快来' + pBrand + '享节日好礼！',
+        // 模式7: 新品首发式
+        '[' + pBrand + ' 新品首发]\n' +
+        pCity + pIndustry + '全新升级！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '专为' + pAudience + '打造的新体验。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '首发福利：' + finalCTA + '\n' + phoneLine +
+        '前30名尝鲜价，错过等一年！\n' +
+        '新品上市，快来体验！',
+        // 模式8: 套餐组合式
+        '[' + pBrand + ' 超值套餐]\n' +
+        pCity + pIndustry + '性价比之王！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '全套搞定更省钱。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '套餐福利：' + finalCTA + '\n' + phoneLine +
+        '单买不如套餐划算！\n' +
+        '限时组合价，聪明人都会选！',
+        // 模式9: 转介绍奖励式
+        '[' + pBrand + ' 老带新福利]\n' +
+        pCity + pIndustry + '口碑裂变中！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '推荐好友双双有礼！\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '转介绍福利：' + finalCTA + '\n' + phoneLine +
+        '推荐一人得X元，上不封顶！\n' +
+        '好东西就要分享，' + pBrand + '等你来！',
+        // 模式10: 会员专属式
+        '[' + pBrand + ' 会员日]\n' +
+        pCity + pIndustry + '会员专享福利！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '入会即享多重特权。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '会员福利：' + finalCTA + '\n' + phoneLine +
+        '现在入会，首单立减！\n' +
+        pBrand + '会员，越消费越省钱！',
+        // 模式11: 买赠活动式
+        '[' + pBrand + ' 买赠狂欢]\n' +
+        pCity + pIndustry + '买就送！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '消费即送精美好礼。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '买赠福利：' + finalCTA + '\n' + phoneLine +
+        '满X元送Y，多买多送！\n' +
+        '限时活动，' + pBrand + '等你来薅羊毛！',
+        // 模式12: 秒杀倒计时式
+        '[' + pBrand + ' 秒杀倒计时]\n' +
+        pCity + pIndustry + '限时抢购！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '手慢无！\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '秒杀价：' + finalCTA + '\n' + phoneLine +
+        '倒计时开始，仅限今晚！\n' +
+        '定好闹钟，' + pBrand + '秒杀不等人！',
+        // 模式13: 团购拼单式
+        '[' + pBrand + ' 团购拼单]\n' +
+        pCity + pIndustry + '人多力量大！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '拼团更优惠。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '团购价：' + finalCTA + '\n' + phoneLine +
+        '3人成团享8折，5人成团享7折！\n' +
+        '拉上好友，' + pBrand + '团购走起！',
+        // 模式14: 体验引流式
+        '[' + pBrand + ' 免费体验]\n' +
+        pCity + pIndustry + '先体验后买单！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '零风险体验。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '体验福利：' + finalCTA + '\n' + phoneLine +
+        '满意再付款，不满意不收钱！\n' +
+        pBrand + '的实力，体验了就知道！',
+        // 模式15: 储值返利式
+        '[' + pBrand + ' 储值返利]\n' +
+        pCity + pIndustry + '充值送大礼！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '储值越多送越多。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '储值福利：' + finalCTA + '\n' + phoneLine +
+        '充1000送200，充2000送500！\n' +
+        pBrand + '储值，全年无忧更划算！'
       ];
       rewritten = conversionPatterns[patternIdx];
 
     } else if (cat === 'INDUSTRY') {
-      // 行业模板：5种不同结构的文案模式
+      // 行业模板：15种不同结构的文案模式
       var tplIndustryPrefix = tplName.split('-')[0];
       var isIndustryMatch = (tplIndustryPrefix === pIndustry) || tplName.indexOf(pIndustry) >= 0;
       var tplType = tplName.split('-')[1] || tplName;
 
       var industryPatterns = [
         // 模式1: 专业推荐式
-        '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
         hook + '！\n\n' +
         '在' + pCity + '做' + pIndustry + '，\n' +
         pBrand + '就是你的不二之选。\n\n' +
@@ -3191,15 +3496,106 @@ function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDe
         tplType + '首选。\n' +
         pSelling + '。\n' +
         (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式6: 季节时令式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        '当季最值得体验的' + tplType + '！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '这个季节来' + pCity + pBrand + '刚刚好。\n' +
+        pAudience + '别错过当季限定体验。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式7: 案例展示式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        '真实案例告诉你为什么选' + pBrand + '！\n\n' +
+        hook + '！\n' +
+        tplType + '成功案例：\n' +
+        pSelling + '，\n' +
+        pAudience + '的选择不会错。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式8: 教程指导式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        tplType + '避坑指南来了！\n\n' +
+        hook + '！\n' +
+        pIndustry + '老手教你：\n' +
+        pSelling + '，\n' +
+        pAudience + '选' + pBrand + '不踩坑。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式9: 趋势解读式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        pIndustry + '行业新趋势解读！\n\n' +
+        hook + '！\n' +
+        tplType + '趋势：\n' +
+        pSelling + '，\n' +
+        pBrand + '走在' + pCity + pIndustry + '前沿。\n' +
+        pAudience + '认准趋势之选。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式10: 选购指南式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        tplType + '选购全攻略！\n\n' +
+        hook + '！\n' +
+        pCity + pAudience + '必看：\n' +
+        pSelling + '，\n' +
+        '选' + pBrand + '的N个理由。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式11: 常见误区式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        tplType + '常见误区大揭秘！\n\n' +
+        hook + '！\n' +
+        pIndustry + '避坑：\n' +
+        pSelling + '，\n' +
+        pBrand + '帮你避开' + pAudience + '常犯的错。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式12: 场景应用式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        tplType + '场景化体验！\n\n' +
+        hook + '！\n' +
+        '想象一下：\n' +
+        pSelling + '，\n' +
+        pCity + pAudience + '的理想场景都在' + pBrand + '。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式13: 专家视角式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        pIndustry + '专家眼中的' + tplType + '！\n\n' +
+        hook + '！\n' +
+        '专业解读：\n' +
+        pSelling + '，\n' +
+        pBrand + '是' + pCity + pAudience + '的专业之选。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式14: 优惠攻略式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        tplType + '省钱攻略来了！\n\n' +
+        hook + '！\n' +
+        pCity + pAudience + '省钱秘籍：\n' +
+        pSelling + '，\n' +
+        '加上' + pBrand + '的优惠更划算。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式15: 社群互动式
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
+        tplType + '社群热议话题！\n\n' +
+        hook + '！\n' +
+        pCity + pIndustry + '社群里讨论最火的：\n' +
+        pSelling + '，\n' +
+        pAudience + '都在推荐' + pBrand + '。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
         finalCTA + '\n' + phoneLine + closing
       ];
       rewritten = industryPatterns[patternIdx];
 
     } else {
-      // 自定义模板：5种不同结构的文案模式
+      // 自定义模板：15种不同结构的文案模式
       var customPatterns = [
         // 模式1: 直接推荐式
-        '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
+        '[' + pBrand + ' | ' + pIndustry + indIcon + ']\n' +
         hook + '！\n\n' +
         pCity + pIndustry + '，' + pSelling + '，\n' +
         '面向' + pAudience + '，品质保证！\n' +
@@ -3231,6 +3627,78 @@ function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDe
         hook + '！\n' +
         pCity + pIndustry + '优选。\n' +
         pSelling + '。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式6: 对话体式
+        '"听说' + pCity + '有家' + pIndustry + '店不错？"\n' +
+        '"你说' + pBrand + '吧？确实好！"\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '都在推荐。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式7: 测评体式
+        pBrand + '深度测评：\n' +
+        '综合评分：★★★★★\n\n' +
+        hook + '！\n' +
+        '核心亮点：' + pSelling + '\n' +
+        '适合人群：' + pAudience + '\n' +
+        pCity + pIndustry + '测评首选。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式8: 日记体式
+        '打卡' + pCity + pBrand + '第一天：\n' +
+        hook + '！\n\n' +
+        pSelling + '，\n' +
+        pAudience + '体验满分。\n' +
+        pIndustry + '日记第1页，未完待续...\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式9: 清单体式
+        pBrand + '的N个理由：\n' +
+        '✓ ' + pSelling + '\n' +
+        '✓ ' + pCity + pIndustry + '口碑之选\n' +
+        '✓ ' + pAudience + '专属服务\n\n' +
+        hook + '！\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式10: 故事体式
+        '有一个' + pCity + '的' + pAudience + '，\n' +
+        '一直在寻找靠谱的' + pIndustry + '店。\n' +
+        '直到遇见了' + pBrand + '...\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '这就是最好的结局。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式11: 数据体式
+        pBrand + '数据说话：\n' +
+        '服务' + pAudience + '：10000+\n' +
+        '好评率：98%\n' +
+        pCity + pIndustry + '排名：TOP3\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式12: 悬念体式
+        pCity + pIndustry + '圈有个不公开的秘密...\n' +
+        '就是' + pBrand + '！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '才知道的宝藏。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式13: 金句体式
+        '"选择' + pBrand + '，就是选择放心。"\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pCity + pAudience + '记住这句话就够了。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式14: 采访体式
+        '路人采访：你最推荐的' + pCity + pIndustry + '店？\n' +
+        '路人A：' + pBrand + '！\n' +
+        '路人B：必须是' + pBrand + '！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '口碑实锤。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式15: 混合创意式
+        pBrand + ' = ' + pIndustry + ' x ' + pCity + ' x ' + pAudience + '\n' +
+        '= ' + pSelling + '！\n\n' +
+        hook + '！\n' +
+        '这个公式，' + pAudience + '都懂。\n' +
         descLine + finalCTA + '\n' + phoneLine + closing
       ];
       rewritten = customPatterns[patternIdx];
@@ -8137,6 +8605,38 @@ var INDUSTRY_LIST = [
   {name:'医疗', icon:'⚕️', templates:['诊所推广','体检套餐','口腔正畸','中医调理']},
   {name:'娱乐', icon:'🎮', templates:['KTV推广','密室逃脱','桌游吧','电玩城']},
   {name:'母婴', icon:'👶', templates:['月子中心','早教课程','母婴用品','育儿科普']},
+  // === 扩充行业模板 - 新增行业 ===
+  {name:'太阳能', icon:'☀️', templates:['产品安装','节能改造','热水工程','光伏发电']},
+  {name:'新能源', icon:'🔋', templates:['充电桩','储能设备','光伏板','新能源车']},
+  {name:'建材', icon:'🧱', templates:['瓷砖地板','门窗幕墙','管材线缆','防水涂料']},
+  {name:'电商', icon:'📦', templates:['店铺运营','直播带货','选品上架','促销大促']},
+  {name:'珠宝', icon:'💎', templates:['黄金首饰','钻石定制','翡翠玉石','银饰礼盒']},
+  {name:'通讯', icon:'📱', templates:['宽带办理','手机套餐','号码靓号','5G升级']},
+  {name:'软件', icon:'💻', templates:['SaaS服务','定制开发','系统对接','技术支持']},
+  {name:'广告', icon:'📢', templates:['品牌策划','广告投放','活动执行','媒介代理']},
+  {name:'印刷', icon:'🖨️', templates:['名片海报','画册宣传','包装定制','标签不干胶']},
+  {name:'机械', icon:'⚙️', templates:['设备制造','加工定制','维修保养','配件供应']},
+  {name:'环保', icon:'♻️', templates:['废水处理','废气治理','垃圾分类','环评检测']},
+  {name:'人力资源', icon:'👥', templates:['招聘服务','劳务派遣','人事代理','猎头服务']},
+  {name:'咨询', icon:'📋', templates:['管理咨询','财务顾问','战略规划','市场调研']},
+  {name:'设计', icon:'🎨', templates:['品牌设计','UI设计','包装设计','空间设计']},
+  {name:'影视', icon:'🎬', templates:['视频制作','企业宣传片','短视频代运营','后期剪辑']},
+  {name:'中医', icon:'🌿', templates:['针灸推拿','中药调理','养生科普','膏方进补']},
+  {name:'药店', icon:'💊', templates:['药品推荐','保健品','医疗器械','慢病管理']},
+  {name:'眼镜', icon:'👓', templates:['验光配镜','隐形眼镜','太阳镜','近视防控']},
+  {name:'鞋包', icon:'👜', templates:['新品上市','品牌折扣','真皮手工','潮流搭配']},
+  {name:'装修', icon:'🏗️', templates:['全包装修','半包装修','局部改造','免费量房']},
+  {name:'物业', icon:'🏢', templates:['社区服务','楼宇管理','安保消防','设施维护']},
+  {name:'保险', icon:'🛡️', templates:['车险报价','健康保险','人寿保障','意外理赔']},
+  {name:'税务', icon:'📊', templates:['代理记账','税务申报','审计验资','工商注册']},
+  {name:'留学', icon:'✈️', templates:['院校申请','签证办理','语言培训','移民咨询']},
+  {name:'翻译', icon:'🌐', templates:['文档翻译','口译服务','同声传译','本地化服务']},
+  {name:'舞蹈', icon:'💃', templates:['少儿舞蹈','成人塑形','艺考培训','演出编排']},
+  {name:'体育', icon:'⚽', templates:['赛事组织','场馆预订','培训课程','装备推荐']},
+  {name:'二手', icon:'🔄', templates:['闲置回收','旧物置换','鉴定评估','上门回收']},
+  {name:'认证', icon:'✅', templates:['ISO认证','产品认证','体系审核','验厂咨询']},
+  {name:'五金', icon:'🔧', templates:['工具量具','标准件','阀门管件','电动工具']},
+  {name:'苗木', icon:'🌳', templates:['绿化苗木','花卉盆景','园林设计','养护服务']},
 ];
 
 // 从localStorage加载自定义行业
@@ -8179,23 +8679,145 @@ function showIndustryPicker() {
       (isCustom ? '<button style="width:24px;height:24px;border-radius:50%;border:none;background:rgba(255,65,108,0.2);color:var(--red-end);font-size:11px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();deleteCustomIndustry(\'' + ind.name.replace(/'/g, "\\'") + '\')">✕</button>' : '') +
     '</div>';
   });
-  // 添加自定义行业按钮
-  html += '<div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:linear-gradient(135deg, rgba(78,205,196,0.1), rgba(78,205,196,0.03));border:2px dashed rgba(78,205,196,0.3);margin-top:8px;" onclick="addCustomIndustry()">' +
-    '<div style="width:32px;height:32px;border-radius:8px;background:rgba(78,205,196,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-      '<span style="font-size:18px;color:var(--editor-cyan);">+</span>' +
+  // 扩充行业模板 - 搜索过滤 + 手动输入
+  html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+    // 搜索框
+    '<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:6px;">' +
+      '<span style="font-size:13px;color:var(--text-medium-gray);">🔍</span>' +
+      '<input type="text" id="industry-search-input" placeholder="搜索或输入行业类型（如：四季沐歌太阳能）" style="flex:1;background:none;border:none;outline:none;color:var(--text-white);font-size:12px;" oninput="filterIndustries(this.value)" />' +
     '</div>' +
-    '<div style="flex:1;">' +
-      '<div style="font-size:13px;color:var(--editor-cyan);font-weight:600;">添加自定义行业模板</div>' +
-      '<div style="font-size:11px;color:var(--text-medium-gray);">输入行业名称和模板关键词</div>' +
+    // 扩充行业模板按钮
+    '<div id="expand-industry-btn" style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:linear-gradient(135deg, rgba(78,205,196,0.1), rgba(78,205,196,0.03));border:2px dashed rgba(78,205,196,0.3);" onclick="showExpandIndustryInput()">' +
+      '<div style="width:32px;height:32px;border-radius:8px;background:rgba(78,205,196,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+        '<span style="font-size:18px;color:var(--editor-cyan);">+</span>' +
+      '</div>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13px;color:var(--editor-cyan);font-weight:600;">扩充行业模板</div>' +
+        '<div style="font-size:11px;color:var(--text-medium-gray);">手动填写行业类型，自动生成模板</div>' +
+      '</div>' +
+    '</div>' +
+    // 手动输入区域（默认隐藏）
+    '<div id="expand-industry-form" style="display:none;padding:10px;border-radius:8px;background:rgba(78,205,196,0.05);border:1px solid rgba(78,205,196,0.2);margin-bottom:6px;">' +
+      '<input type="text" id="new-industry-name" placeholder="行业名称（如：四季沐歌太阳能）" style="width:100%;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--text-white);font-size:12px;outline:none;margin-bottom:6px;box-sizing:border-box;" />' +
+      '<input type="text" id="new-industry-keywords" placeholder="模板关键词，逗号分隔（留空自动生成）" style="width:100%;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--text-white);font-size:12px;outline:none;margin-bottom:8px;box-sizing:border-box;" />' +
+      '<div style="display:flex;gap:6px;">' +
+        '<button onclick="addExpandedIndustry()" style="flex:1;padding:6px;border-radius:6px;border:none;background:linear-gradient(135deg, var(--editor-cyan), #2bb3a3);color:#0a0a0a;font-size:12px;font-weight:600;cursor:pointer;">确认添加</button>' +
+        '<button onclick="hideExpandIndustryInput()" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:var(--text-medium-gray);font-size:12px;cursor:pointer;">取消</button>' +
+      '</div>' +
     '</div>' +
   '</div>';
   picker.innerHTML = html;
 }
 
-function addCustomIndustry() {
-  var name = prompt('请输入行业名称（如：婚礼摄影、宠物美容等）:', '');
-  if (!name || !name.trim()) return;
-  name = name.trim();
+// 搜索过滤行业列表
+function filterIndustries(keyword) {
+  keyword = (keyword || '').trim().toLowerCase();
+  var picker = document.getElementById('industry-picker');
+  if (!picker) return;
+  var currentVal = document.getElementById('form-industry').value;
+  var allIndustries = getAllIndustries();
+  var html = '';
+  allIndustries.forEach(function(ind, idx) {
+    var matchName = ind.name.toLowerCase().indexOf(keyword) >= 0;
+    var matchTpl = ind.templates.some(function(t) { return t.toLowerCase().indexOf(keyword) >= 0; });
+    if (keyword && !matchName && !matchTpl) return; // 过滤不匹配的
+    var sel = currentVal === ind.name;
+    var isCustom = idx >= INDUSTRY_LIST.length;
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:' + (sel ? 'rgba(78,205,196,0.12)' : 'transparent') + ';border:1px solid ' + (sel ? 'rgba(78,205,196,0.4)' : 'transparent') + ';" onclick="selectIndustry(\'' + ind.name.replace(/'/g, "\'") + '\')">' +
+      '<span style="font-size:18px;">' + ind.icon + '</span>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13px;color:var(--text-white);font-weight:500;">' + ind.name + (isCustom ? ' <span style="font-size:10px;color:#FFD700;">自定义</span>' : '') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-medium-gray);">' + ind.templates.join(' · ') + '</div>' +
+      '</div>' +
+      (sel ? '<span style="color:var(--editor-cyan);font-size:14px;">✓</span>' : '') +
+      (isCustom ? '<button style="width:24px;height:24px;border-radius:50%;border:none;background:rgba(255,65,108,0.2);color:var(--red-end);font-size:11px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();deleteCustomIndustry(\'' + ind.name.replace(/'/g, "\'") + '\')">✕</button>' : '') +
+    '</div>';
+  });
+  // 如果搜索关键词不为空且没有匹配项，显示"添加为自定义行业"提示
+  if (keyword && html === '') {
+    html += '<div style="padding:10px;text-align:center;color:var(--text-medium-gray);font-size:12px;">未找到匹配行业</div>';
+    html += '<div style="padding:10px;text-align:center;color:var(--editor-cyan);font-size:12px;cursor:pointer;" onclick="showExpandIndustryInput(\'' + keyword.replace(/'/g, '') + '\')">点击添加「' + keyword + '」为自定义行业</div>';
+  }
+  // 重新添加搜索框和扩充按钮
+  html = '<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:6px;">' +
+    '<span style="font-size:13px;color:var(--text-medium-gray);">🔍</span>' +
+    '<input type="text" value="' + keyword.replace(/"/g, '&quot;') + '" placeholder="搜索或输入行业类型" style="flex:1;background:none;border:none;outline:none;color:var(--text-white);font-size:12px;" oninput="filterIndustries(this.value)" />' +
+  '</div>' + html;
+  // 扩充按钮
+  html += '<div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:linear-gradient(135deg, rgba(78,205,196,0.1), rgba(78,205,196,0.03));border:2px dashed rgba(78,205,196,0.3);margin-top:8px;" onclick="showExpandIndustryInput()">' +
+    '<div style="width:32px;height:32px;border-radius:8px;background:rgba(78,205,196,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<span style="font-size:18px;color:var(--editor-cyan);">+</span>' +
+    '</div>' +
+    '<div style="flex:1;">' +
+      '<div style="font-size:13px;color:var(--editor-cyan);font-weight:600;">扩充行业模板</div>' +
+      '<div style="font-size:11px;color:var(--text-medium-gray);">手动填写行业类型，自动生成模板</div>' +
+    '</div>' +
+  '</div>';
+  picker.innerHTML = html;
+}
+
+// 显示手动输入行业表单
+function showExpandIndustryInput(prefillName) {
+  var form = document.getElementById('expand-industry-form');
+  if (!form) {
+    // 如果表单不存在（搜索过滤后），重新显示完整列表
+    showIndustryPicker();
+    form = document.getElementById('expand-industry-form');
+  }
+  if (form) {
+    form.style.display = 'block';
+    var nameInput = document.getElementById('new-industry-name');
+    if (nameInput) {
+      nameInput.value = prefillName || '';
+      nameInput.focus();
+    }
+  }
+}
+
+// 隐藏手动输入表单
+function hideExpandIndustryInput() {
+  var form = document.getElementById('expand-industry-form');
+  if (form) form.style.display = 'none';
+}
+
+// 根据行业名称自动生成模板关键词
+function autoGenerateTemplates(name) {
+  // 行业关键词映射 - 根据行业名称中的关键词自动匹配
+  var keywordMap = [
+    {match:/太阳|光伏|新能源|清洁能源/i, templates:['产品安装','节能改造','工程案例','政策补贴']},
+    {match:/餐饮|饭店|餐厅|美食/i, templates:['探店种草','新品上市','排队爆款','外卖推广']},
+    {match:/美容|美业|护肤/i, templates:['美容护肤','美甲美睫','医美科普','养生SPA']},
+    {match:/婚|摄影|婚纱/i, templates:['婚纱摄影','婚礼跟拍','婚纱花艺','婚礼策划']},
+    {match:/零售|超市|商店/i, templates:['服装穿搭','超市促销','数码3C','母婴用品']},
+    {match:/教育|培训|课程/i, templates:['课程推广','知识科普','考试冲刺','技能培训']},
+    {match:/健身|运动|瑜伽/i, templates:['私教推广','团课招募','营养餐','减脂打卡']},
+    {match:/房|地产|楼盘/i, templates:['新房推荐','二手房','装修设计','楼盘开盘']},
+    {match:/汽车|车|驾/i, templates:['新车上市','二手车','保养维修','汽车美容']},
+    {match:/旅游|旅行|酒店/i, templates:['景点推荐','酒店民宿','跟团游','自由行']},
+    {match:/建材|装修|装饰/i, templates:['材料选购','施工服务','设计搭配','免费量房']},
+    {match:/电商|网店|直播/i, templates:['店铺运营','直播带货','选品上架','促销大促']},
+    {match:/医疗|诊所|医院/i, templates:['诊所推广','体检套餐','口腔正畸','中医调理']},
+    {match:/服装|服饰|鞋包/i, templates:['新品上市','品牌折扣','潮流搭配','限时特惠']},
+    {match:/数码|电子|手机|电脑/i, templates:['新品发布','以旧换新','配件推荐','维修服务']},
+    {match:/五金|工具|机械/i, templates:['工具量具','标准件','设备维修','加工定制']},
+    {match:/苗木|花卉|园林/i, templates:['绿化苗木','花卉盆景','园林设计','养护服务']},
+  ];
+  for (var i = 0; i < keywordMap.length; i++) {
+    if (keywordMap[i].match.test(name)) return keywordMap[i].templates;
+  }
+  // 默认通用模板
+  return ['门店推广','新品上市','优惠活动','客户案例'];
+}
+
+// 添加扩充的行业
+function addExpandedIndustry() {
+  var nameInput = document.getElementById('new-industry-name');
+  var kwInput = document.getElementById('new-industry-keywords');
+  if (!nameInput || !nameInput.value || !nameInput.value.trim()) {
+    showToast('请输入行业名称');
+    return;
+  }
+  var name = nameInput.value.trim();
   // 检查是否已存在
   var all = getAllIndustries();
   for (var i = 0; i < all.length; i++) {
@@ -8204,17 +8826,49 @@ function addCustomIndustry() {
       return;
     }
   }
-  var tplStr = prompt('请输入该行业的模板关键词，用逗号分隔（如：婚纱拍摄,婚礼跟拍,亲子摄影）:', '');
-  if (!tplStr || !tplStr.trim()) return;
-  var templates = tplStr.split(/[,，]/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
-  if (templates.length === 0) templates = ['门店推广', '新品上市', '优惠活动', '客户案例'];
-  var icons = ['🎯', '⭐', '🔥', '💼', '🏆', '🎨', '📱', '🌟', '💎', '🎁'];
-  var icon = icons[Math.floor(Math.random() * icons.length)];
+  // 获取模板关键词
+  var templates;
+  if (kwInput && kwInput.value && kwInput.value.trim()) {
+    templates = kwInput.value.split(/[,，]/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+    if (templates.length === 0) templates = autoGenerateTemplates(name);
+  } else {
+    // 自动生成模板关键词
+    templates = autoGenerateTemplates(name);
+  }
+  // 选择合适的图标
+  var iconMap = [
+    {match:/太阳|光伏|能源|电/i, icon:'☀️'},
+    {match:/餐饮|饭店|美食|吃/i, icon:'🍜'},
+    {match:/美容|护肤|化妆/i, icon:'💄'},
+    {match:/婚|纱/i, icon:'💍'},
+    {match:/房|地产|楼盘/i, icon:'🏠'},
+    {match:/车|汽|驾/i, icon:'🚗'},
+    {match:/旅|游|行/i, icon:'✈️'},
+    {match:/教|学|课|培/i, icon:'📚'},
+    {match:/健身|运动|瑜伽/i, icon:'💪'},
+    {match:/医疗|医|药|诊/i, icon:'⚕️'},
+    {match:/电|数|网|软/i, icon:'💻'},
+    {match:/花|苗|树|绿/i, icon:'🌸'},
+    {match:/宠|猫|狗/i, icon:'🐱'},
+    {match:/酒|吧|夜/i, icon:'🍺'},
+    {match:/茶|饮|奶/i, icon:'🧋'},
+    {match:/物|流|快|递/i, icon:'📦'},
+    {match:/钱|金融|理财|贷/i, icon:'💰'},
+    {match:/法|律|律师/i, icon:'⚖️'},
+    {match:/工|厂|制|造/i, icon:'⚙️'},
+    {match:/设|计|创|意/i, icon:'🎨'},
+  ];
+  var icon = '🎯'; // 默认图标
+  for (var j = 0; j < iconMap.length; j++) {
+    if (iconMap[j].match.test(name)) { icon = iconMap[j].icon; break; }
+  }
   customIndustries.push({name: name, icon: icon, templates: templates, isCustom: true});
   saveCustomIndustries();
   showIndustryPicker(); // 刷新列表
-  showToast('已添加自定义行业: ' + name);
+  showToast('已添加行业: ' + name + '（自动生成' + templates.length + '个模板）');
 }
+
+// addCustomIndustry removed - replaced by addExpandedIndustry with inline form
 
 function deleteCustomIndustry(name) {
   var idx = customIndustries.findIndex(function(ind) { return ind.name === name; });
