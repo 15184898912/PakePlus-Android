@@ -2020,7 +2020,131 @@ var VOICES = [
 ];
 
 // 克隆声音列表
-var clonedVoices = []; // {id, name, url, desc, gender, pitch, rate}
+var clonedVoices = []; // {id, name, url, desc, gender, pitch, rate, isCloned, dataUri}
+
+// Save cloned voices to localStorage (convert blob URLs to base64 data URIs)
+function saveClonedVoices() {
+  try {
+    var toSave = [];
+    var pending = 0;
+    var done = 0;
+    
+    clonedVoices.forEach(function(v) {
+      if (v.dataUri) {
+        // Already have data URI
+        toSave.push({
+          id: v.id,
+          name: v.name,
+          dataUri: v.dataUri,
+          desc: v.desc,
+          gender: v.gender || 'custom',
+          pitch: v.pitch || 1.0,
+          rate: v.rate || 1.0,
+          isCloned: true,
+          duration: v.duration || 0
+        });
+        done++;
+        if (done === pending) finishSave();
+      } else if (v.url && v.url.startsWith('blob:')) {
+        // Need to convert blob URL to data URI
+        pending++;
+        fetch(v.url).then(function(res) { return res.blob(); }).then(function(blob) {
+          var reader = new FileReader();
+          reader.onloadend = function() {
+            toSave.push({
+              id: v.id,
+              name: v.name,
+              dataUri: reader.result,
+              desc: v.desc,
+              gender: v.gender || 'custom',
+              pitch: v.pitch || 1.0,
+              rate: v.rate || 1.0,
+              isCloned: true,
+              duration: v.duration || 0
+            });
+            // Also update the in-memory voice with dataUri
+            var voice = clonedVoices.find(function(cv) { return cv.id === v.id; });
+            if (voice) voice.dataUri = reader.result;
+            done++;
+            if (done === pending) finishSave();
+          };
+          reader.readAsDataURL(blob);
+        }).catch(function(e) {
+          console.warn('Failed to convert cloned voice to data URI:', e);
+          done++;
+          if (done === pending) finishSave();
+        });
+      } else if (v.url && v.url.startsWith('data:')) {
+        // Already a data URI
+        toSave.push({
+          id: v.id,
+          name: v.name,
+          dataUri: v.url,
+          desc: v.desc,
+          gender: v.gender || 'custom',
+          pitch: v.pitch || 1.0,
+          rate: v.rate || 1.0,
+          isCloned: true,
+          duration: v.duration || 0
+        });
+        done++;
+        if (done === pending) finishSave();
+      } else {
+        done++;
+        if (done === pending) finishSave();
+      }
+    });
+    
+    if (pending === 0) finishSave();
+    
+    function finishSave() {
+      try {
+        localStorage.setItem('clonedVoices', JSON.stringify(toSave));
+        console.log('Cloned voices saved:', toSave.length, 'voices');
+      } catch(e) {
+        console.warn('Failed to save cloned voices (storage full?):', e);
+        // Try saving without data URIs if storage is full
+        try {
+          var lite = toSave.map(function(v) {
+            return { id: v.id, name: v.name, desc: v.desc, gender: v.gender, pitch: v.pitch, rate: v.rate, isCloned: true };
+          });
+          localStorage.setItem('clonedVoices', JSON.stringify(lite));
+        } catch(e2) {
+          console.warn('Cloned voices save failed completely:', e2);
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('saveClonedVoices error:', e);
+  }
+}
+
+// Load cloned voices from localStorage on startup
+function loadClonedVoices() {
+  try {
+    var saved = localStorage.getItem('clonedVoices');
+    if (!saved) return;
+    var arr = JSON.parse(saved);
+    if (!Array.isArray(arr)) return;
+    clonedVoices = arr.map(function(v) {
+      return {
+        id: v.id,
+        name: v.name || '克隆声音',
+        url: v.dataUri || v.url || '',
+        dataUri: v.dataUri || null,
+        desc: v.desc || '克隆声音',
+        gender: v.gender || 'custom',
+        pitch: v.pitch || 1.0,
+        rate: v.rate || 1.0,
+        isCloned: true,
+        duration: v.duration || 0
+      };
+    });
+    console.log('Cloned voices loaded:', clonedVoices.length, 'voices');
+  } catch(e) {
+    console.warn('loadClonedVoices error:', e);
+  }
+}
 
 // 背景音乐：14首真实歌曲（8首人设型 + 6首带货型）
 var BGM_TRACKS = [
@@ -2758,16 +2882,17 @@ function renderVoices() {
   clonedVoices.forEach(function(v) {
     var sel = selectedVoice && selectedVoice.id === v.id;
     var isPlaying = playingVoiceId === v.id;
+    var durText = v.duration ? v.duration + 's' : '';
     html += '<div class="voice-avatar' + (sel ? ' selected' : '') + '" style="position:relative;" onclick="selectVoice(\'' + v.id + '\')">' +
             '<div class="voice-circle" style="background:linear-gradient(135deg, #FF6B6B, #FF8E53);">' + (isPlaying ? '⏸' : (sel ? '▶' : '🎤')) + '</div>' +
-            '<div class="voice-name">' + v.name + '</div>' +
-            '<div style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:rgba(255,65,108,0.9);display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;font-size:11px;z-index:2;" onclick="event.stopPropagation();deleteClonedVoice(\'' + v.id + '\')">✕</div>' +
+            '<div class="voice-name">' + v.name + (durText ? '<span style="font-size:9px;opacity:0.6;">(' + durText + ')</span>' : '') + '</div>' +
+            '<div style="position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:rgba(255,65,108,0.95);display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;font-size:12px;z-index:2;border:1.5px solid rgba(255,255,255,0.3);box-shadow:0 2px 8px rgba(255,65,108,0.4);" onclick="event.stopPropagation();deleteClonedVoice(\'' + v.id + '\')" title="删除此克隆声音">✕</div>' +
             '</div>';
   });
   // Add clone voice button
-  html += '<div class="voice-avatar" onclick="startVoiceClone()">' +
-          '<div class="voice-circle" style="background:linear-gradient(135deg, #FF6B6B, #FF8E53);">🎤</div>' +
-          '<div class="voice-name">克隆声音</div></div>';
+  html += '<div class="voice-avatar" onclick="startVoiceClone()" style="cursor:pointer;">' +
+          '<div class="voice-circle" style="background:linear-gradient(135deg, #FF6B6B, #FF8E53);box-shadow:0 2px 12px rgba(255,107,107,0.3);">🎤</div>' +
+          '<div class="voice-name" style="color:#FF8E53;">克隆声音</div></div>';
   // Add upload voice button
   html += '<div class="voice-avatar" onclick="document.getElementById(\'voice-upload-input\').click()">' +
           '<div class="voice-circle" style="background:var(--bg-card);border:1px solid rgba(142,142,147,0.3);">+</div>' +
@@ -2817,7 +2942,7 @@ function startVoiceClone() {
 
   voiceCloneModal.innerHTML = 
     '<div style="color:#fff;font-size:20px;font-weight:700;margin-bottom:8px;">🎤 克隆我的声音</div>' +
-    '<div style="color:rgba(255,255,255,0.6);font-size:13px;margin-bottom:32px;text-align:center;line-height:1.6;">请朗读以下文字进行录音<br/>录音时长建议10-30秒</div>' +
+    '<div style="color:rgba(255,255,255,0.6);font-size:13px;margin-bottom:20px;text-align:center;line-height:1.6;">请朗读以下文字进行录音<br/>录音时长建议10-30秒，声音越清晰克隆效果越好</div>' +
     '<div style="background:rgba(78,205,196,0.1);border:1px solid rgba(78,205,196,0.3);border-radius:12px;padding:16px 20px;margin-bottom:32px;max-width:340px;text-align:center;">' +
       '<div style="color:var(--editor-cyan);font-size:14px;line-height:1.8;">"大家好，欢迎来到正商诸葛AI，<br/>我是你们的专属配音员，<br/>今天给大家带来精彩内容分享。"</div>' +
     '</div>' +
@@ -2922,11 +3047,11 @@ function finishVoiceClone() {
   var customName = nameInput ? nameInput.value.trim() : '';
   var voiceName = customName || '我的声音' + (clonedVoices.length + 1);
 
-  var blob = new Blob(voiceCloneChunks, { type: voiceCloneRecorder.mimeType || 'audio/webm' });
+  var blob = new Blob(voiceCloneChunks, { type: (voiceCloneRecorder && voiceCloneRecorder.mimeType) || 'audio/webm' });
   var url = URL.createObjectURL(blob);
 
   var voiceId = 'clone_' + Date.now();
-  clonedVoices.push({
+  var newVoice = {
     id: voiceId,
     name: voiceName,
     url: url,
@@ -2934,12 +3059,17 @@ function finishVoiceClone() {
     gender: 'custom',
     pitch: 1.0,
     rate: 1.0,
-    isCloned: true
-  });
-
+    isCloned: true,
+    duration: voiceCloneSeconds
+  };
+  clonedVoices.push(newVoice);
+  
   closeVoiceClone();
   renderVoices();
   showToast('声音克隆成功！已添加到配音列表');
+  
+  // Persist to localStorage (convert blob to data URI)
+  saveClonedVoices();
 }
 
 function closeVoiceClone() {
@@ -2970,10 +3100,15 @@ function deleteClonedVoice(id) {
     var el = document.getElementById('selected-voice-name');
     if (el) { el.textContent = '选择配音'; el.style.color = ''; }
   }
-  if (v.url) URL.revokeObjectURL(v.url);
+  // Only revoke if it's a blob URL (data URIs don't need revoking)
+  if (v.url && v.url.startsWith('blob:')) {
+    try { URL.revokeObjectURL(v.url); } catch(e) {}
+  }
   clonedVoices.splice(idx, 1);
   renderVoices();
   showToast('已删除克隆声音');
+  // Persist deletion to localStorage
+  saveClonedVoices();
 }
 
 // Handle voice file upload (for environments without getUserMedia)
@@ -2998,6 +3133,8 @@ function handleVoiceFileUpload(file) {
   });
   renderVoices();
   showToast('声音上传成功！已添加到配音列表');
+  // Persist to localStorage
+  saveClonedVoices();
 }
 
 function selectVoice(id) {
@@ -3787,6 +3924,36 @@ function preGenerateTTSBuffers(lines, voiceObj, onProgress, onComplete, onError)
   var idx = 0;
   var ctx = waCtx || waInit();
   if (!ctx) { if(onError) onError(new Error('no audio ctx')); return; }
+  
+  // If using a cloned voice, decode the recorded audio and use it for all lines
+  if (voiceObj && voiceObj.isCloned && (voiceObj.url || voiceObj.dataUri)) {
+    var cloneUrl = voiceObj.dataUri || voiceObj.url;
+    console.log('TTS pre-gen: Using cloned voice audio:', voiceObj.name);
+    fetch(cloneUrl).then(function(res) {
+      return res.arrayBuffer();
+    }).then(function(ab) {
+      return ctx.decodeAudioData(ab);
+    }).then(function(buffer) {
+      console.log('TTS pre-gen: Cloned voice decoded, duration:', buffer.duration.toFixed(2) + 's');
+      // Use the cloned voice buffer for each line
+      // Estimate per-line duration based on text length proportion
+      var totalChars = lines.reduce(function(s, l) { return s + l.length; }, 0);
+      lines.forEach(function(line, i) {
+        if (onProgress) onProgress(i, lines.length);
+        // Estimate duration based on text length ratio
+        var lineRatio = totalChars > 0 ? line.length / totalChars : 1 / lines.length;
+        var estDur = Math.max(1.0, buffer.duration * lineRatio);
+        results.push({ buffer: buffer, duration: estDur, text: line, isCloned: true });
+      });
+      console.log('TTS pre-gen: Cloned voice ready for', lines.length, 'lines');
+      onComplete(results);
+    }).catch(function(e) {
+      console.warn('TTS pre-gen: Cloned voice decode failed, falling back to TTS:', e);
+      // Fall through to normal TTS generation
+      fetchNext();
+    });
+    return;
+  }
 
   function fetchBaiduTTS(text, callback) {
     var spd = 3;
@@ -7779,6 +7946,7 @@ function submitRating() {
 // ========== Init ==========
 loadProfile();
 loadApiKeys();
+loadClonedVoices();
 renderCategories();
 renderTemplates('');
 renderVoices();
