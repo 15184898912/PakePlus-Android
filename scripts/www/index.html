@@ -6666,171 +6666,119 @@ function saveVideoToAlbum(url, title) {
     showToast('无法获取视频地址');
     return;
   }
+
   var btn = document.getElementById('comp-save-btn');
   if (btn) { btn.textContent = '正在保存...'; btn.style.opacity = '0.7'; }
 
   var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + '.mp4';
   var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
+  var isPakePlus = window.__pakeplus || (typeof window.AndroidBridge !== 'undefined') || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.saveVideo);
 
-  // 检测移动端环境 (PakePlus/WebView/手机浏览器)
-  var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || ('ontouchstart' in window);
-  var isPakePlus = window.__pakeplus || (window.AndroidBridge && typeof window.AndroidBridge.saveVideo === 'function');
-
-  // 长按保存弹窗 (移动端最可靠的方式，不会闪退)
-  function showLongPressSave(saveUrl, saveTitle, blobData) {
-    var existing = document.getElementById('long-press-save-overlay');
-    if (existing) existing.remove();
-    var overlay = document.createElement('div');
-    overlay.id = 'long-press-save-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:10001;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
-
-    // 如果有blob，创建blob URL用于显示（避免使用可能过期的URL）
-    var displayUrl = saveUrl;
-    try {
-      if (blobData instanceof Blob) {
-        displayUrl = URL.createObjectURL(blobData);
-      }
-    } catch(e) { /* use original url */ }
-
-    // 轻量级UI：不使用<video>元素和<a download>，防止WebView内存崩溃
-    overlay.innerHTML = '<div style="color:white;font-size:20px;font-weight:700;margin-bottom:16px;">💾 保存视频到相册</div>' +
-      '<div style="color:rgba(255,255,255,0.9);font-size:14px;margin-bottom:20px;text-align:center;line-height:2;max-width:340px;background:rgba(78,205,196,0.08);padding:16px 20px;border-radius:12px;border:1px solid rgba(78,205,196,0.25);">' +
-        '<div style="font-size:16px;margin-bottom:8px;">📱 <b>方法一：点击下载</b></div>' +
-        '<div style="font-size:13px;color:rgba(255,255,255,0.7);">点击下方"下载视频"按钮<br>视频将保存到手机下载文件夹</div>' +
-        '<div style="font-size:16px;margin:12px 0 8px;">🔗 <b>方法二：新窗口打开</b></div>' +
-        '<div style="font-size:13px;color:rgba(255,255,255,0.7);">点击"新窗口打开"按钮<br>在新页面长按视频选择"保存视频"</div>' +
-      '</div>' +
-      '<div style="color:rgba(255,255,255,0.4);font-size:12px;margin-bottom:16px;">' + (saveTitle || '视频作品') + '</div>' +
-      '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">' +
-        '<button id="mobile-download-btn" style="padding:12px 28px;border-radius:50px;border:none;background:linear-gradient(135deg, #4EC9C6, #2196F3);color:white;font-size:14px;cursor:pointer;font-weight:600;">📥 下载视频</button>' +
-        '<button id="mobile-open-btn" style="padding:12px 28px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:#4EC9C6;font-size:14px;cursor:pointer;">🔗 新窗口打开</button>' +
-        '<button style="padding:12px 28px;border-radius:50px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:14px;cursor:pointer;" onclick="document.getElementById(\'long-press-save-overlay\').remove()">关闭</button>' +
-      '</div>';
-    document.body.appendChild(overlay);
-
-    // 下载按钮：使用隐藏iframe下载（比<a download>更稳定，不会闪退）
-    var dlBtn = document.getElementById('mobile-download-btn');
-    if (dlBtn) {
-      dlBtn.onclick = function() {
-        try {
-          var iframe = document.createElement('iframe');
-          iframe.style.display = 'none';
-          iframe.src = displayUrl;
-          document.body.appendChild(iframe);
-          setTimeout(function() {
-            if (iframe.parentElement) document.body.removeChild(iframe);
-          }, 30000);
-          showToast('✓ 视频下载中，请查看下载文件夹');
-        } catch(dlErr) {
-          console.error('Download via iframe failed:', dlErr);
-          try {
-            window.open(displayUrl, '_blank');
-            showToast('请在打开的页面中长按保存视频');
-          } catch(openErr) {
-            showToast('下载失败，请尝试新窗口打开');
-          }
-        }
-      };
-    }
-
-    // 新窗口打开按钮
-    var openBtn = document.getElementById('mobile-open-btn');
-    if (openBtn) {
-      openBtn.onclick = function() {
-        try {
-          window.open(displayUrl, '_blank');
-        } catch(e) {
-          try { window.location.href = displayUrl; } catch(e2) { showToast('无法打开新窗口'); }
-        }
-      };
-    }
-
+  function restoreBtn() {
     if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
   }
 
-  // 桌面端: 尝试 navigator.share 或直接下载
-  function tryDesktopSave(blobData) {
-    // 方法1: navigator.share (桌面浏览器可能支持)
-    if (navigator.share && navigator.canShare && blobData) {
+  // 方法1: navigator.share + files（移动端原生分享面板，含"保存视频"选项）
+  function doShare(blob) {
+    if (navigator.share && navigator.canShare && blob) {
       try {
-        var file = new File([blobData], fileName, { type: blobData.type || 'video/mp4' });
+        var file = new File([blob], fileName, { type: (blob.type || 'video/mp4') });
         if (navigator.canShare({ files: [file] })) {
+          // Add timeout: if share doesn't respond in 10s, fall back
+          var shareTimedOut = false;
+          var shareTimer = setTimeout(function() {
+            shareTimedOut = true;
+            console.warn('navigator.share timed out, falling back to download');
+            doAnchorDownload(blob);
+          }, 10000);
+          
           navigator.share({
             files: [file],
             title: title || '视频作品',
             text: title || '视频作品'
           }).then(function() {
-            if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+            if (shareTimedOut) return;
+            clearTimeout(shareTimer);
+            restoreBtn();
             showToast('✓ 视频已保存');
           }).catch(function(e) {
+            if (shareTimedOut) return;
+            clearTimeout(shareTimer);
             if (e.name !== 'AbortError') {
-              tryDownload(blobData);
+              console.warn('navigator.share failed, trying download:', e);
+              doAnchorDownload(blob);
             } else {
-              if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+              restoreBtn();
             }
           });
-          return true;
+          return;
         }
-      } catch(e) {
-        console.warn('navigator.share failed:', e);
-      }
+      } catch(e) { console.warn('navigator.share setup failed:', e); }
     }
-    // 方法2: 直接下载
-    tryDownload(blobData);
-    return false;
+    // 不支持 share → 直接 <a download>
+    doAnchorDownload(blob);
   }
 
-  // 下载方法 (优先使用iframe，避免<a download>在WebView中闪退)
-  function tryDownload(blobData) {
+  // 方法2: <a download>（点击即下载）
+  function doAnchorDownload(blob) {
     try {
-      var blobUrl = (blobData instanceof Blob) ? URL.createObjectURL(blobData) : url;
-      var iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = blobUrl;
-      document.body.appendChild(iframe);
+      var blobUrl = (blob instanceof Blob) ? URL.createObjectURL(blob) : url;
+      var a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
       setTimeout(function() {
-        if (iframe.parentElement) document.body.removeChild(iframe);
-        if (blobData instanceof Blob && blobUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(blobUrl);
-        }
-      }, 30000);
-      if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-      showToast('✓ 视频下载中...');
+        if (a.parentElement) document.body.removeChild(a);
+      }, 5000);
+      restoreBtn();
+      showToast('✓ 视频下载中，请到下载文件夹查看');
     } catch(e) {
-      console.error('iframe download failed, trying <a> tag:', e);
+      console.error('<a download> failed:', e);
+      doLocationRedirect(blob);
+    }
+  }
+
+  // 方法3: location.href 跳转到 blob URL（触发 WebView 下载管理器）
+  function doLocationRedirect(blob) {
+    try {
+      var blobUrl = (blob instanceof Blob) ? URL.createObjectURL(blob) : url;
+      restoreBtn();
+      showToast('正在打开视频...');
+      window.location.href = blobUrl;
+    } catch(e) {
+      console.error('location.href failed:', e);
+      // 方法4: window.open 兜底
       try {
-        var blobUrl2 = (blobData instanceof Blob) ? URL.createObjectURL(blobData) : url;
-        var a = document.createElement('a');
-        a.href = blobUrl2;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-          if (a.parentElement) document.body.removeChild(a);
-        }, 5000);
-        if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-        showToast('✓ 视频下载中...');
+        window.open(url, '_blank');
+        restoreBtn();
+        showToast('已打开视频，长按画面选择保存');
       } catch(e2) {
-        console.error('All download methods failed:', e2);
-        if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-        showLongPressSave(url, title, blobData);
+        restoreBtn();
+        showToast('保存失败，请长按视频画面选择保存');
       }
     }
   }
 
-  // 移动端: 直接显示长按保存弹窗 (避免 navigator.share 导致闪退)
-  if (isMobile) {
-    console.log('Mobile detected, using long-press save to avoid crash');
-    showLongPressSave(url, title, savedBlob);
-    return;
-  }
-
-  // 桌面端: 尝试 share 或下载
+  // 入口：有 blob 直接保存；没有 blob 先 fetch
   if (savedBlob) {
-    tryDesktopSave(savedBlob);
+    doShare(savedBlob);
   } else {
-    tryDesktopSave(null);
+    showToast('正在准备视频...');
+    try {
+      fetch(url)
+        .then(function(r) { return r.blob(); })
+        .then(function(blob) {
+          lastRenderedBlob = blob;
+          doShare(blob);
+        })
+        .catch(function() {
+          doAnchorDownload(null);
+        });
+    } catch(e) {
+      doAnchorDownload(null);
+    }
   }
 }
 
