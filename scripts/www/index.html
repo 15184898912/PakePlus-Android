@@ -1184,6 +1184,11 @@ video[preload][muted][playsinline]::-webkit-media-controls-start-playback-button
             <div style="font-size:12px;color:var(--text-medium-gray);margin-bottom:6px;">视频特效</div>
             <div id="ai-effect-list" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           </div>
+          <!-- HSL智能调色 -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:12px;color:var(--text-medium-gray);margin-bottom:6px;">HSL智能调色 <span style="color:var(--editor-cyan);font-size:10px;">(场景识别)</span></div>
+            <div id="ai-hsl-list" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+          </div>
           <!-- 曲线变速 -->
           <div>
             <div style="font-size:12px;color:var(--text-medium-gray);margin-bottom:6px;">曲线变速</div>
@@ -2261,11 +2266,24 @@ var AI_SPEEDS = [
 var selectedCamMove = 'auto';
 var selectedEffect = 'auto';
 var selectedSpeed = 'auto';
-var selectedQuality = '4K'; // '1080p', '4K', '8K'
+var selectedHsl = 'auto'; // HSL color grading: 'auto', 'none', 'skin', 'nature', 'cinema', 'warm', 'cool'
+
+// HSL智能调色预设 - 模拟剪映HSL调色功能
+// auto: AI自动识别场景（人脸→白嫩，植物→增绿），手动选择则直接应用对应滤镜
+var AI_HSL_OPTIONS = [
+  {id:'auto',   name:'AI智能调色', desc:'自动识别场景智能调色', filter:'auto'},
+  {id:'none',   name:'原片色彩',   desc:'保持原始色彩不变',     filter:'none'},
+  {id:'skin',   name:'肤色白嫩',   desc:'提亮肤色，白皙透亮',   filter:'brightness(1.08) saturate(0.92) contrast(1.03) hue-rotate(-3deg)'},
+  {id:'nature', name:'植物增绿',   desc:'绿色植物更鲜艳饱满',   filter:'saturate(1.28) hue-rotate(-8deg) brightness(1.03)'},
+  {id:'cinema', name:'电影质感',   desc:'电影级HSL调色',        filter:'contrast(1.12) saturate(1.08) brightness(0.98) hue-rotate(-2deg)'},
+  {id:'warm',   name:'暖调温馨',   desc:'温暖柔和色调',         filter:'saturate(1.12) brightness(1.05) hue-rotate(5deg) sepia(0.08)'},
+  {id:'cool',   name:'冷调清透',   desc:'清凉通透色调',         filter:'saturate(0.95) brightness(1.06) hue-rotate(-5deg) contrast(1.04)'},
+];
+var selectedQuality = '1080p'; // '1080p', '4K', '8K'
 var QUALITY_OPTIONS = [
-  { id: '1080p', name: '1080P', w: 1080, h: 1920, bitrate: 12000000 },
-  { id: '4K', name: '4K超清', w: 2160, h: 3840, bitrate: 40000000 },
-  { id: '8K', name: '8K极致', w: 3840, h: 5760, bitrate: 80000000 }
+  { id: '1080p', name: '1080P', w: 1080, h: 1920, bitrate: 12000000, fps: 30 },
+  { id: '4K', name: '4K超清', w: 2160, h: 3840, bitrate: 40000000, fps: 30 },
+  { id: '8K', name: '8K极致', w: 3840, h: 5760, bitrate: 80000000, fps: 24 }
 ];
 
 function renderAIEnhanceTags() {
@@ -2281,6 +2299,8 @@ function renderAIEnhanceTags() {
   if (effEl) effEl.innerHTML = tagHtml(AI_EFFECTS, selectedEffect, 'selectEffect');
   var spdEl = document.getElementById('ai-speed-list');
   if (spdEl) spdEl.innerHTML = tagHtml(AI_SPEEDS, selectedSpeed, 'selectSpeed');
+  var hslEl = document.getElementById('ai-hsl-list');
+  if (hslEl) hslEl.innerHTML = tagHtml(AI_HSL_OPTIONS, selectedHsl, 'selectHsl');
   var qualEl = document.getElementById('ai-quality-list');
   if (qualEl) qualEl.innerHTML = tagHtml(QUALITY_OPTIONS, selectedQuality, 'selectQuality');
 }
@@ -2288,8 +2308,93 @@ function selectCamMove(id) { selectedCamMove = id; renderAIEnhanceTags(); showTo
 function selectEffect(id) { selectedEffect = id; renderAIEnhanceTags(); showToast('特效: ' + (AI_EFFECTS.find(function(c){return c.id===id;})||{}).name); }
 function selectSpeed(id) { selectedSpeed = id; renderAIEnhanceTags(); showToast('变速: ' + (AI_SPEEDS.find(function(c){return c.id===id;})||{}).name); }
 function selectQuality(id) { selectedQuality = id; renderAIEnhanceTags(); showToast('画质: ' + (QUALITY_OPTIONS.find(function(c){return c.id===id;})||{}).name); }
+function selectHsl(id) { selectedHsl = id; renderAIEnhanceTags(); showToast('HSL调色: ' + (AI_HSL_OPTIONS.find(function(h){return h.id===id;})||{}).name); }
 
 // AI智能分析视频场景，返回分析结果
+// ========== AI Scene Detection for HSL Color Grading ==========
+// 采样canvas像素，检测画面中的人脸肤色和绿色植物比例
+// 返回场景类型: 'person' | 'nature' | 'mixed' | 'general'
+function detectSceneType(ctx, canvas) {
+  // 采样64x64像素区域（性能优化：不需要全画面扫描）
+  var sampleSize = 64;
+  var sx = Math.floor((canvas.width - sampleSize) / 2);
+  var sy = Math.floor((canvas.height - sampleSize) / 2);
+  sx = Math.max(0, sx);
+  sy = Math.max(0, sy);
+
+  try {
+    var imageData = ctx.getImageData(sx, sy, sampleSize, sampleSize);
+    var data = imageData.data;
+    var skinPixels = 0;
+    var greenPixels = 0;
+    var totalPixels = data.length / 4;
+
+    for (var i = 0; i < data.length; i += 4) {
+      var r = data[i] / 255;
+      var g = data[i + 1] / 255;
+      var b = data[i + 2] / 255;
+
+      // RGB → HSL 转换
+      var max = Math.max(r, g, b);
+      var min = Math.min(r, g, b);
+      var l = (max + min) / 2;
+      var h = 0;
+      var s = 0;
+
+      if (max !== min) {
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+          case g: h = ((b - r) / d + 2) * 60; break;
+          case b: h = ((r - g) / d + 4) * 60; break;
+        }
+      }
+
+      // 肤色检测: 色相0-40°, 饱和度0.15-0.7, 亮度0.3-0.85, 且 R>G>B
+      if (h >= 0 && h <= 40 && s > 0.15 && s < 0.7 && l > 0.3 && l < 0.85) {
+        if (r > g && g > b) skinPixels++;
+      }
+
+      // 绿色植物检测: 色相70-170°, 饱和度>0.2, 且 G>R, G>B
+      if (h >= 70 && h <= 170 && s > 0.2 && g > r && g > b) {
+        greenPixels++;
+      }
+    }
+
+    var skinRatio = skinPixels / totalPixels;
+    var greenRatio = greenPixels / totalPixels;
+
+    console.log('HSL场景检测: 肤色=' + (skinRatio*100).toFixed(1) + '%, 绿色=' + (greenRatio*100).toFixed(1) + '%');
+
+    if (skinRatio > 0.1 && greenRatio > 0.1) return 'mixed';
+    if (skinRatio > 0.08) return 'person';
+    if (greenRatio > 0.08) return 'nature';
+    return 'general';
+  } catch(e) {
+    console.warn('HSL场景检测失败:', e);
+    return 'general';
+  }
+}
+
+// 根据场景类型返回自动HSL滤镜（模拟剪映HSL调色）
+function getAutoHslFilter(sceneType) {
+  switch (sceneType) {
+    case 'person':
+      // 肤色白嫩: 提亮+降饱和+暖色微调, 让皮肤更白皙透亮
+      return 'brightness(1.08) saturate(0.92) contrast(1.03) hue-rotate(-3deg)';
+    case 'nature':
+      // 植物增绿: 提饱和+绿色偏移+微提亮, 让绿色植物更鲜艳
+      return 'saturate(1.28) hue-rotate(-8deg) brightness(1.03)';
+    case 'mixed':
+      // 混合场景: 均衡调整, 同时照顾肤色和植物
+      return 'brightness(1.05) saturate(1.15) contrast(1.02) hue-rotate(-5deg)';
+    default:
+      // 通用增强: 轻微提亮+加饱和, 整体画面更通透
+      return 'brightness(1.03) saturate(1.08) contrast(1.02)';
+  }
+}
+
 function aiAnalyzeScene(mediaUrl, mediaType) {
   var scenes = [];
   // 基于媒体类型和随机因子的智能分析模拟
@@ -2368,7 +2473,12 @@ function goBack() {
     var target = navHistory[navHistory.length-1];
     // Navigate without resetting history
     stopCompositePlayback();
-    stopVoicePreview();
+    // Skip stopping voice preview if TTS notification is active (prevents cutoff)
+    if (!window._ttsNotifyActive) {
+      stopVoicePreview();
+    } else {
+      console.log('goBack: Skipping stopVoicePreview - TTS notification active');
+    }
     stopBgmPlayback();
     document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
     document.getElementById(target).classList.add('active');
@@ -2493,6 +2603,55 @@ function updateRewriteBtn() {
   }
 }
 
+// AI智能文案改写系统 - 每次改写随机选择不同文案模式，确保多样化输出
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// 额外的通用钩子文案（与行业钩子合并使用，增加多样性）
+var EXTRA_HOOKS = [
+  '这家店藏得太深了', '被朋友安利了无数次', '路过就被吸引',
+  '不吹不黑真的绝', '性价比天花板', '宝藏店铺被发现',
+  '吃完直接路转粉', '体验感拉满', '细节见真章',
+  '朋友圈刷屏系列', '本地人私藏清单', '错过真的会后悔',
+  '被惊艳到了', '这也太香了吧', '本地老饕才知道',
+  '排队也要去', '藏在巷子里的宝藏', '第一口就沦陷',
+  '朋友圈问疯了', '谁去谁知道', '真心推荐不踩雷'
+];
+
+// 改写计数器，确保每次改写使用不同的文案模式
+var rewriteCounter = 0;
+
+// 额外的行动号召（与行业CTA合并使用）
+var EXTRA_CTAS = [
+  '到店出示本视频享专属优惠',
+  '评论区留言获取详情',
+  '点击关注不错过每次福利',
+  '到店消费送惊喜好礼',
+  '前50名到店送精美好礼',
+  '关注+收藏，下次到店有惊喜',
+  '私信回复"优惠"领取专属折扣',
+  '到店说看视频来的，额外赠送福利',
+  '扫码进群，群内专属福利天天有',
+  '今日到店前30名免单/半价'
+];
+
+// 额外的结尾文案
+var EXTRA_CLOSINGS = [
+  '关注{brand}，更多{industry}干货持续更新！\n点赞收藏不迷路，评论区告诉我你最想了解什么~',
+  '我是{brand}，专注{industry}领域。\n觉得有用就点个关注，每天分享实用干货！',
+  '关注{brand}，带你了解更多{industry}内幕！\n有什么想问的，评论区见~',
+  '喜欢就点个关注吧！{brand}持续为你带来{industry}好内容。\n收藏本视频，下次到店用得上！',
+  '想了解更多{industry}内容？关注{brand}就对啦！\n评论区留言，下期内容你来定~',
+  '觉得不错就点赞+关注！{brand}持续分享{industry}干货，\n转发给需要的朋友，一起涨知识！',
+  '关注{brand}不迷路！每天一个{industry}小技巧，\n评论区留下你的问题，我来解答！',
+  '如果你也喜欢{industry}，一定要关注{brand}！\n点个赞，让更多人看到好内容~'
+];
+
+// 生成随机结尾文案
+function getRandomClosing(pBrand, pIndustry) {
+  var closing = pickRandom(EXTRA_CLOSINGS);
+  return closing.replace(/{brand}/g, pBrand).replace(/{industry}/g, pIndustry);
+}
+
 // 语音通知函数 - 使用云端TTS播报成功/失败消息
 function speakNotify(message, isSuccess, onComplete) {
   var notifyCompleted = false;
@@ -2501,8 +2660,8 @@ function speakNotify(message, isSuccess, onComplete) {
     notifyCompleted = true;
     if (onComplete) onComplete();
   }
-  // Safety timeout: ensure onComplete fires even if TTS fails silently (8 seconds max)
-  var safetyTimer = setTimeout(ensureComplete, 8000);
+  // Safety timeout: ensure onComplete fires even if TTS fails silently (15 seconds max)
+  var safetyTimer = setTimeout(ensureComplete, 15000);
 
   try {
     // 使用选中的配音声音，如果没有则用默认声音
@@ -2576,13 +2735,99 @@ function speakNotify(message, isSuccess, onComplete) {
   }
 }
 
+// ========== LLM API调用 ==========
+var LLM_MODEL_MAP = {
+  '通义千问 (qwen-max)': { endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', model: 'qwen-max' },
+  '文心一言 (ERNIE-Bot-4)': { endpoint: 'https://qianfan.baidubce.com/v2/chat/completions', model: 'ernie-4.0-8k-latest' },
+  '智谱GLM (GLM-4)': { endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4' },
+  'DeepSeek (deepseek-chat)': { endpoint: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat' },
+  '月之暗面 (Moonshot-v1)': { endpoint: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k' }
+};
+
+function getLLMConfig() {
+  var apiKey = '';
+  try { apiKey = localStorage.getItem('zhugeApiKey_llm') || ''; } catch(e) {}
+  var modelText = 'DeepSeek (deepseek-chat)';
+  try { modelText = localStorage.getItem('zhugeApiModel_llm') || modelText; } catch(e) {}
+  var sel = document.getElementById('api-model-llm');
+  if (sel && sel.value) modelText = sel.value;
+  var config = LLM_MODEL_MAP[modelText] || LLM_MODEL_MAP['DeepSeek (deepseek-chat)'];
+  return { apiKey: apiKey, endpoint: config.endpoint, model: config.model, modelText: modelText };
+}
+
+function callLLM(userPrompt, onSuccess, onError) {
+  var cfg = getLLMConfig();
+  if (!cfg.apiKey) {
+    if (onError) onError('未配置大模型API Key');
+    return;
+  }
+  console.log('LLM调用: model=' + cfg.model + ', endpoint=' + cfg.endpoint);
+  fetch(cfg.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + cfg.apiKey
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      messages: [
+        { role: 'system', content: '你是一位专业的短视频文案策划师，精通各行业营销文案创作。你擅长根据商家的行业信息、品牌特色和目标受众，创作出风格多样、有感染力的短视频口播文案。每次创作都要有不同的切入角度和表达方式，确保文案的多样性和创意性。' },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.95,
+      max_tokens: 1000,
+      stream: false
+    })
+  })
+  .then(function(res) {
+    if (!res.ok) {
+      return res.text().then(function(t) {
+        throw new Error('API返回 ' + res.status + ': ' + t.substring(0, 200));
+      });
+    }
+    return res.json();
+  })
+  .then(function(data) {
+    var content = '';
+    if (data.choices && data.choices[0]) {
+      if (data.choices[0].message) {
+        content = data.choices[0].message.content || '';
+      } else if (data.choices[0].text) {
+        content = data.choices[0].text || '';
+      }
+    }
+    // Clean up: remove markdown code blocks if present
+    content = content.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
+    if (content && content.length > 10) {
+      console.log('LLM返回文案长度: ' + content.length);
+      onSuccess(content);
+    } else {
+      if (onError) onError('API返回内容为空或过短');
+    }
+  })
+  .catch(function(err) {
+    console.warn('LLM调用失败:', err.message);
+    if (onError) onError(err.message || 'API调用失败');
+  });
+}
+
 function onRewrite() {
   if (!selectedTemplate || isRewriting) return;
   isRewriting = true;
+  rewriteCounter++;
   var btn = document.getElementById('rewrite-btn');
   var txt = document.getElementById('rewrite-btn-text');
   btn.classList.add('disabled');
-  txt.textContent = 'AI正在分析生意档案...';
+
+  // Check if API key is configured
+  var llmKey = '';
+  try { llmKey = localStorage.getItem('zhugeApiKey_llm') || ''; } catch(e) {}
+  if (llmKey) {
+    txt.textContent = 'AI大模型正在创作文案...';
+  } else {
+    txt.textContent = '正在智能改写文案...';
+    showToast('提示：未配置AI大模型API Key，使用本地智能生成。配置后可获得更多样化的文案');
+  }
 
   setTimeout(function() {
     // Get profile data with defaults
@@ -2667,26 +2912,119 @@ function onRewrite() {
 
     var hooks = industryHooks[pIndustry] || ['品质好物推荐', '不可错过的选择', '本地人气之选', '好评如潮'];
     var cta = industryCTAs[pIndustry] || '现在下单享专属优惠，名额有限！';
-    var hook = hooks[Math.floor(Math.random() * hooks.length)];
 
-    // Build rewritten copy based on template category, profile data, and industry
+    // 构建AI大模型提示词
+    var catNames = { 'TRAFFIC': '流量引流型', 'PERSONA': '人设立意型', 'CONVERSION': '成交转化型', 'INDUSTRY': '行业专属型', 'CUSTOM': '自定义型' };
+    var catName = catNames[cat] || '通用型';
+
+    var aiPrompt = '请为以下商家创作一条' + catName + '短视频口播文案。\n\n'
+      + '【商家信息】\n'
+      + '行业：' + pIndustry + '\n'
+      + '品牌名：' + pBrand + '\n'
+      + '城市：' + pCity + '\n'
+      + '核心卖点：' + pSelling + '\n'
+      + '目标受众：' + pAudience + '\n'
+      + (pDesc ? '店铺描述：' + pDesc + '\n' : '')
+      + (pPhone ? '联系电话：' + pPhone + '\n' : '')
+      + '模板类型：' + catName + '\n\n'
+      + '【创作要求】\n'
+      + '1. 文案长度150-300字，适合15-30秒短视频口播\n'
+      + '2. 必须结合' + pIndustry + '行业特点，体现行业专业性\n'
+      + '3. 开头要有强吸引力的钩子，中间展示卖点，结尾有明确的行动号召\n'
+      + '4. 语气自然口语化，适合真人配音播报\n'
+      + '5. 每次创作都要用完全不同的切入角度和表达方式（如：故事引入、数据背书、情感共鸣、对比反差、悬念吸引、场景代入、痛点共鸣、逆袭反转等），绝对不要用相同的结构和句式\n'
+      + '6. 只输出文案正文，不要加标题、序号或解释说明\n'
+      + '7. 可以适当使用emoji表情增加亲和力\n'
+      + '8. 如果有联系电话，在文案结尾自然带出\n'
+      + '9. 这是第' + rewriteCounter + '次改写，请务必使用与之前完全不同的创作角度和风格'
+
+    // 生成随机种子，确保每次调用结果不同
+    var seed = Date.now() + Math.floor(Math.random() * 10000);
+    aiPrompt += '\n\n【本次创作随机参数】创作编号：' + seed + '，请根据此编号选择独特的创作角度和表达方式。';
+
+    // 尝试调用大模型API
+    callLLM(aiPrompt, function(aiResult) {
+      // AI成功，使用AI生成的文案
+      console.log('AI大模型文案生成成功');
+      finishRewrite(aiResult, pBrand, pCity, pIndustry, pSelling, pAudience, pDesc, pPhone, cat, tplName, indInfo, indIcon, indTemplates, true);
+    }, function(err) {
+      // AI失败，使用本地智能生成作为降级方案
+      console.warn('AI大模型调用失败，降级为本地生成:', err);
+      var localResult = generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDesc, pPhone, cat, tplName, indInfo, indIcon, indTemplates, hooks, cta);
+      finishRewrite(localResult, pBrand, pCity, pIndustry, pSelling, pAudience, pDesc, pPhone, cat, tplName, indInfo, indIcon, indTemplates, false);
+    });
+  }, 500);
+}
+
+// 本地智能文案生成（降级方案）- 使用计数器确保每次改写不同
+function generateLocalRewrite(pIndustry, pBrand, pCity, pSelling, pAudience, pDesc, pPhone, cat, tplName, indInfo, indIcon, indTemplates, hooks, cta) {
+    // 合并行业钩子和通用钩子，使用计数器偏移选择，避免连续重复
+    var allHooks = hooks.concat(EXTRA_HOOKS);
+    var hookIdx = (rewriteCounter * 3 + Math.floor(Math.random() * 3)) % allHooks.length;
+    var hook = allHooks[hookIdx];
+
+    var allCTAs = [cta].concat(EXTRA_CTAS);
+    var ctaIdx = (rewriteCounter * 2 + 1) % allCTAs.length;
+    var finalCTA = allCTAs[ctaIdx];
+
+    var closingIdx = rewriteCounter % EXTRA_CLOSINGS.length;
+    var closing = EXTRA_CLOSINGS[closingIdx].replace(/{brand}/g, pBrand).replace(/{industry}/g, pIndustry);
+
+    var phoneLine = pPhone ? '咨询热线：' + pPhone + '\n' : '';
+    var descLine = pDesc ? '店铺特色：' + pDesc + '\n\n' : '\n';
+
+    // 使用计数器选择模式，确保连续改写使用不同模式
+    var patternIdx = rewriteCounter % 5;
+    console.log('本地智能改写: hook=' + hook + ', cat=' + cat + ', industry=' + pIndustry + ', pattern=' + patternIdx + ', counter=' + rewriteCounter);
+
+    // Build rewritten copy - 每个类别有多种不同结构的文案模式
     var rewritten = '';
 
     if (cat === 'TRAFFIC') {
-      // 流量型：吸引眼球，制造悬念，引导互动
-      rewritten = hook + '！\n' +
+      // 流量型：5种不同结构的文案模式
+      var trafficPatterns = [
+        // 模式1: 疑问悬念式
+        hook + '！\n' +
         pCity + pIndustry + '圈子里口碑炸裂的' + pBrand + '，\n' +
         '到底凭什么这么火？\n\n' +
         '核心卖点：' + pSelling + '，\n' +
         '专为' + pAudience + '打造。\n' +
-        (pDesc ? '店铺特色：' + pDesc + '\n\n' : '\n') +
-        cta + '\n' +
-        (pPhone ? '咨询热线：' + pPhone + '\n' : '') +
-        '关注' + pBrand + '，' + pIndustry + '干货持续更新！\n' +
-        '点赞收藏不迷路，评论区告诉我你最想了解什么~';
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式2: 故事引入式
+        '昨天朋友非要拉着我去' + pCity + '的一家店，\n' +
+        '到了才发现是' + pBrand + '。\n' +
+        '一开始还不以为然，结果直接真香了！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '这才是' + pAudience + '该有的体验。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式3: 数据背书式
+        '98%的' + pAudience + '都在推荐的店！\n' +
+        pCity + pIndustry + '圈的顶流——' + pBrand + '。\n\n' +
+        '为什么这么多人选？\n' +
+        '因为' + pSelling + '。\n' +
+        descLine + hook + '！\n' + finalCTA + '\n' + phoneLine + closing,
+        // 模式4: 对比反差式
+        '以为只是普通' + pIndustry + '店，\n' +
+        '没想到' + pBrand + '直接刷新认知！\n\n' +
+        '别家做不到的：' + pSelling + '。\n' +
+        pCity + pAudience + '都在偷偷打卡。\n' +
+        descLine + hook + '！\n' + finalCTA + '\n' + phoneLine + closing,
+        // 模式5: 情感共鸣式
+        '被' + pBrand + '的用心暖到了。\n' +
+        '在' + pCity + '做' + pIndustry + '这么用心，真的不多了。\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        '每一位' + pAudience + '都能感受到诚意。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing
+      ];
+      rewritten = trafficPatterns[patternIdx];
+
     } else if (cat === 'PERSONA') {
-      // 人设型：创业故事，个人IP，情感共鸣
-      rewritten = '我是' + pBrand + '的创始人，\n' +
+      // 人设型：5种不同结构的文案模式
+      var personaPatterns = [
+        // 模式1: 创业初心式
+        '我是' + pBrand + '的创始人，\n' +
         '在' + pCity + '做' + pIndustry + '已经多年。\n\n' +
         '很多人问我为什么选择这一行？\n' +
         '因为' + pSelling + '，\n' +
@@ -2697,65 +3035,214 @@ function onRewrite() {
         '创业路上有笑有泪，\n' +
         '感谢每一位支持' + pBrand + '的朋友！\n' +
         (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
-        '关注我，分享更多' + pIndustry + '创业真实故事~';
+        '关注我，分享更多' + pIndustry + '创业真实故事~',
+        // 模式2: 坚持匠心式
+        '有人说我太较真，\n' +
+        '但做' + pIndustry + '这件事，我不能马虎。\n\n' +
+        '我是' + pBrand + '的创始人，\n' +
+        pSelling + '，\n' +
+        '这是我给' + pAudience + '的承诺。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + '的父老乡亲，\n' +
+        pBrand + '不会让你们失望！\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，看一个' + pIndustry + '人的坚守~',
+        // 模式3: 客户故事式
+        '上周一位老客户来店里，\n' +
+        '说了一句让我红了眼眶的话：\n' +
+        '"选择' + pBrand + '，是我做过最对的决定。"\n\n' +
+        '做' + pIndustry + '这么多年，\n' +
+        pSelling + '，\n' +
+        '就是为了听到这样的话。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + pAudience + '的信任，\n' +
+        '是' + pBrand + '最大的动力。\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，分享更多真实故事~',
+        // 模式4: 行业洞察式
+        '做' + pIndustry + '这么多年，\n' +
+        '我发现一个规律：\n' +
+        '真正的好店，从不靠花哨营销。\n\n' +
+        '我是' + pBrand + '的创始人，\n' +
+        pSelling + '，\n' +
+        '靠的就是口碑和回头客。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        pCity + pAudience + '的眼睛是雪亮的，\n' +
+        '好品质自己会说话。\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，听' + pIndustry + '圈的真实故事~',
+        // 模式5: 成长蜕变式
+        '从一个人到现在，\n' +
+        pBrand + '走过了很长的路。\n\n' +
+        '刚开始做' + pIndustry + '的时候，\n' +
+        '很多人不看好。\n' +
+        '但' + pSelling + '，\n' +
+        '这是我们一直坚持的。\n\n' +
+        (pDesc ? pDesc + '\n\n' : '') +
+        '感谢' + pCity + '的' + pAudience + '，\n' +
+        '是你们让' + pBrand + '越来越好！\n' +
+        (pPhone ? '合作咨询：' + pPhone + '\n' : '') +
+        '关注我，见证' + pBrand + '的成长~'
+      ];
+      rewritten = personaPatterns[patternIdx];
+
     } else if (cat === 'CONVERSION') {
-      // 成交型：促单转化，限时优惠，紧迫感
-      rewritten = '【' + pBrand + ' 限时福利】\n' +
+      // 成交型：5种不同结构的文案模式
+      var conversionPatterns = [
+        // 模式1: 限时秒杀式
+        '【' + pBrand + ' 限时福利】\n' +
         pCity + pIndustry + '超值活动来了！\n\n' +
         hook + '！\n' +
         pSelling + '，\n' +
         pAudience + '必选' + pBrand + '！\n\n' +
         (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
-        '今日专属福利：\n' +
-        cta + '\n' +
-        '仅限前50名，抢完即止！\n' +
-        (pPhone ? '抢购热线：' + pPhone + '\n' : '') +
-        '错过今天再等一个月，\n' +
-        '赶紧行动吧！关注' + pBrand + '不错过每次福利！';
-    } else if (cat === 'INDUSTRY') {
-      // 行业模板：基于行业特性，专业文案
-      // Check if the template name matches the profile industry
-      var tplIndustryPrefix = tplName.split('-')[0]; // e.g., "餐饮-探店种草" -> "餐饮"
-      var isIndustryMatch = (tplIndustryPrefix === pIndustry) || tplName.indexOf(pIndustry) >= 0;
+        '今日专属福利：\n' + finalCTA + '\n' +
+        '仅限前50名，抢完即止！\n' + phoneLine +
+        '错过今天再等一个月，赶紧行动！',
+        // 模式2: 名额稀缺式
+        '仅剩最后20个名额！\n' +
+        pBrand + '粉丝专属福利即将关闭！\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '都在抢！\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        finalCTA + '\n' + phoneLine +
+        '名额有限，先到先得！\n' +
+        '别等了，现在就行动！',
+        // 模式3: 错失恐惧式
+        '上一次活动，很多人错过了...\n' +
+        '这次' + pBrand + '又来送福利了！\n\n' +
+        hook + '！\n' +
+        pSelling + '。\n' +
+        '专为' + pAudience + '准备。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        finalCTA + '\n' + phoneLine +
+        '这次别再错过了！\n' +
+        '关注' + pBrand + '不错过每次福利！',
+        // 模式4: 超值对比式
+        '同样的价格，\n' +
+        pBrand + '给你更多！\n\n' +
+        pCity + pIndustry + '性价比之选——\n' +
+        pSelling + '。\n' +
+        pAudience + '都在悄悄选' + pBrand + '。\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        '今日福利：' + finalCTA + '\n' + phoneLine +
+        '对比就知道，选' + pBrand + '没错！',
+        // 模式5: 老客回馈式
+        '感谢老客户一路支持！\n' +
+        pBrand + '专属回馈日来了！\n\n' +
+        hook + '！\n' +
+        pSelling + '。\n' +
+        '新老客户同享福利！\n\n' +
+        (pDesc ? '门店特色：' + pDesc + '\n\n' : '') +
+        finalCTA + '\n' + phoneLine +
+        '老带新还有额外惊喜！\n' +
+        '快来' + pBrand + '，等你！'
+      ];
+      rewritten = conversionPatterns[patternIdx];
 
-      if (isIndustryMatch) {
-        // Template directly matches the profile industry - generate highly relevant copy
-        var tplType = tplName.split('-')[1] || tplName; // e.g., "探店种草"
-        rewritten = '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
-          hook + '！\n\n' +
-          '在' + pCity + '做' + pIndustry + '，\n' +
-          pBrand + '就是你的不二之选。\n\n' +
-          '本期主题：' + tplType + '\n' +
-          pSelling + '，\n' +
-          '面向' + pAudience + '，用心服务每一位客户。\n' +
-          (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
-          cta + '\n' +
-          (pPhone ? '联系电话：' + pPhone + '\n' : '') +
-          '关注' + pBrand + '，更多' + pIndustry + '精彩内容持续更新！';
-      } else {
-        // Template doesn't directly match - still use profile data with industry context
-        rewritten = '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
-          hook + '！\n\n' +
-          tplPreview.replace(/\.\.\.$/, '') + '\n\n' +
-          pBrand + '位于' + pCity + '，\n' +
-          '专注' + pIndustry + '领域，' + pSelling + '。\n' +
-          '为' + pAudience + '提供优质服务。\n' +
-          (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
-          cta + '\n' +
-          (pPhone ? '联系电话：' + pPhone + '\n' : '') +
-          '欢迎到店体验，' + pBrand + '期待您的光临！';
-      }
+    } else if (cat === 'INDUSTRY') {
+      // 行业模板：5种不同结构的文案模式
+      var tplIndustryPrefix = tplName.split('-')[0];
+      var isIndustryMatch = (tplIndustryPrefix === pIndustry) || tplName.indexOf(pIndustry) >= 0;
+      var tplType = tplName.split('-')[1] || tplName;
+
+      var industryPatterns = [
+        // 模式1: 专业推荐式
+        '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
+        hook + '！\n\n' +
+        '在' + pCity + '做' + pIndustry + '，\n' +
+        pBrand + '就是你的不二之选。\n\n' +
+        '本期主题：' + tplType + '\n' +
+        pSelling + '，\n' +
+        '面向' + pAudience + '，用心服务每一位客户。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式2: 探店体验式
+        '带你探店' + pCity + '的' + pBrand + '！\n' +
+        indIcon + ' ' + pIndustry + '行业 · ' + tplType + '\n\n' +
+        hook + '！\n' +
+        '一进门就被' + pSelling + '圈粉了。\n' +
+        pAudience + '必打卡！\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式3: 行业干货式
+        pIndustry + '行业做了这么多年，\n' +
+        '最推荐的就是' + pBrand + '。\n\n' +
+        hook + '！\n' +
+        tplType + '必看：\n' +
+        pSelling + '。\n' +
+        pAudience + '选' + pBrand + '就对了。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式4: 对比评测式
+        pCity + pIndustry + '这么多店，\n' +
+        '为什么我只推荐' + pBrand + '？\n\n' +
+        hook + '！\n' +
+        '因为' + pSelling + '。\n' +
+        '同样是面向' + pAudience + '，\n' +
+        pBrand + '做到了别人做不到的。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing,
+        // 模式5: 口碑传播式
+        '问了一圈' + pCity + pAudience + '，\n' +
+        '推荐最多的就是' + pBrand + '！\n\n' +
+        hook + '！\n' +
+        tplType + '首选。\n' +
+        pSelling + '。\n' +
+        (pDesc ? '门店介绍：' + pDesc + '\n\n' : '\n') +
+        finalCTA + '\n' + phoneLine + closing
+      ];
+      rewritten = industryPatterns[patternIdx];
+
     } else {
-      // 自定义模板
-      rewritten = '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
+      // 自定义模板：5种不同结构的文案模式
+      var customPatterns = [
+        // 模式1: 直接推荐式
+        '【' + pBrand + ' | ' + pIndustry + indIcon + '】\n' +
         hook + '！\n\n' +
         pCity + pIndustry + '，' + pSelling + '，\n' +
         '面向' + pAudience + '，品质保证！\n' +
-        (pDesc ? pDesc + '\n\n' : '\n') +
-        cta + '\n' +
-        (pPhone ? '咨询热线：' + pPhone + '\n' : '') +
-        '关注' + pBrand + '，了解更多' + pIndustry + '优惠！';
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式2: 问题解决式
+        pAudience + '常见痛点，\n' +
+        pBrand + '帮你解决！\n\n' +
+        hook + '！\n' +
+        pSelling + '。\n' +
+        pCity + pIndustry + '之选。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式3: 朋友圈种草式
+        '必须安利' + pCity + '的' + pBrand + '！\n' +
+        indIcon + ' ' + pIndustry + '宝藏店铺。\n\n' +
+        hook + '！\n' +
+        pSelling + '，\n' +
+        pAudience + '闭眼入不踩雷。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式4: 专业解析式
+        pIndustry + '怎么选？\n' +
+        '看' + pBrand + '就对了。\n\n' +
+        hook + '！\n' +
+        pSelling + '。\n' +
+        pCity + pAudience + '的专业之选。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing,
+        // 模式5: 场景代入式
+        '如果你是' + pAudience + '，\n' +
+        '一定要了解' + pBrand + '。\n\n' +
+        hook + '！\n' +
+        pCity + pIndustry + '优选。\n' +
+        pSelling + '。\n' +
+        descLine + finalCTA + '\n' + phoneLine + closing
+      ];
+      rewritten = customPatterns[patternIdx];
     }
+
+    return rewritten;
+}
+
+// 完成改写：显示结果并自动确认
+function finishRewrite(rewritten, pBrand, pCity, pIndustry, pSelling, pAudience, pDesc, pPhone, cat, tplName, indInfo, indIcon, indTemplates, usedAI) {
+    var btn = document.getElementById('rewrite-btn');
+    var txt = document.getElementById('rewrite-btn-text');
 
     // Store rewritten text on the template object
     selectedTemplate._rewritten = rewritten;
@@ -2769,13 +3256,17 @@ function onRewrite() {
     if (existing) existing.remove();
 
     // Build industry-specific info badge
+    var sourceLabel = usedAI ? 'AI大模型智能生成' : '本地智能生成（未配置API或调用失败）';
     var indBadge = indInfo ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(78,205,196,0.12);border-radius:10px;font-size:11px;color:var(--editor-cyan);margin-bottom:8px;">' + indIcon + ' ' + pIndustry + '行业 · 已关联' + indTemplates.length + '个行业模板</span>' : '';
+    var sourceBadge = usedAI
+      ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(138,43,226,0.12);border-radius:10px;font-size:11px;color:#B388FF;margin-bottom:8px;margin-left:4px;">🤖 ' + sourceLabel + '</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(255,152,0,0.12);border-radius:10px;font-size:11px;color:#FFB74D;margin-bottom:8px;margin-left:4px;">⚠️ ' + sourceLabel + '</span>';
 
     var resultDiv = document.createElement('div');
     resultDiv.id = 'rewrite-result';
     resultDiv.style.cssText = 'background:var(--bg-card);border-radius:12px;padding:16px;margin-top:8px;border:1px solid rgba(78,205,196,0.3);';
-    resultDiv.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--editor-cyan);margin-bottom:4px;">AI改写结果（基于生意档案 + 行业模板）</div>' +
-                          indBadge +
+    resultDiv.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--editor-cyan);margin-bottom:4px;">AI智能改写结果（基于生意档案 + 行业信息）</div>' +
+                          indBadge + sourceBadge +
                           '<div style="font-size:12px;color:var(--text-medium-gray);margin-bottom:8px;">品牌: ' + pBrand + ' | 城市: ' + pCity + ' | 行业: ' + pIndustry + '</div>' +
                           '<div style="font-size:13px;color:var(--text-light-gray);line-height:20px;white-space:pre-wrap;">' + rewritten + '</div>';
     listEl.insertBefore(resultDiv, listEl.lastElementChild);
@@ -2787,7 +3278,7 @@ function onRewrite() {
     // Check if rewrite was successful
     if (rewritten && rewritten.length > 10) {
       // Show success result inline
-      showToast('AI已根据「' + pIndustry + '」行业档案智能改写文案，正在自动确认...');
+      showToast('AI已智能改写文案，正在自动确认...');
 
       // Prepare auto-confirm function with double-execution guard
       var autoConfirmed = false;
@@ -2796,6 +3287,9 @@ function onRewrite() {
         if (autoConfirmed) return;
         autoConfirmed = true;
         if (fallbackTimer) clearTimeout(fallbackTimer);
+
+        // Set flag to prevent goBack() from stopping TTS during navigation
+        window._ttsNotifyActive = true;
 
         // Auto-confirm: apply the rewritten template
         var useText = selectedTemplate._rewritten || selectedTemplate.preview;
@@ -2816,26 +3310,30 @@ function onRewrite() {
               '<div style="color:var(--text-light-gray);font-size:12px;">镜头3: 行动号召</div></div>';
           }
         }
-        // Navigate back to editor
-        goBack();
-        showToast('模板已自动确认: ' + selectedTemplate.name);
+        // Navigate back to editor (delayed to ensure TTS has finished)
+        setTimeout(function() {
+          goBack();
+          window._ttsNotifyActive = false;
+          showToast('模板已自动确认: ' + selectedTemplate.name);
+        }, 500);
       };
 
       // Voice notification: success, then auto-confirm after TTS finishes playing
-      speakNotify('模板调用成功，已自动确认改写后的文案', true, doAutoConfirm);
+      // Shortened message to reduce TTS playback time
+      speakNotify('模板改写成功', true, doAutoConfirm);
 
-      // Fallback: if TTS takes too long or fails, auto-confirm after 5 seconds
+      // Fallback: if TTS takes too long or fails, auto-confirm after 15 seconds
+      // (was 5s - too short, caused TTS to be cut off by goBack → stopCloudTTS)
       fallbackTimer = setTimeout(function() {
-        console.log('TTS fallback: auto-confirming after 5s timeout');
+        console.log('TTS fallback: auto-confirming after 15s timeout');
         doAutoConfirm();
-      }, 5000);
+      }, 15000);
     } else {
       // Rewrite failed
       showToast('AI改写失败，请重试');
       // Voice notification: failure (no navigation needed, stay on page)
-      speakNotify('模板调用失败，请重试', false);
+      speakNotify('改写失败', false);
     }
-  }, 2000);
 }
 
 function confirmTemplate() {
@@ -3645,6 +4143,11 @@ function fallbackVoicePreview(v) {
 }
 
 function stopVoicePreview() {
+  // Don't stop TTS if notification is active (prevents voice prompt cutoff)
+  if (window._ttsNotifyActive) {
+    console.log('stopVoicePreview: Skipped - TTS notification active');
+    return;
+  }
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
@@ -3855,6 +4358,7 @@ function doGenerate() {
         voiceObj: selectedVoice || VOICES[0],
         bgmId: selectedBgm ? selectedBgm.id : null,
         subtitleStyleObj: selectedSubtitle || SUBTITLE_STYLES[0],
+        hslId: selectedHsl || 'auto',
         aiEnhance: {
           cam: (AI_CAM_MOVES.find(function(c){return c.id===selectedCamMove;})||{}).name || 'AI自动识别',
           effect: (AI_EFFECTS.find(function(e){return e.id===selectedEffect;})||{}).name || 'AI自动匹配',
@@ -4169,21 +4673,27 @@ function renderCompositeVideo(work, onComplete, onError) {
     return;
   }
 
-  // Resume AudioContext if suspended (critical for BGM playback)
+  // Resume AudioContext if suspended (critical for BGM playback on mobile)
   if (audioCtx.state === 'suspended') {
+    console.log('AudioContext is suspended, resuming for render...');
     audioCtx.resume().then(function() {
       console.log('AudioContext resumed for render, state:', audioCtx.state);
     }).catch(function(e) { console.warn('AudioContext resume failed:', e); });
+  } else {
+    console.log('AudioContext already running, state:', audioCtx.state);
   }
 
   // Create audio recording destination - all audio through waMasterGain will be captured
   var audioDest = audioCtx.createMediaStreamDestination();
   try { waMasterGain.connect(audioDest); } catch(e) { console.warn('connect audioDest failed:', e); }
+  // Also connect to speakers for monitoring - helps keep audio graph active on mobile WebView
+  try { waMasterGain.connect(audioCtx.destination); } catch(e) { console.warn('connect destination failed:', e); }
 
   var subtitleLines = work.script ? splitSubtitleLines(work.script) : [];
   var voiceObj = work.voiceObj || VOICES[0];
   var subtitleStyleObj = work.subtitleStyleObj || null;
-  var bgmId = work.bgmId || null;
+  var bgmId = work.bgmId || bgmPlayingId || null;
+  console.log('BGM: work.bgmId:', work.bgmId, 'bgmPlayingId:', bgmPlayingId, 'final bgmId:', bgmId);
 
   // Detect mobile for adaptive settings
   var isMobile = isMobileWebView();
@@ -4213,10 +4723,21 @@ function renderCompositeVideo(work, onComplete, onError) {
   var recorder = null;
   var chunks = [];
   var recordingDone = false;
-  var bgmSourceNode = null;
-  var bgmGainNode = null;
+  var bgmSourceNode = null;  // buffer-based BGM (backup)
+  var bgmGainNode = null;    // used by both Audio element and buffer BGM
   var drawActive = true;
   var currentSubtitle = '';
+
+  // HSL color grading variables
+  var hslId = work.hslId || selectedHsl || 'auto';
+  var hslSceneType = 'general';
+  var hslDetectCounter = 0;
+  var currentHslFilter = '';
+  // Initialize filter for non-auto modes
+  if (hslId !== 'auto' && hslId !== 'none') {
+    var hslOpt = AI_HSL_OPTIONS.find(function(h) { return h.id === hslId; });
+    currentHslFilter = hslOpt ? hslOpt.filter : '';
+  }
 
   // TTS pre-generated data
   var ttsBuffers = [];
@@ -4248,204 +4769,188 @@ function renderCompositeVideo(work, onComplete, onError) {
     }
   }
 
-  function startBgm() {
+  function startBgm(callback) {
     if (!bgmId) {
       console.warn('BGM: No bgmId set, skipping BGM');
-      return;
-    }
-    var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
-                   customBgmTracks.find(function(b) { return b.id === bgmId; });
-    if (!bgmTrack) {
-      console.warn('BGM: Track not found for id:', bgmId);
-      return;
-    }
-    if (!bgmTrack.url) {
-      console.warn('BGM: Track has no URL:', bgmTrack.name);
+      if (callback) callback();
       return;
     }
 
-    console.log('BGM: Starting BGM playback for track:', bgmTrack.name, 'id:', bgmId);
-
-    var bgmStarted = false;
-    function playBuffer(buffer) {
-      if (bgmStarted) return;
-      bgmStarted = true;
-      try {
-        bgmSourceNode = audioCtx.createBufferSource();
-        bgmSourceNode.buffer = buffer;
-        bgmSourceNode.loop = true;
-        bgmGainNode = audioCtx.createGain();
-        bgmGainNode.gain.value = 0.4;
-        bgmSourceNode.connect(bgmGainNode);
-        bgmGainNode.connect(waMasterGain);
-        bgmSourceNode.start(0);
-        console.log('BGM: Started successfully via BufferSource:', bgmTrack.name, 'duration:', buffer.duration.toFixed(2) + 's', 'gain: 0.4');
-      } catch(e) {
-        console.warn('BGM: playBuffer error:', e);
+    // BGM buffer should already be decoded by decodeBgmForRender() in beginRender()
+    if (!preDecodedBgmBuffer || preDecodedBgmId !== bgmId) {
+      console.error('BGM: ❌❌❌ Buffer NOT available! decodeBgmForRender should have prepared it!');
+      console.error('BGM: preDecodedBgmBuffer:', preDecodedBgmBuffer, 'preDecodedBgmId:', preDecodedBgmId, 'bgmId:', bgmId);
+      // Last resort: try to decode right now using atob
+      var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
+                     customBgmTracks.find(function(b) { return b.id === bgmId; });
+      if (bgmTrack && bgmTrack.url && bgmTrack.url.startsWith('data:')) {
+        try {
+          var b64 = bgmTrack.url.split(',')[1];
+          var binStr = atob(b64);
+          var ab = new ArrayBuffer(binStr.length);
+          var u8arr = new Uint8Array(ab);
+          for (var j = 0; j < binStr.length; j++) { u8arr[j] = binStr.charCodeAt(j); }
+          var dp = audioCtx.decodeAudioData(ab, function(buffer) {
+            preDecodedBgmBuffer = buffer; preDecodedBgmId = bgmId;
+            console.log('BGM: ✅ Emergency decode succeeded, starting playback');
+            startBgmBufferPlayback(buffer, callback);
+          }, function(err) {
+            console.warn('BGM: ❌ Emergency decode also failed:', err);
+            if (callback) callback();
+          });
+          if (dp && dp.then) dp.then(function(buffer) {
+            preDecodedBgmBuffer = buffer; preDecodedBgmId = bgmId;
+            startBgmBufferPlayback(buffer, callback);
+          }).catch(function(err) { if (callback) callback(); });
+          return;
+        } catch(e) {
+          console.warn('BGM: ❌ Emergency atob failed:', e);
+        }
       }
-    }
-
-    // Fallback: Use Audio element connected via MediaElementSource
-    function tryAudioFallback() {
-      if (bgmStarted) return;
-      console.log('BGM: Trying Audio element fallback...');
-      try {
-        var fallbackAudio = new Audio();
-        fallbackAudio.src = bgmTrack.url;
-        fallbackAudio.loop = true;
-        fallbackAudio.volume = 0.4;
-        fallbackAudio.setAttribute('playsinline', '');
-        fallbackAudio.crossOrigin = 'anonymous';
-        // Wait for canplay event before creating MediaElementSource
-        fallbackAudio.addEventListener('canplaythrough', function() {
-          if (bgmStarted) return;
-          try {
-            var mediaSource = audioCtx.createMediaElementSource(fallbackAudio);
-            var fallbackGain = audioCtx.createGain();
-            fallbackGain.gain.value = 0.8;
-            mediaSource.connect(fallbackGain);
-            fallbackGain.connect(waMasterGain);
-            fallbackAudio.play().then(function() {
-              bgmStarted = true;
-              bgmSourceNode = mediaSource;
-              bgmGainNode = fallbackGain;
-              console.log('BGM: Started via Audio element fallback:', bgmTrack.name);
-            }).catch(function(e) {
-              console.warn('BGM: Audio fallback play() failed:', e);
-            });
-          } catch(e2) {
-            console.warn('BGM: createMediaElementSource error:', e2);
-          }
-        }, { once: true });
-        // Also try to play immediately (some browsers need this)
-        fallbackAudio.load();
-      } catch(e2) {
-        console.warn('BGM: Audio fallback setup error:', e2);
-      }
-    }
-
-    // Method 1: Use pre-decoded buffer (best - decoded during user gesture)
-    if (preDecodedBgmBuffer && preDecodedBgmId === bgmId) {
-      console.log('BGM: Using pre-decoded buffer (preDecodedBgmId matches)');
-      playBuffer(preDecodedBgmBuffer);
+      if (callback) callback();
       return;
     }
-    console.warn('BGM: preDecodedBgmBuffer not available. preDecodedBgmId:', preDecodedBgmId, 'bgmId:', bgmId);
 
-    // Method 2: Use fetch() to get ArrayBuffer, then Promise-based decodeAudioData
-    // fetch() works on data: URIs and is more reliable than manual atob() decoding
-    console.log('BGM: Decoding via fetch() + Promise-based decodeAudioData...');
-    var bgmDecodeTimeout = setTimeout(function() {
-      if (!bgmStarted) {
-        console.warn('BGM: Decode timeout (5s), trying Audio element fallback');
-        tryAudioFallback();
-      }
-    }, 5000);
+    // Buffer is ready - start playback
+    console.log('BGM: Buffer ready, starting playback via waMasterGain (same path as TTS)...');
+    startBgmBufferPlayback(preDecodedBgmBuffer, callback);
+  }
 
-    try {
-      fetch(bgmTrack.url).then(function(res) {
-        console.log('BGM: fetch() succeeded, status:', res.status);
-        return res.arrayBuffer();
-      }).then(function(ab) {
-        console.log('BGM: Got ArrayBuffer, size:', ab.byteLength, 'bytes');
-        // Use Promise-based decodeAudioData (more reliable than callback API)
-        return audioCtx.decodeAudioData(ab);
-      }).then(function(buffer) {
-        console.log('BGM: decodeAudioData succeeded, duration:', buffer.duration.toFixed(2) + 's');
-        clearTimeout(bgmDecodeTimeout);
-        playBuffer(buffer);
-        // Also cache for future use
-        preDecodedBgmBuffer = buffer;
-        preDecodedBgmId = bgmId;
-      }).catch(function(e) {
-        console.warn('BGM: fetch/decode pipeline failed:', e);
-        clearTimeout(bgmDecodeTimeout);
-        tryAudioFallback();
-      });
-    } catch(e) {
-      console.warn('BGM: fetch() error:', e);
-      clearTimeout(bgmDecodeTimeout);
-      tryAudioFallback();
+  // Helper: Start BGM playback from an AudioBuffer
+  // Connects through waMasterGain - the EXACT SAME path as TTS:
+  // TTS:  BufferSource -> Gain -> waMasterGain -> audioDest (recording)
+  // BGM:  BufferSource -> Gain -> waMasterGain -> audioDest (recording)
+  // If TTS is recorded, BGM MUST also be recorded.
+  function startBgmBufferPlayback(buffer, callback) {
+    bgmSourceNode = audioCtx.createBufferSource();
+    bgmSourceNode.buffer = buffer;
+    bgmSourceNode.loop = true;
+    bgmGainNode = audioCtx.createGain();
+    bgmGainNode.gain.value = 0.5; // BGM volume (will be attenuated by waMasterGain's 0.6)
+
+    // Connect through waMasterGain - SAME PATH AS TTS
+    // waMasterGain is already connected to both audioDest and audioCtx.destination
+    // (set up at top of renderCompositeVideo: waMasterGain.connect(audioDest) + waMasterGain.connect(audioCtx.destination))
+    bgmSourceNode.connect(bgmGainNode);
+    bgmGainNode.connect(waMasterGain);
+    // Do NOT connect directly to audioDest - go through waMasterGain like TTS does
+
+    try { bgmSourceNode.start(0); } catch(e) {
+      console.warn('BGM: start() failed:', e);
+      if (callback) callback();
+      return;
     }
+
+    // Verify the connection
+    console.log('BGM: ✅ AudioBufferSourceNode started');
+    console.log('BGM:    Path: BufferSource -> bgmGainNode(0.5) -> waMasterGain(0.6) -> audioDest + speakers');
+    console.log('BGM:    TTS path: BufferSource -> ttsGain(1.0) -> waMasterGain(0.6) -> audioDest + speakers');
+    console.log('BGM:    Buffer duration:', buffer.duration.toFixed(2) + 's, channels:', buffer.numberOfChannels);
+    console.log('BGM:    AudioContext state:', audioCtx.state);
+    console.log('BGM:    bgmSourceNode:', bgmSourceNode ? 'EXISTS' : 'NULL');
+    console.log('BGM:    bgmGainNode:', bgmGainNode ? 'EXISTS' : 'NULL');
+
+    if (callback) callback();
   }
 
   function startRecording() {
-    // Create combined stream: canvas video (60fps for smooth playback) + audio
-    var canvasStream = canvas.captureStream(60);
-    var audioTracks = audioDest.stream.getAudioTracks();
-    if (audioTracks.length > 0) {
-      canvasStream.addTrack(audioTracks[0]);
-    }
+    // CRITICAL: Start BGM FIRST and WAIT for it to decode+play before creating recorder.
+    // This ensures audio is flowing through audioDest when we capture the audio track.
+    console.log('BGM: Starting BGM (with callback) BEFORE stream/recorder creation...');
+    console.log('BGM: AudioContext state:', audioCtx.state, 'isMobile:', isMobile);
 
-    // Pick best supported MIME type - prefer MP4/H.264 on mobile for compatibility
-    var mimeTypes = isMobile ? [
-      'video/mp4;codecs=avc1.640028,aac',
-      'video/mp4;codecs=h264,aac',
-      'video/mp4',
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm'
-    ] : [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-      'video/mp4'
-    ];
-    var mimeType = '';
-    for (var i = 0; i < mimeTypes.length; i++) {
+    startBgm(function() {
+      // BGM callback: BGM is now playing (or failed). Proceed with recording.
+      console.log('BGM: Callback fired. bgmSourceNode:', bgmSourceNode ? 'EXISTS ✅' : 'NULL ❌', 'AudioContext:', audioCtx.state);
+
+      // Small delay to ensure audio data is flowing through the audio graph
+      var flowDelay = isMobile ? 300 : 100;
+      console.log('BGM: Waiting ' + flowDelay + 'ms for audio to flow through audioDest...');
+
+      setTimeout(function() {
+        // Ensure waMasterGain is connected to audioDest (redundant but safe)
+        try { waMasterGain.connect(audioDest); } catch(e) {}
+        try { waMasterGain.connect(audioCtx.destination); } catch(e) {}
+
+        // Create combined stream: canvas video (adaptive fps) + audio
+        // 30fps for 1080p/4K, 24fps for 8K - prevents stuttering from encoding overload
+        var captureFps = qualOption.fps || 30;
+        var canvasStream = canvas.captureStream(captureFps);
+
+        // Get audio tracks AFTER BGM has started - critical for mobile
+        var audioTracks = audioDest.stream.getAudioTracks();
+        console.log('Recording: Audio tracks from audioDest:', audioTracks.length,
+          audioTracks.map(function(t) { return t.readyState + '/' + (t.enabled ? 'on' : 'off'); }).join(', '));
+        if (audioTracks.length > 0) {
+          canvasStream.addTrack(audioTracks[0]);
+        } else {
+          console.warn('Recording: WARNING - No audio tracks from audioDest! BGM will not be recorded.');
+        }
+
+      // Pick best supported MIME type - prefer MP4/H.264 on mobile for compatibility
+      var mimeTypes = isMobile ? [
+        'video/mp4;codecs=avc1.640028,aac',
+        'video/mp4;codecs=h264,aac',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ] : [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4'
+      ];
+      var mimeType = '';
+      for (var i = 0; i < mimeTypes.length; i++) {
+        try {
+          if (MediaRecorder.isTypeSupported(mimeTypes[i])) { mimeType = mimeTypes[i]; break; }
+        } catch(e) {}
+      }
+
+      // High bitrate for HD quality + high-quality audio
+      var recorderOpts = {
+        videoBitsPerSecond: targetBitrate,
+        audioBitsPerSecond: 192000
+      };
+      if (mimeType) recorderOpts.mimeType = mimeType;
+
       try {
-        if (MediaRecorder.isTypeSupported(mimeTypes[i])) { mimeType = mimeTypes[i]; break; }
-      } catch(e) {}
-    }
-
-    // High bitrate for HD quality + high-quality audio
-    var recorderOpts = {
-      videoBitsPerSecond: targetBitrate,
-      audioBitsPerSecond: 192000
-    };
-    if (mimeType) recorderOpts.mimeType = mimeType;
-
-    try {
-      recorder = new MediaRecorder(canvasStream, recorderOpts);
-    } catch(e) {
-      try {
-        recorder = new MediaRecorder(canvasStream, { videoBitsPerSecond: targetBitrate });
-      } catch(e2) {
-        try { recorder = new MediaRecorder(canvasStream); } catch(e3) {
-          cleanup();
-          if (onError) onError(new Error('MediaRecorder creation failed: ' + e3.message));
-          return;
+        recorder = new MediaRecorder(canvasStream, recorderOpts);
+      } catch(e) {
+        try {
+          recorder = new MediaRecorder(canvasStream, { videoBitsPerSecond: targetBitrate });
+        } catch(e2) {
+          try { recorder = new MediaRecorder(canvasStream); } catch(e3) {
+            cleanup();
+            if (onError) onError(new Error('MediaRecorder creation failed: ' + e3.message));
+            return;
+          }
         }
       }
-    }
 
-    recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = function() {
-      cleanup();
-      var blob = new Blob(chunks, { type: mimeType || 'video/webm' });
-      var url = URL.createObjectURL(blob);
-      // Store blob globally for save/upload (avoids fetch(blobUrl) on mobile)
-      lastRenderedBlob = blob;
-      console.log('Composite video rendered: ' + (blob.size/1024/1024).toFixed(1) + 'MB, type: ' + (mimeType || 'video/webm') + ', quality: ' + qualOption.name + ', bitrate: ' + (targetBitrate/1000000) + 'Mbps');
-      if (onComplete) onComplete(url);
-    };
+      recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = function() {
+        cleanup();
+        var blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+        var url = URL.createObjectURL(blob);
+        // Store blob globally for save/upload (avoids fetch(blobUrl) on mobile)
+        lastRenderedBlob = blob;
+        console.log('Composite video rendered: ' + (blob.size/1024/1024).toFixed(1) + 'MB, type: ' + (mimeType || 'video/webm') + ', quality: ' + qualOption.name + ', bitrate: ' + (targetBitrate/1000000) + 'Mbps');
+        if (onComplete) onComplete(url);
+      };
 
-    // Start BGM FIRST (before recording) - ensures audio source is connected
-    console.log('BGM: Starting BGM before recording...');
-    startBgm();
-
-    // Small delay to let BGM source connect to audioDest
-    setTimeout(function() {
       // Start recording with 100ms data collection for smoother output
       recorder.start(100);
-      console.log('MediaRecorder started: quality=' + qualOption.name + ', res=' + targetW + 'x' + targetH + ', bitrate=' + (targetBitrate/1000000) + 'Mbps, fps=60, codec=' + (mimeType || 'default'));
+      console.log('MediaRecorder started: quality=' + qualOption.name + ', res=' + targetW + 'x' + targetH + ', bitrate=' + (targetBitrate/1000000) + 'Mbps, fps=' + captureFps + ', codec=' + (mimeType || 'default') + ', audioTracks=' + audioTracks.length);
 
-      // Start drawing frames
-      drawFrames();
+        // Start drawing frames
+        drawFrames();
 
-      // Schedule TTS playback with precise Web Audio API timing
-      scheduleTTSPlayback();
-    }, 100);
+        // Schedule TTS playback with precise Web Audio API timing
+        scheduleTTSPlayback();
+      }, flowDelay);
+    });
   }
 
   // Schedule all TTS audio with precise timing using Web Audio API
@@ -4508,9 +5013,20 @@ function renderCompositeVideo(work, onComplete, onError) {
     scheduledTimers.push(finishTimer);
   }
 
-  // Draw frames using requestVideoFrameCallback for video (frame-accurate) or requestAnimationFrame for images
+  // Draw frames using requestVideoFrameCallback for video (frame-accurate) or setTimeout for images
+  // Performance optimizations:
+  // 1. requestVideoFrameCallback syncs with video's native frame rate (usually 30fps)
+  // 2. Images use 15fps (static content)
+  // 3. Subtitle text is cached to avoid redundant font rendering
+  var lastDrawnSubtitle = '';
+  var lastDrawnSubtitleStyle = null;
+
   function drawFrames() {
     if (!drawActive) return;
+
+    // Apply HSL color grading filter (GPU-accelerated CSS filter)
+    // This simulates CapCut/剪映 HSL color grading: skin whitening, green enhancement
+    ctx2d.filter = currentHslFilter || 'none';
 
     // Draw video frame or image
     if (video && video.readyState >= 2) {
@@ -4521,17 +5037,40 @@ function renderCompositeVideo(work, onComplete, onError) {
       ctx2d.fillStyle = '#000';
       ctx2d.fillRect(0, 0, canvas.width, canvas.height);
     }
-    // Draw subtitle
+
+    // Reset filter to none before scene detection and subtitle drawing
+    ctx2d.filter = 'none';
+
+    // AI scene detection for auto HSL mode (every ~1 second = every 30 frames)
+    // Samples 64x64 pixels from center of canvas to detect skin tones and green plants
+    if (hslId === 'auto') {
+      hslDetectCounter++;
+      if (hslDetectCounter % 30 === 1 || !currentHslFilter) {
+        var newScene = detectSceneType(ctx2d, canvas);
+        if (newScene !== hslSceneType) {
+          hslSceneType = newScene;
+          currentHslFilter = getAutoHslFilter(hslSceneType);
+          console.log('HSL调色: 场景切换为 ' + hslSceneType + ' → 滤镜: ' + currentHslFilter);
+        }
+      }
+    }
+
+    // Draw subtitle (must redraw every frame since video/image overwrites canvas)
     if (currentSubtitle) {
       drawSubtitleOnCanvas(ctx2d, currentSubtitle, canvas.width, canvas.height, subtitleStyleObj);
     }
 
     // Use requestVideoFrameCallback for video (syncs with actual video frames, eliminates stuttering)
-    // Fall back to requestAnimationFrame for images or unsupported browsers
+    // For images, use setTimeout at 15fps (static content doesn't need 60fps redrawing)
+    // This reduces CPU/GPU load and prevents stuttering in rendered video
     if (video && hasRvfc) {
       video.requestVideoFrameCallback(drawFrames);
-    } else {
+    } else if (video) {
+      // Video without rvfc support: use requestAnimationFrame
       requestAnimationFrame(drawFrames);
+    } else {
+      // Image: throttle to 15fps - content is static, no need for 60fps
+      setTimeout(drawFrames, 1000 / 15);
     }
   }
 
@@ -4539,36 +5078,124 @@ function renderCompositeVideo(work, onComplete, onError) {
   // This is the KEY to audio-video synchronization: all audio is pre-loaded
   // and scheduled precisely, eliminating network latency gaps
   function beginRender() {
-    // Re-decode BGM if not already pre-decoded (ensures buffer is ready for recording)
-    if (bgmId && (!preDecodedBgmBuffer || preDecodedBgmId !== bgmId)) {
-      console.log('BGM: Pre-decoded buffer not ready, re-decoding in beginRender...');
-      preDecodeBgm(bgmId);
-    }
-    if (subtitleLines.length > 0) {
-      console.log('Pre-generating TTS audio for ' + subtitleLines.length + ' lines (quality: ' + qualOption.name + ')...');
-      preGenerateTTSBuffers(subtitleLines, voiceObj,
-        function(idx, total) {
-          console.log('TTS pre-gen progress: ' + (idx+1) + '/' + total);
-        },
-        function(buffers) {
-          ttsBuffers = buffers;
-          totalTtsDuration = buffers.reduce(function(sum, b) { return sum + b.duration + 0.12; }, 0);
-          console.log('TTS pre-gen complete: ' + buffers.filter(function(b){return b.buffer;}).length + '/' + buffers.length + ' buffers loaded, total: ' + totalTtsDuration.toFixed(2) + 's');
-          loadMediaAndRecord();
-        },
-        function(err) {
-          console.warn('TTS pre-gen error, using estimates:', err);
-          ttsBuffers = subtitleLines.map(function(line) {
-            return { buffer: null, duration: Math.max(1.5, line.length * 0.22), text: line };
-          });
-          totalTtsDuration = ttsBuffers.reduce(function(sum, b) { return sum + b.duration + 0.12; }, 0);
-          loadMediaAndRecord();
+    // Step 0: Decode BGM FIRST - must be ready before recording starts.
+    // Uses atob() + decodeAudioData() - the EXACT same method as preview (proven to work).
+    function decodeBgmForRender(cb) {
+      if (!bgmId) { console.log('BGM: No bgmId, skipping decode'); cb(); return; }
+      if (preDecodedBgmBuffer && preDecodedBgmId === bgmId) {
+        console.log('BGM: Already pre-decoded, duration:', preDecodedBgmBuffer.duration.toFixed(2) + 's');
+        cb(); return;
+      }
+      var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
+                     customBgmTracks.find(function(b) { return b.id === bgmId; });
+      if (!bgmTrack || !bgmTrack.url) { console.warn('BGM: Track not found'); cb(); return; }
+
+      console.log('BGM: Decoding for render via atob+decodeAudioData (same as preview)...');
+
+      // Use atob() for data URIs - SAME method as startBgmAudioEl Strategy 0 (works in preview)
+      if (bgmTrack.url.startsWith('data:')) {
+        try {
+          var b64 = bgmTrack.url.split(',')[1];
+          var binStr = atob(b64);
+          var ab = new ArrayBuffer(binStr.length);
+          var u8arr = new Uint8Array(ab);
+          for (var j = 0; j < binStr.length; j++) { u8arr[j] = binStr.charCodeAt(j); }
+          console.log('BGM: atob decoded, size:', ab.byteLength, 'decoding audio...');
+
+          var done = false;
+          var onSuccess = function(buffer) {
+            if (done) return; done = true;
+            preDecodedBgmBuffer = buffer;
+            preDecodedBgmId = bgmId;
+            console.log('BGM: ✅ Decoded for render! duration:', buffer.duration.toFixed(2) + 's, channels:', buffer.numberOfChannels);
+            cb();
+          };
+          var onError = function(err) {
+            if (done) return; done = true;
+            console.warn('BGM: ❌ atob decodeAudioData failed:', err);
+            // Try XHR fallback
+            try {
+              var xhr = new XMLHttpRequest();
+              xhr.open('GET', bgmTrack.url, true);
+              xhr.responseType = 'arraybuffer';
+              xhr.onload = function() {
+                var dp2 = audioCtx.decodeAudioData(xhr.response, function(buf) {
+                  preDecodedBgmBuffer = buf; preDecodedBgmId = bgmId;
+                  console.log('BGM: ✅ XHR fallback decode success, duration:', buf.duration.toFixed(2) + 's');
+                  cb();
+                }, function(e2) { console.warn('BGM: ❌ XHR fallback also failed:', e2); cb(); });
+                if (dp2 && dp2.then) dp2.then(function(buf) {
+                  preDecodedBgmBuffer = buf; preDecodedBgmId = bgmId; cb();
+                }).catch(function(e3) { cb(); });
+              };
+              xhr.onerror = function() { cb(); };
+              xhr.send();
+            } catch(e) { cb(); }
+          };
+
+          // Use both callback and Promise API (same pattern as preview code)
+          var dp = audioCtx.decodeAudioData(ab, onSuccess, onError);
+          if (dp && typeof dp.then === 'function') {
+            dp.then(onSuccess).catch(onError);
+          }
+          return;
+        } catch(atobErr) {
+          console.warn('BGM: atob error:', atobErr);
         }
-      );
-    } else {
-      console.log('No subtitles, rendering video only');
-      loadMediaAndRecord();
+      }
+
+      // Non-data URI: use XHR
+      try {
+        var xhr2 = new XMLHttpRequest();
+        xhr2.open('GET', bgmTrack.url, true);
+        xhr2.responseType = 'arraybuffer';
+        xhr2.onload = function() {
+          var dp3 = audioCtx.decodeAudioData(xhr2.response, function(buf) {
+            preDecodedBgmBuffer = buf; preDecodedBgmId = bgmId;
+            console.log('BGM: ✅ XHR decode success, duration:', buf.duration.toFixed(2) + 's');
+            cb();
+          }, function(err) { console.warn('BGM: ❌ XHR decode failed:', err); cb(); });
+          if (dp3 && dp3.then) dp3.then(function(buf) {
+            preDecodedBgmBuffer = buf; preDecodedBgmId = bgmId; cb();
+          }).catch(function(e) { cb(); });
+        };
+        xhr2.onerror = function() { console.warn('BGM: XHR error'); cb(); };
+        xhr2.send();
+      } catch(e) { console.warn('BGM: XHR init error:', e); cb(); }
     }
+
+    // Decode BGM first, THEN start TTS pre-generation
+    decodeBgmForRender(function() {
+      console.log('BGM: decodeBgmForRender callback. preDecodedBgmBuffer:',
+        preDecodedBgmBuffer ? 'READY ✅' : 'NULL ❌',
+        'id match:', preDecodedBgmId === bgmId);
+
+      if (subtitleLines.length > 0) {
+        console.log('Pre-generating TTS audio for ' + subtitleLines.length + ' lines (quality: ' + qualOption.name + ')...');
+        preGenerateTTSBuffers(subtitleLines, voiceObj,
+          function(idx, total) {
+            console.log('TTS pre-gen progress: ' + (idx+1) + '/' + total);
+          },
+          function(buffers) {
+            ttsBuffers = buffers;
+            totalTtsDuration = buffers.reduce(function(sum, b) { return sum + b.duration + 0.12; }, 0);
+            console.log('TTS pre-gen complete: ' + buffers.filter(function(b){return b.buffer;}).length + '/' + buffers.length + ' buffers loaded, total: ' + totalTtsDuration.toFixed(2) + 's');
+            loadMediaAndRecord();
+          },
+          function(err) {
+            console.warn('TTS pre-gen error, using estimates:', err);
+            ttsBuffers = subtitleLines.map(function(line) {
+              return { buffer: null, duration: Math.max(1.5, line.length * 0.22), text: line };
+            });
+            totalTtsDuration = ttsBuffers.reduce(function(sum, b) { return sum + b.duration + 0.12; }, 0);
+            loadMediaAndRecord();
+          }
+        );
+      } else {
+        console.log('No subtitles, rendering video only');
+        loadMediaAndRecord();
+      }
+    });
   }
 
   // Step 2: Load media (video/image) and start recording
@@ -4597,6 +5224,7 @@ function renderCompositeVideo(work, onComplete, onError) {
       video.muted = true; // Mute original audio - we add BGM + TTS
       video.playsInline = true;
       video.crossOrigin = 'anonymous';
+      video.preload = 'auto'; // Preload video data to prevent buffering stutter
 
       video.onloadedmetadata = function() {
         // Set canvas to target resolution (may upscale from source for 4K/8K)
@@ -6501,40 +7129,56 @@ function preDecodeBgm(bgmId) {
   
   console.log('BGM pre-decode: Starting for track:', track.name, 'id:', bgmId);
   
-  // Use fetch() for ALL URL types (works for data: URIs too, more reliable than atob)
+  // For data URIs: use atob() first (most reliable on mobile WebView)
+  if (track.url.startsWith('data:')) {
+    try {
+      var b64 = track.url.split(',')[1];
+      var binStr = atob(b64);
+      var ab = new ArrayBuffer(binStr.length);
+      var u8arr = new Uint8Array(ab);
+      for (var j = 0; j < binStr.length; j++) { u8arr[j] = binStr.charCodeAt(j); }
+      
+      var onSuccess = function(buffer) {
+        preDecodedBgmBuffer = buffer;
+        preDecodedBgmId = bgmId;
+        console.log('BGM pre-decode: SUCCESS via atob! Duration:', buffer.duration.toFixed(2) + 's');
+      };
+      var onError = function(err) {
+        console.warn('BGM pre-decode: atob decodeAudioData failed:', err);
+        // Fallback: try fetch
+        try {
+          fetch(track.url).then(function(res) { return res.arrayBuffer(); })
+          .then(function(ab2) { return ctx.decodeAudioData(ab2); })
+          .then(onSuccess)
+          .catch(function(e2) { console.warn('BGM pre-decode: fetch also failed:', e2); });
+        } catch(e3) { console.warn('BGM pre-decode: fetch fallback error:', e3); }
+      };
+      
+      // Try both callback and Promise API
+      var dp = ctx.decodeAudioData(ab, onSuccess, onError);
+      if (dp && typeof dp.then === 'function') {
+        dp.then(onSuccess).catch(onError);
+      }
+      return;
+    } catch(atobErr) {
+      console.warn('BGM pre-decode: atob error, trying fetch:', atobErr);
+    }
+  }
+  
+  // For non-data URIs or atob failure: use fetch()
   try {
     fetch(track.url).then(function(res) {
       console.log('BGM pre-decode: fetch succeeded');
       return res.arrayBuffer();
     }).then(function(ab) {
       console.log('BGM pre-decode: Got ArrayBuffer, size:', ab.byteLength);
-      // Use Promise-based decodeAudioData (more reliable than callback API)
       return ctx.decodeAudioData(ab);
     }).then(function(buffer) {
       preDecodedBgmBuffer = buffer;
       preDecodedBgmId = bgmId;
-      console.log('BGM pre-decode: SUCCESS! Duration:', buffer.duration.toFixed(2) + 's, track:', track.name);
+      console.log('BGM pre-decode: SUCCESS via fetch! Duration:', buffer.duration.toFixed(2) + 's');
     }).catch(function(e) {
-      console.warn('BGM pre-decode: FAILED via fetch/decode:', e);
-      // Fallback: try manual atob decode for data URIs
-      if (track.url.startsWith('data:')) {
-        try {
-          var b64 = track.url.split(',')[1];
-          var binStr = atob(b64);
-          var ab2 = new ArrayBuffer(binStr.length);
-          var u8arr = new Uint8Array(ab2);
-          for (var j = 0; j < binStr.length; j++) u8arr[j] = binStr.charCodeAt(j);
-          ctx.decodeAudioData(ab2, function(buffer) {
-            preDecodedBgmBuffer = buffer;
-            preDecodedBgmId = bgmId;
-            console.log('BGM pre-decode: SUCCESS via callback API! Duration:', buffer.duration.toFixed(2) + 's');
-          }, function(e2) {
-            console.warn('BGM pre-decode: Callback API also failed:', e2);
-          });
-        } catch(e3) {
-          console.warn('BGM pre-decode: atob fallback error:', e3);
-        }
-      }
+      console.warn('BGM pre-decode: FAILED:', e);
     });
   } catch(e) {
     console.warn('BGM pre-decode: fetch error:', e);
@@ -6973,9 +7617,18 @@ function toggleBgmPlayback(id) {
     showToast('未找到该背景音乐');
     return;
   }
-  
+
+  // CRITICAL FIX: Also select the BGM track (not just play it)
+  // The play button has event.stopPropagation() which prevents selectBgm() from
+  // being called. Without this, selectedBgm stays null and work.bgmId is null
+  // during rendering, causing "No bgmId set, skipping BGM" in the recording.
+  selectedBgm = track;
+  var selEl = document.getElementById('bgm-selected-name');
+  if (selEl) selEl.textContent = track.name + ' (' + track.cat + ')';
+  console.log('BGM: toggleBgmPlayback - selectedBgm set to:', track.id, track.name);
+
   bgmPlayingId = null;
-  
+
   // Use Web Audio API for real songs (works on mobile WebView)
   var ok = startBgmAudioEl(track.url, track.name);
   if (ok) {
@@ -6983,7 +7636,7 @@ function toggleBgmPlayback(id) {
     renderBgmList();
     renderCustomBgmList();
     renderBgmListInline();
-    showToast('正在播放: ' + track.name);
+    showToast('已选择并播放: ' + track.name);
   } else {
     showToast('音频播放失败，请检查文件是否存在');
   }
@@ -7777,10 +8430,12 @@ function startGeneration() {
         voiceObj: selectedVoice || VOICES[0],
         bgmId: selectedBgm ? selectedBgm.id : null,
         subtitleStyleObj: selectedSubtitle || SUBTITLE_STYLES[0],
+        hslId: selectedHsl || 'auto',
         aiEnhance: {
           cam: (AI_CAM_MOVES.find(function(c){return c.id===selectedCamMove;})||{}).name || 'AI自动识别',
           effect: (AI_EFFECTS.find(function(e){return e.id===selectedEffect;})||{}).name || 'AI自动匹配',
           speed: (AI_SPEEDS.find(function(s){return s.id===selectedSpeed;})||{}).name || 'AI自动变速',
+          hsl: (AI_HSL_OPTIONS.find(function(h){return h.id===selectedHsl;})||{}).name || 'AI智能调色',
           scenes: aiAnalyzeScene(resultMedia ? resultMedia.url : '', resultMedia ? resultMedia.type : 'video')
         },
         audioSync: {
@@ -7889,12 +8544,16 @@ function saveApiKeys() {
   var llmKey = document.getElementById('api-key-llm').value.trim();
   var ttsKey = document.getElementById('api-key-tts').value.trim();
   var ffmpegPath = document.getElementById('api-key-ffmpeg').value.trim();
+  var llmModel = '';
+  var modelSel = document.getElementById('api-model-llm');
+  if (modelSel) llmModel = modelSel.value;
   var statusEl = document.getElementById('menu-apikey-status');
   if (llmKey || ttsKey || ffmpegPath) {
     try {
       localStorage.setItem('zhugeApiKey_llm', llmKey);
       localStorage.setItem('zhugeApiKey_tts', ttsKey);
       localStorage.setItem('zhugeApiKey_ffmpeg', ffmpegPath);
+      if (llmModel) localStorage.setItem('zhugeApiModel_llm', llmModel);
     } catch(e) {}
     if (statusEl) statusEl.textContent = '已配置 ›';
     showToast('API密钥配置已永久保存');
@@ -7910,7 +8569,9 @@ function loadApiKeys() {
     var savedLlm = localStorage.getItem('zhugeApiKey_llm');
     var savedTts = localStorage.getItem('zhugeApiKey_tts');
     var savedFfmpeg = localStorage.getItem('zhugeApiKey_ffmpeg');
+    var savedModel = localStorage.getItem('zhugeApiModel_llm');
     if (savedLlm) { var el = document.getElementById('api-key-llm'); if (el) el.value = savedLlm; }
+    if (savedModel) { var elM = document.getElementById('api-model-llm'); if (elM) elM.value = savedModel; }
     if (savedTts) { var el = document.getElementById('api-key-tts'); if (el) el.value = savedTts; }
     if (savedFfmpeg) { var el = document.getElementById('api-key-ffmpeg'); if (el) el.value = savedFfmpeg; }
     if (savedLlm || savedTts || savedFfmpeg) {
