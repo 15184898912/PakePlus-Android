@@ -5,20 +5,20 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0A1A2F">
+<meta name="theme-color" content="#0A0505">
 <meta name="format-detection" content="telephone=no">
 <meta name="apple-mobile-web-app-title" content="正商诸葛AI">
 <title>正商诸葛AI - 生意人的专属AI</title>
 <style>
 /* ========== CSS Variables ========== */
 :root {
-  --bg-black: #0A1428;
-  --bg-surface: #0F1E3A;
-  --bg-card: #122544;
-  --bg-card-elevated: #1A3055;
-  --red-start: #FF4B2B;
-  --red-end: #FF416C;
-  --red-glow: #FF416C;
+  --bg-black: #0A0505;
+  --bg-surface: #150808;
+  --bg-card: #1E1414;
+  --bg-card-elevated: #2D1A1A;
+  --red-start: #D32F2F;
+  --red-end: #8E0000;
+  --red-glow: #E53935;
   --tech-purple: #8A2BE2;
   --tech-purple-light: #A855F7;
   --tech-purple-dark: #5B21B6;
@@ -28,22 +28,22 @@
   --sel-blue: #5B9BD5;
   --sel-blue-bright: #0A84FF;
   --text-white: #FFFFFF;
-  --text-light-gray: #B0B0B0;
-  --text-medium-gray: #8E8E93;
-  --text-dark-gray: #636366;
+  --text-light-gray: #E8D5D5;
+  --text-medium-gray: #A89090;
+  --text-dark-gray: #7A6060;
   --text-orange: #FF8C00;
   --badge-orange: #FF8C00;
   --badge-purple: #A855F7;
   --gen-purple-start: #9B4DFF;
   --gen-purple-end: #E85D9A;
-  --gen-bg-dark: #1A0A2E;
+  --gen-bg-dark: #1A0808;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html,body { height:100%; overflow:hidden; font-family:'PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif; }
 
 body {
-  background:linear-gradient(160deg, #0A1A2F 0%, #0D1B35 40%, #081020 100%);
+  background:linear-gradient(160deg, #0A0505 0%, #1A0808 40%, #0D0303 100%);
   overflow:hidden;
 }
 
@@ -62,7 +62,7 @@ body {
 }
 
 @media (max-width:440px) {
-  body { background:linear-gradient(160deg, #0A1A2F 0%, #0D1B35 40%, #081020 100%); }
+  body { background:linear-gradient(160deg, #0A0505 0%, #1A0808 40%, #0D0303 100%); }
   .phone-frame {
     max-width:100%;
   }
@@ -204,7 +204,7 @@ body {
   height:200px;
   position:relative;
   overflow:hidden;
-  background:linear-gradient(180deg, #050B18 0%, #0A1428 40%, #0D1B35 70%, var(--bg-black) 100%);
+  background:linear-gradient(180deg, #050202 0%, #0A0505 40%, #150808 70%, var(--bg-black) 100%);
 }
 .home-header::before {
   content:'';
@@ -718,7 +718,7 @@ body {
   flex-direction:column;
   align-items:center;
   padding:32px 20px;
-  background:linear-gradient(180deg, #0A1428, var(--bg-black));
+  background:linear-gradient(180deg, #0A0505, var(--bg-black));
 }
 .profile-avatar {
   width:72px; height:72px;
@@ -913,6 +913,40 @@ body {
 
 /* ========== Scrollbar hidden ========== */
 .screen::-webkit-scrollbar { width:0; display:none; }
+
+/* Hide default video play button overlay on mobile WebView */
+video::-webkit-media-controls-overlay-play-button,
+video::-webkit-media-controls-start-playback-button,
+video::-internal-media-controls-overlay-cast-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+.comp-thumb-video {
+  pointer-events: none !important;
+  -webkit-appearance: none !important;
+}
+.comp-thumb-video::-webkit-media-controls,
+.comp-thumb-video::-webkit-media-controls-panel,
+.comp-thumb-video::-webkit-media-controls-play-button,
+.comp-thumb-video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+}
+/* Hide play button on ALL video thumbnails globally */
+video.thumb-video-no-controls::-webkit-media-controls,
+video.thumb-video-no-controls::-webkit-media-controls-panel,
+video.thumb-video-no-controls::-webkit-media-controls-play-button,
+video.thumb-video-no-controls::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+}
+/* Generic video thumbnail - no controls */
+video[preload][muted][playsinline]::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
 </style>
 </head>
 <body>
@@ -1003,7 +1037,7 @@ body {
       <div class="template-list" id="template-list"></div>
       <div style="height:120px;"></div>
       <div class="bottom-fixed-btn">
-        <button class="gradient-btn" id="confirm-template-btn" style="width:100%;justify-content:center;background:linear-gradient(90deg, var(--gen-purple-start), var(--gen-purple-end));display:none;margin-bottom:10px;" onclick="confirmTemplate()">
+        <button class="gradient-btn" id="confirm-template-btn" style="width:100%;justify-content:center;background:linear-gradient(90deg, var(--gen-purple-start), var(--gen-purple-end));display:none !important;margin-bottom:0;" onclick="confirmTemplate()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
           <span>确认使用模板</span>
         </button>
@@ -1154,6 +1188,11 @@ body {
           <div>
             <div style="font-size:12px;color:var(--text-medium-gray);margin-bottom:6px;">曲线变速</div>
             <div id="ai-speed-list" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+          </div>
+          <!-- 输出画质 -->
+          <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+            <div style="font-size:12px;color:var(--text-medium-gray);margin-bottom:6px;">输出画质 <span style="color:var(--editor-cyan);font-size:10px;">(无损高清)</span></div>
+            <div id="ai-quality-list" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           </div>
         </div>
 
@@ -2098,6 +2137,12 @@ var AI_SPEEDS = [
 var selectedCamMove = 'auto';
 var selectedEffect = 'auto';
 var selectedSpeed = 'auto';
+var selectedQuality = '4K'; // '1080p', '4K', '8K'
+var QUALITY_OPTIONS = [
+  { id: '1080p', name: '1080P', w: 1080, h: 1920, bitrate: 12000000 },
+  { id: '4K', name: '4K超清', w: 2160, h: 3840, bitrate: 40000000 },
+  { id: '8K', name: '8K极致', w: 3840, h: 5760, bitrate: 80000000 }
+];
 
 function renderAIEnhanceTags() {
   function tagHtml(arr, selected, onclickFn) {
@@ -2112,10 +2157,13 @@ function renderAIEnhanceTags() {
   if (effEl) effEl.innerHTML = tagHtml(AI_EFFECTS, selectedEffect, 'selectEffect');
   var spdEl = document.getElementById('ai-speed-list');
   if (spdEl) spdEl.innerHTML = tagHtml(AI_SPEEDS, selectedSpeed, 'selectSpeed');
+  var qualEl = document.getElementById('ai-quality-list');
+  if (qualEl) qualEl.innerHTML = tagHtml(QUALITY_OPTIONS, selectedQuality, 'selectQuality');
 }
 function selectCamMove(id) { selectedCamMove = id; renderAIEnhanceTags(); showToast('运镜: ' + (AI_CAM_MOVES.find(function(c){return c.id===id;})||{}).name); }
 function selectEffect(id) { selectedEffect = id; renderAIEnhanceTags(); showToast('特效: ' + (AI_EFFECTS.find(function(c){return c.id===id;})||{}).name); }
 function selectSpeed(id) { selectedSpeed = id; renderAIEnhanceTags(); showToast('变速: ' + (AI_SPEEDS.find(function(c){return c.id===id;})||{}).name); }
+function selectQuality(id) { selectedQuality = id; renderAIEnhanceTags(); showToast('画质: ' + (QUALITY_OPTIONS.find(function(c){return c.id===id;})||{}).name); }
 
 // AI智能分析视频场景，返回分析结果
 function aiAnalyzeScene(mediaUrl, mediaType) {
@@ -2222,12 +2270,12 @@ function goBack() {
 
 // ========== Toast ==========
 var toastTimer;
-function showToast(msg) {
+function showToast(msg, duration) {
   var t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2000);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, duration || 2500);
 }
 
 // ========== Bottom Sheet ==========
@@ -2246,7 +2294,7 @@ function renderCategories() {
   CATEGORIES.forEach(function(c) {
     var count = TEMPLATES.filter(function(t){ return t.cat === c.key; }).length;
     html += '<div class="cat-tab' + (selectedCategory === c.key ? ' selected' : '') + '" onclick="selectCategory(\'' + c.key + '\')">' +
-            (selectedCategory === c.key ? '<span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#5B9BD5;vertical-align:middle;margin-right:6px;font-size:10px;color:white;text-align:center;line-height:16px;">✓</span>' : '') +
+            (selectedCategory === c.key ? '<span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#E53935;vertical-align:middle;margin-right:6px;font-size:10px;color:white;text-align:center;line-height:16px;">✓</span>' : '') +
             c.name + '<span style="font-size:11px;color:var(--text-medium-gray);margin-left:4px;">(' + count + ')</span></div>';
   });
   document.getElementById('cat-grid').innerHTML = html;
@@ -2310,19 +2358,97 @@ function updateRewriteBtn() {
   var btn = document.getElementById('rewrite-btn');
   var txt = document.getElementById('rewrite-btn-text');
   var confirmBtn = document.getElementById('confirm-template-btn');
+  // Always hide confirm button - AI auto-confirms after rewrite
+  if (confirmBtn) confirmBtn.style.display = 'none';
   if (!selectedTemplate) {
     btn.classList.add('disabled');
     txt.textContent = '调用模板一键改写';
-    if (confirmBtn) confirmBtn.style.display = 'none';
   } else {
     btn.classList.remove('disabled');
     txt.textContent = '调用模板一键改写';
-    // Show confirm button only after rewrite is done
-    if (selectedTemplate._rewritten) {
-      if (confirmBtn) confirmBtn.style.display = 'flex';
+  }
+}
+
+// 语音通知函数 - 使用云端TTS播报成功/失败消息
+function speakNotify(message, isSuccess, onComplete) {
+  var notifyCompleted = false;
+  function ensureComplete() {
+    if (notifyCompleted) return;
+    notifyCompleted = true;
+    if (onComplete) onComplete();
+  }
+  // Safety timeout: ensure onComplete fires even if TTS fails silently (8 seconds max)
+  var safetyTimer = setTimeout(ensureComplete, 8000);
+
+  try {
+    // 使用选中的配音声音，如果没有则用默认声音
+    var voice = selectedVoice || VOICES[0];
+    if (voice) {
+      cloudTTS(message, voice, function() {
+        console.log('Voice notify played: ' + message);
+        clearTimeout(safetyTimer);
+        // Wait 300ms after TTS ends before completing (ensure audio fully captured)
+        setTimeout(ensureComplete, 300);
+      }, function(err) {
+        console.warn('Voice notify TTS failed, trying speechSynthesis:', err);
+        // Fallback: try Web Speech API
+        try {
+          if ('speechSynthesis' in window) {
+            var u = new SpeechSynthesisUtterance(message);
+            u.lang = 'zh-CN';
+            u.rate = 1.0;
+            u.pitch = isSuccess ? 1.1 : 0.9;
+            u.onend = function() {
+              clearTimeout(safetyTimer);
+              setTimeout(ensureComplete, 300);
+            };
+            u.onerror = function() {
+              clearTimeout(safetyTimer);
+              setTimeout(ensureComplete, 300);
+            };
+            window.speechSynthesis.cancel();
+            setTimeout(function() {
+              window.speechSynthesis.speak(u);
+            }, 250);
+          } else {
+            // No speechSynthesis, complete immediately
+            clearTimeout(safetyTimer);
+            setTimeout(ensureComplete, 500);
+          }
+        } catch(e2) {
+          console.warn('speechSynthesis also failed:', e2);
+          clearTimeout(safetyTimer);
+          setTimeout(ensureComplete, 500);
+        }
+      });
     } else {
-      if (confirmBtn) confirmBtn.style.display = 'none';
+      // No voice available, try speechSynthesis directly
+      if ('speechSynthesis' in window) {
+        var u2 = new SpeechSynthesisUtterance(message);
+        u2.lang = 'zh-CN';
+        u2.rate = 1.0;
+        u2.pitch = isSuccess ? 1.1 : 0.9;
+        u2.onend = function() {
+          clearTimeout(safetyTimer);
+          setTimeout(ensureComplete, 300);
+        };
+        u2.onerror = function() {
+          clearTimeout(safetyTimer);
+          setTimeout(ensureComplete, 300);
+        };
+        window.speechSynthesis.cancel();
+        setTimeout(function() {
+          window.speechSynthesis.speak(u2);
+        }, 250);
+      } else {
+        clearTimeout(safetyTimer);
+        setTimeout(ensureComplete, 500);
+      }
     }
+  } catch(e) {
+    console.warn('speakNotify error:', e);
+    clearTimeout(safetyTimer);
+    setTimeout(ensureComplete, 500);
   }
 }
 
@@ -2532,11 +2658,59 @@ function onRewrite() {
 
     isRewriting = false;
     btn.classList.remove('disabled');
-    txt.textContent = '重新改写';
-    // Show confirm button
-    var confirmBtn = document.getElementById('confirm-template-btn');
-    if (confirmBtn) confirmBtn.style.display = 'flex';
-    showToast('AI已根据「' + pIndustry + '」行业档案智能改写文案');
+    txt.textContent = '调用模板一键改写';
+
+    // Check if rewrite was successful
+    if (rewritten && rewritten.length > 10) {
+      // Show success result inline
+      showToast('AI已根据「' + pIndustry + '」行业档案智能改写文案，正在自动确认...');
+
+      // Prepare auto-confirm function with double-execution guard
+      var autoConfirmed = false;
+      var fallbackTimer = null;
+      var doAutoConfirm = function() {
+        if (autoConfirmed) return;
+        autoConfirmed = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+
+        // Auto-confirm: apply the rewritten template
+        var useText = selectedTemplate._rewritten || selectedTemplate.preview;
+        selectedTemplate.preview = useText;
+
+        // Update editor
+        var editorName = document.getElementById('editor-template-name');
+        var editorPreview = document.getElementById('editor-template-preview');
+        if (editorName) {
+          editorName.textContent = selectedTemplate.name;
+          editorPreview.textContent = useText.substring(0, 50) + '...';
+          // Update shots
+          var shotsContent = document.getElementById('shots-content');
+          if (shotsContent) {
+            shotsContent.innerHTML = '<div style="color:var(--editor-cyan);font-size:14px;font-weight:500;">已分割 3 个镜头</div>' +
+              '<div style="margin-top:6px;"><div style="color:var(--text-light-gray);font-size:12px;">镜头1: 开场吸引</div>' +
+              '<div style="color:var(--text-light-gray);font-size:12px;">镜头2: 产品展示</div>' +
+              '<div style="color:var(--text-light-gray);font-size:12px;">镜头3: 行动号召</div></div>';
+          }
+        }
+        // Navigate back to editor
+        goBack();
+        showToast('模板已自动确认: ' + selectedTemplate.name);
+      };
+
+      // Voice notification: success, then auto-confirm after TTS finishes playing
+      speakNotify('模板调用成功，已自动确认改写后的文案', true, doAutoConfirm);
+
+      // Fallback: if TTS takes too long or fails, auto-confirm after 5 seconds
+      fallbackTimer = setTimeout(function() {
+        console.log('TTS fallback: auto-confirming after 5s timeout');
+        doAutoConfirm();
+      }, 5000);
+    } else {
+      // Rewrite failed
+      showToast('AI改写失败，请重试');
+      // Voice notification: failure (no navigation needed, stay on page)
+      speakNotify('模板调用失败，请重试', false);
+    }
   }, 2000);
 }
 
@@ -3480,6 +3654,12 @@ function updateGenMaterialCount() {
 function doGenerate() {
   // 预初始化音频上下文（必须在用户点击手势内调用）
   waInit();
+  // 启动静默振荡器，保持AudioContext活跃（防止14秒生成过程后AudioContext被挂起）
+  startSilentOscillator();
+  // 预解码BGM音频缓冲（在用户手势内，确保后续播放可用）
+  if (selectedBgm) {
+    preDecodeBgm(selectedBgm.id);
+  }
   // 预加载TTS语音列表
   if ('speechSynthesis' in window) {
     window.speechSynthesis.getVoices();
@@ -3545,15 +3725,39 @@ function doGenerate() {
           scenes: aiAnalyzeScene(resultVideo.url, resultVideo.type)
         }
       };
-      works.unshift(newWork);
-      renderWorks();
-      showToast('✓ 视频已自动上传到作品库');
+      // 真实合成视频（Canvas + MediaRecorder）
+      statusEl.innerHTML = '<div style="margin-top:8px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;color:var(--tech-purple-light);font-size:13px;margin-bottom:10px;">' +
+          '<div style="width:16px;height:16px;border:2px solid var(--tech-purple);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>' +
+          '🎬 正在合成视频（语音+背景音乐+字幕）...</div>' +
+        '<div style="width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">' +
+          '<div style="width:100%;height:100%;background:linear-gradient(90deg, var(--gen-purple-start), var(--gen-purple-end));border-radius:3px;animation:pulse 1.5s ease-in-out infinite;"></div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-medium-gray);margin-top:4px;">请勿关闭页面，合成需要一些时间...</div>' +
+        '<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}</style>' +
+      '</div>';
 
-      // 显示渲染结果页
-      statusEl.innerHTML = '';
-      showRenderResult(newWork);
-      btn.disabled = false;
-      btn.style.opacity = '1';
+      renderCompositeVideo(newWork, function(compositedUrl) {
+        newWork.url = compositedUrl;
+        newWork.type = 'video';
+        newWork.isComposited = true;
+        works.unshift(newWork);
+        saveWorksToStorage();
+        renderWorks();
+        statusEl.innerHTML = '';
+        showRenderResult(newWork);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }, function(err) {
+        console.error('Composite render failed, using original:', err);
+        works.unshift(newWork);
+        saveWorksToStorage();
+        renderWorks();
+        statusEl.innerHTML = '';
+        showRenderResult(newWork);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      });
       return;
     }
     var step = steps[stepIdx];
@@ -3572,6 +3776,696 @@ function doGenerate() {
     setTimeout(nextStep, step.delay);
   }
   nextStep();
+}
+
+// ========== TTS Pre-Generation (for audio-video sync) ==========
+// Pre-fetches all TTS audio as decoded AudioBuffers before recording starts.
+// This eliminates network latency between lines and enables precise scheduling.
+
+function preGenerateTTSBuffers(lines, voiceObj, onProgress, onComplete, onError) {
+  var results = [];
+  var idx = 0;
+  var ctx = waCtx || waInit();
+  if (!ctx) { if(onError) onError(new Error('no audio ctx')); return; }
+
+  function fetchBaiduTTS(text, callback) {
+    var spd = 3;
+    if (voiceObj) {
+      var rate = voiceObj.rate || 1.0;
+      spd = Math.round(3 * rate);
+      spd = Math.max(1, Math.min(9, spd));
+    }
+    var url = 'https://fanyi.baidu.com/gettts?lan=zh&text=' + encodeURIComponent(text.substring(0, 200)) + '&spd=' + spd + '&source=web';
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.responseType = 'arraybuffer';
+    var done = false;
+    var timer = setTimeout(function() {
+      if (!done) { done = true; xhr.abort(); callback(null); }
+    }, 8000);
+    xhr.onload = function() {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (xhr.status === 200 && xhr.response) {
+        try {
+          ctx.decodeAudioData(xhr.response, function(buffer) {
+            callback(buffer);
+          }, function(e) {
+            console.warn('TTS pre-gen decode failed:', e);
+            callback(null);
+          });
+        } catch(e) {
+          console.warn('TTS pre-gen decode error:', e);
+          callback(null);
+        }
+      } else {
+        callback(null);
+      }
+    };
+    xhr.onerror = function() {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      callback(null);
+    };
+    try { xhr.send(); } catch(e) { if(!done) { done=true; clearTimeout(timer); callback(null); } }
+  }
+
+  function fetchEdgeTTS(text, callback) {
+    var vn = mapVoiceToEdgeTTS(voiceObj);
+    var rate = (voiceObj&&voiceObj.rate)?voiceObj.rate:1.0;
+    var pitch = (voiceObj&&voiceObj.pitch)?voiceObj.pitch:1.0;
+    var ratePct = (rate>=1.0?'+':'')+Math.round((rate-1.0)*100)+'%';
+    var pitchPct = (pitch>=1.0?'+':'')+Math.round((pitch-1.0)*50)+'%';
+    var wsUrl = 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+    var chunks = [];
+    var done = false;
+    var timer = setTimeout(function(){
+      if(!done){done=true;try{ws.close();}catch(e){}callback(null);}
+    }, 10000);
+    var ws;
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = function() {
+        var cfg = 'Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n' +
+          JSON.stringify({context:{synthesis:{audio:{metadataoptions:{sentenceBoundaryEnabled:false,wordBoundaryEnabled:false},outputFormat:'audio-24khz-48kbitrate-mono-mp3'}}}});
+        ws.send(cfg);
+        var ssml = '<speak version=\'1.0\' xmlns=\'http://www.w3.org/2001/10/synthesis\' xml:lang=\'zh-CN\'>' +
+          '<voice name=\''+vn+'\'><prosody rate=\''+ratePct+'\' pitch=\''+pitchPct+'\'>'+text.replace(/[<>&'"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c];})+'</prosody></voice></speak>';
+        ws.send('X-RequestId:'+genReqId()+'\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n'+ssml);
+      };
+      ws.onmessage = function(ev) {
+        if (typeof ev.data === 'string') {
+          if (ev.data.indexOf('Path:audio') >= 0) {
+            var idx2 = ev.data.indexOf('\r\n\r\n');
+            if (idx2 >= 0) {
+              var blob = new Blob([ev.data.substring(idx2+4)], {type:'audio/mpeg'});
+              var reader = new FileReader();
+              reader.onload = function() {
+                try {
+                  ctx.decodeAudioData(reader.result, function(buffer) {
+                    if(!done){done=true;clearTimeout(timer);try{ws.close();}catch(e){}callback(buffer);}
+                  }, function(e) {
+                    if(!done){done=true;clearTimeout(timer);try{ws.close();}catch(e){}callback(null);}
+                  });
+                } catch(e) {
+                  if(!done){done=true;clearTimeout(timer);try{ws.close();}catch(e){}callback(null);}
+                }
+              };
+              reader.onerror = function() {
+                if(!done){done=true;clearTimeout(timer);try{ws.close();}catch(e){}callback(null);}
+              };
+              reader.readAsArrayBuffer(blob);
+            }
+          } else if (ev.data.indexOf('Path:turn.end') >= 0) {
+            if(!done){done=true;clearTimeout(timer);try{ws.close();}catch(e){}callback(null);}
+          }
+        }
+      };
+      ws.onerror = function() {
+        if(!done){done=true;clearTimeout(timer);callback(null);}
+      };
+      ws.onclose = function() {
+        clearTimeout(timer);
+        if(!done){done=true;callback(null);}
+      };
+    } catch(e) {
+      if(!done){done=true;clearTimeout(timer);callback(null);}
+    }
+  }
+
+  function fetchNext() {
+    if (idx >= lines.length) {
+      onComplete(results);
+      return;
+    }
+    var line = lines[idx];
+    if (onProgress) onProgress(idx, lines.length);
+
+    // Try baiduTTS first, then edgeTTS as fallback
+    fetchBaiduTTS(line, function(buffer) {
+      if (buffer && buffer.length > 0) {
+        results.push({ buffer: buffer, duration: buffer.duration, text: line });
+        console.log('TTS pre-gen [' + (idx+1) + '/' + lines.length + '] OK: ' + line.substring(0,20) + '... (' + buffer.duration.toFixed(2) + 's)');
+        idx++;
+        fetchNext();
+      } else {
+        // Fallback to edgeTTS
+        console.log('TTS pre-gen baidu failed for line ' + idx + ', trying edge...');
+        fetchEdgeTTS(line, function(buffer2) {
+          if (buffer2 && buffer2.length > 0) {
+            results.push({ buffer: buffer2, duration: buffer2.duration, text: line });
+            console.log('TTS pre-gen [' + (idx+1) + '/' + lines.length + '] OK (edge): ' + line.substring(0,20) + '... (' + buffer2.duration.toFixed(2) + 's)');
+          } else {
+            // Both failed - use estimated duration
+            var estDur = Math.max(1.5, line.length * 0.22);
+            results.push({ buffer: null, duration: estDur, text: line });
+            console.warn('TTS pre-gen [' + (idx+1) + '/' + lines.length + '] FAILED, using est: ' + estDur.toFixed(2) + 's');
+          }
+          idx++;
+          fetchNext();
+        });
+      }
+    });
+  }
+
+  fetchNext();
+}
+
+// ========== Real Video Compositing (Canvas + MediaRecorder) ==========
+// Produces a TRUE composited video file with BGM + TTS + subtitles burned in
+
+function drawSubtitleOnCanvas(ctx, text, w, h, styleObj) {
+  var fontSize = Math.round(w / 24);
+  var color = '#FFFFFF';
+  var strokeColor = '#000000';
+  if (styleObj) {
+    if (styleObj.text) color = styleObj.text;
+    if (styleObj.stroke) strokeColor = styleObj.stroke;
+  }
+  ctx.font = 'bold ' + fontSize + 'px "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Word wrap
+  var maxWidth = w * 0.85;
+  var lines = [];
+  var currentLine = '';
+  for (var i = 0; i < text.length; i++) {
+    var testLine = currentLine + text[i];
+    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = text[i];
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  var lineHeight = fontSize * 1.4;
+  var totalHeight = lines.length * lineHeight;
+  var startY = h * 0.82 - totalHeight / 2 + lineHeight / 2;
+  // Optional background
+  if (styleObj && styleObj.bg) {
+    ctx.fillStyle = styleObj.bg;
+    var padding = fontSize * 0.3;
+    var maxLineWidth = 0;
+    lines.forEach(function(line) { maxLineWidth = Math.max(maxLineWidth, ctx.measureText(line).width); });
+    ctx.fillRect(w/2 - maxLineWidth/2 - padding, startY - lineHeight/2 - padding/2, maxLineWidth + padding*2, totalHeight + padding);
+  }
+  // Draw each line with stroke outline
+  lines.forEach(function(line, i) {
+    var y = startY + i * lineHeight;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = fontSize / 6;
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeText(line, w/2, y);
+    ctx.fillStyle = color;
+    ctx.fillText(line, w/2, y);
+  });
+}
+
+function renderCompositeVideo(work, onComplete, onError) {
+  // NOTE: Do NOT stop silent oscillator here - it keeps AudioContext alive!
+  // The oscillator is silent (gain=0) so it won't affect recording.
+  // It will be stopped in cleanup() after recording is done.
+
+  // Check MediaRecorder support
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+    if (onError) onError(new Error('MediaRecorder not supported'));
+    return;
+  }
+
+  var audioCtx = waInit();
+  if (!audioCtx) {
+    if (onError) onError(new Error('AudioContext not available'));
+    return;
+  }
+
+  // Resume AudioContext if suspended (critical for BGM playback)
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().then(function() {
+      console.log('AudioContext resumed for render, state:', audioCtx.state);
+    }).catch(function(e) { console.warn('AudioContext resume failed:', e); });
+  }
+
+  // Create audio recording destination - all audio through waMasterGain will be captured
+  var audioDest = audioCtx.createMediaStreamDestination();
+  try { waMasterGain.connect(audioDest); } catch(e) { console.warn('connect audioDest failed:', e); }
+
+  var subtitleLines = work.script ? splitSubtitleLines(work.script) : [];
+  var voiceObj = work.voiceObj || VOICES[0];
+  var subtitleStyleObj = work.subtitleStyleObj || null;
+  var bgmId = work.bgmId || null;
+
+  // Detect mobile for adaptive settings
+  var isMobile = isMobileWebView();
+
+  // Get quality settings from user selection
+  var qualOption = QUALITY_OPTIONS.find(function(q) { return q.id === selectedQuality; }) || QUALITY_OPTIONS[1];
+  // On mobile, cap at 1080p for performance (4K/8K canvas rendering is too heavy for most phones)
+  if (isMobile && qualOption.bitrate > 15000000) {
+    qualOption = QUALITY_OPTIONS[0]; // 1080p
+    console.log('Mobile detected, capping quality to 1080p for performance');
+  }
+  // Check device capability
+  if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4 && qualOption.bitrate > 15000000) {
+    qualOption = QUALITY_OPTIONS[0];
+    console.log('Low CPU cores detected, capping quality to 1080p');
+  }
+
+  var targetW = qualOption.w;
+  var targetH = qualOption.h;
+  var targetBitrate = qualOption.bitrate;
+
+  var canvas = document.createElement('canvas');
+  // Use desynchronized + alpha:false for better rendering performance
+  var ctx2d = canvas.getContext('2d', { desynchronized: true, alpha: false });
+  var video = null;
+  var image = null;
+  var recorder = null;
+  var chunks = [];
+  var recordingDone = false;
+  var bgmSourceNode = null;
+  var bgmGainNode = null;
+  var drawActive = true;
+  var currentSubtitle = '';
+
+  // TTS pre-generated data
+  var ttsBuffers = [];
+  var totalTtsDuration = 0;
+  var scheduledTtsSources = [];
+  var scheduledTimers = [];
+  var hasRvfc = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+
+  function cleanup() {
+    drawActive = false;
+    try { waMasterGain.disconnect(audioDest); } catch(e) {}
+    if (bgmSourceNode) { try { bgmSourceNode.stop(); } catch(e) {} try { bgmSourceNode.disconnect(); } catch(e) {} bgmSourceNode = null; }
+    if (bgmGainNode) { try { bgmGainNode.disconnect(); } catch(e) {} bgmGainNode = null; }
+    scheduledTtsSources.forEach(function(s) { try { s.stop(); } catch(e) {} });
+    scheduledTtsSources = [];
+    scheduledTimers.forEach(function(t) { clearTimeout(t); });
+    scheduledTimers = [];
+    stopCloudTTS();
+    if (video) { try { video.pause(); } catch(e) {} }
+    // Now safe to stop the silent oscillator (recording is done)
+    stopSilentOscillator();
+  }
+
+  function finishRecording() {
+    if (recordingDone) return;
+    recordingDone = true;
+    if (recorder && recorder.state === 'recording') {
+      try { recorder.stop(); } catch(e) {}
+    }
+  }
+
+  function startBgm() {
+    if (!bgmId) {
+      console.warn('BGM: No bgmId set, skipping BGM');
+      return;
+    }
+    var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
+                   customBgmTracks.find(function(b) { return b.id === bgmId; });
+    if (!bgmTrack) {
+      console.warn('BGM: Track not found for id:', bgmId);
+      return;
+    }
+    if (!bgmTrack.url) {
+      console.warn('BGM: Track has no URL:', bgmTrack.name);
+      return;
+    }
+
+    console.log('BGM: Starting BGM playback for track:', bgmTrack.name, 'id:', bgmId);
+
+    var bgmStarted = false;
+    function playBuffer(buffer) {
+      if (bgmStarted) return;
+      bgmStarted = true;
+      try {
+        bgmSourceNode = audioCtx.createBufferSource();
+        bgmSourceNode.buffer = buffer;
+        bgmSourceNode.loop = true;
+        bgmGainNode = audioCtx.createGain();
+        bgmGainNode.gain.value = 0.4;
+        bgmSourceNode.connect(bgmGainNode);
+        bgmGainNode.connect(waMasterGain);
+        bgmSourceNode.start(0);
+        console.log('BGM: Started successfully via BufferSource:', bgmTrack.name, 'duration:', buffer.duration.toFixed(2) + 's', 'gain: 0.4');
+      } catch(e) {
+        console.warn('BGM: playBuffer error:', e);
+      }
+    }
+
+    // Fallback: Use Audio element connected via MediaElementSource
+    function tryAudioFallback() {
+      if (bgmStarted) return;
+      console.log('BGM: Trying Audio element fallback...');
+      try {
+        var fallbackAudio = new Audio();
+        fallbackAudio.src = bgmTrack.url;
+        fallbackAudio.loop = true;
+        fallbackAudio.volume = 0.4;
+        fallbackAudio.setAttribute('playsinline', '');
+        fallbackAudio.crossOrigin = 'anonymous';
+        // Wait for canplay event before creating MediaElementSource
+        fallbackAudio.addEventListener('canplaythrough', function() {
+          if (bgmStarted) return;
+          try {
+            var mediaSource = audioCtx.createMediaElementSource(fallbackAudio);
+            var fallbackGain = audioCtx.createGain();
+            fallbackGain.gain.value = 0.8;
+            mediaSource.connect(fallbackGain);
+            fallbackGain.connect(waMasterGain);
+            fallbackAudio.play().then(function() {
+              bgmStarted = true;
+              bgmSourceNode = mediaSource;
+              bgmGainNode = fallbackGain;
+              console.log('BGM: Started via Audio element fallback:', bgmTrack.name);
+            }).catch(function(e) {
+              console.warn('BGM: Audio fallback play() failed:', e);
+            });
+          } catch(e2) {
+            console.warn('BGM: createMediaElementSource error:', e2);
+          }
+        }, { once: true });
+        // Also try to play immediately (some browsers need this)
+        fallbackAudio.load();
+      } catch(e2) {
+        console.warn('BGM: Audio fallback setup error:', e2);
+      }
+    }
+
+    // Method 1: Use pre-decoded buffer (best - decoded during user gesture)
+    if (preDecodedBgmBuffer && preDecodedBgmId === bgmId) {
+      console.log('BGM: Using pre-decoded buffer (preDecodedBgmId matches)');
+      playBuffer(preDecodedBgmBuffer);
+      return;
+    }
+    console.warn('BGM: preDecodedBgmBuffer not available. preDecodedBgmId:', preDecodedBgmId, 'bgmId:', bgmId);
+
+    // Method 2: Use fetch() to get ArrayBuffer, then Promise-based decodeAudioData
+    // fetch() works on data: URIs and is more reliable than manual atob() decoding
+    console.log('BGM: Decoding via fetch() + Promise-based decodeAudioData...');
+    var bgmDecodeTimeout = setTimeout(function() {
+      if (!bgmStarted) {
+        console.warn('BGM: Decode timeout (5s), trying Audio element fallback');
+        tryAudioFallback();
+      }
+    }, 5000);
+
+    try {
+      fetch(bgmTrack.url).then(function(res) {
+        console.log('BGM: fetch() succeeded, status:', res.status);
+        return res.arrayBuffer();
+      }).then(function(ab) {
+        console.log('BGM: Got ArrayBuffer, size:', ab.byteLength, 'bytes');
+        // Use Promise-based decodeAudioData (more reliable than callback API)
+        return audioCtx.decodeAudioData(ab);
+      }).then(function(buffer) {
+        console.log('BGM: decodeAudioData succeeded, duration:', buffer.duration.toFixed(2) + 's');
+        clearTimeout(bgmDecodeTimeout);
+        playBuffer(buffer);
+        // Also cache for future use
+        preDecodedBgmBuffer = buffer;
+        preDecodedBgmId = bgmId;
+      }).catch(function(e) {
+        console.warn('BGM: fetch/decode pipeline failed:', e);
+        clearTimeout(bgmDecodeTimeout);
+        tryAudioFallback();
+      });
+    } catch(e) {
+      console.warn('BGM: fetch() error:', e);
+      clearTimeout(bgmDecodeTimeout);
+      tryAudioFallback();
+    }
+  }
+
+  function startRecording() {
+    // Create combined stream: canvas video (60fps for smooth playback) + audio
+    var canvasStream = canvas.captureStream(60);
+    var audioTracks = audioDest.stream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      canvasStream.addTrack(audioTracks[0]);
+    }
+
+    // Pick best supported MIME type - prefer MP4/H.264 on mobile for compatibility
+    var mimeTypes = isMobile ? [
+      'video/mp4;codecs=avc1.640028,aac',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ] : [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4'
+    ];
+    var mimeType = '';
+    for (var i = 0; i < mimeTypes.length; i++) {
+      try {
+        if (MediaRecorder.isTypeSupported(mimeTypes[i])) { mimeType = mimeTypes[i]; break; }
+      } catch(e) {}
+    }
+
+    // High bitrate for HD quality + high-quality audio
+    var recorderOpts = {
+      videoBitsPerSecond: targetBitrate,
+      audioBitsPerSecond: 192000
+    };
+    if (mimeType) recorderOpts.mimeType = mimeType;
+
+    try {
+      recorder = new MediaRecorder(canvasStream, recorderOpts);
+    } catch(e) {
+      try {
+        recorder = new MediaRecorder(canvasStream, { videoBitsPerSecond: targetBitrate });
+      } catch(e2) {
+        try { recorder = new MediaRecorder(canvasStream); } catch(e3) {
+          cleanup();
+          if (onError) onError(new Error('MediaRecorder creation failed: ' + e3.message));
+          return;
+        }
+      }
+    }
+
+    recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = function() {
+      cleanup();
+      var blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+      var url = URL.createObjectURL(blob);
+      // Store blob globally for save/upload (avoids fetch(blobUrl) on mobile)
+      lastRenderedBlob = blob;
+      console.log('Composite video rendered: ' + (blob.size/1024/1024).toFixed(1) + 'MB, type: ' + (mimeType || 'video/webm') + ', quality: ' + qualOption.name + ', bitrate: ' + (targetBitrate/1000000) + 'Mbps');
+      if (onComplete) onComplete(url);
+    };
+
+    // Start BGM FIRST (before recording) - ensures audio source is connected
+    console.log('BGM: Starting BGM before recording...');
+    startBgm();
+
+    // Small delay to let BGM source connect to audioDest
+    setTimeout(function() {
+      // Start recording with 100ms data collection for smoother output
+      recorder.start(100);
+      console.log('MediaRecorder started: quality=' + qualOption.name + ', res=' + targetW + 'x' + targetH + ', bitrate=' + (targetBitrate/1000000) + 'Mbps, fps=60, codec=' + (mimeType || 'default'));
+
+      // Start drawing frames
+      drawFrames();
+
+      // Schedule TTS playback with precise Web Audio API timing
+      scheduleTTSPlayback();
+    }, 100);
+  }
+
+  // Schedule all TTS audio with precise timing using Web Audio API
+  // This ensures perfect audio-video synchronization
+  function scheduleTTSPlayback() {
+    if (ttsBuffers.length === 0) {
+      // No TTS - finish after a short delay
+      setTimeout(finishRecording, 1000);
+      return;
+    }
+
+    var startTime = audioCtx.currentTime + 0.2; // 200ms delay for stability
+    var currentTime = startTime;
+
+    for (var i = 0; i < ttsBuffers.length; i++) {
+      var item = ttsBuffers[i];
+      var lineIdx = i;
+      var lineDuration = item.duration;
+      var gap = 0.12; // 120ms gap between lines for natural pacing
+
+      // Schedule subtitle display to match audio timing
+      (function(idx, displayTime, hideTime) {
+        var showDelay = Math.max(0, (displayTime - audioCtx.currentTime) * 1000);
+        var hideDelay = Math.max(0, (hideTime - audioCtx.currentTime) * 1000);
+        var showTimer = setTimeout(function() {
+          currentSubtitle = subtitleLines[idx] || '';
+        }, showDelay);
+        var hideTimer = setTimeout(function() {
+          if (currentSubtitle === (subtitleLines[idx] || '')) {
+            currentSubtitle = '';
+          }
+        }, hideDelay);
+        scheduledTimers.push(showTimer, hideTimer);
+      })(lineIdx, currentTime, currentTime + lineDuration);
+
+      if (item.buffer) {
+        // Schedule audio buffer playback at precise time
+        var src = audioCtx.createBufferSource();
+        src.buffer = item.buffer;
+        var gain = audioCtx.createGain();
+        gain.gain.value = 1.0;
+        src.connect(gain);
+        gain.connect(waMasterGain);
+        src.start(currentTime);
+        scheduledTtsSources.push(src);
+      }
+
+      currentTime += lineDuration + gap;
+    }
+
+    totalTtsDuration = currentTime - startTime;
+    console.log('TTS scheduled: ' + ttsBuffers.length + ' clips, total duration: ' + totalTtsDuration.toFixed(2) + 's');
+
+    // Schedule recording finish after all TTS is done
+    var finishDelay = Math.max(500, (currentTime - audioCtx.currentTime + 0.5) * 1000);
+    var finishTimer = setTimeout(function() {
+      currentSubtitle = '';
+      finishRecording();
+    }, finishDelay);
+    scheduledTimers.push(finishTimer);
+  }
+
+  // Draw frames using requestVideoFrameCallback for video (frame-accurate) or requestAnimationFrame for images
+  function drawFrames() {
+    if (!drawActive) return;
+
+    // Draw video frame or image
+    if (video && video.readyState >= 2) {
+      try { ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height); } catch(e) {}
+    } else if (image) {
+      try { ctx2d.drawImage(image, 0, 0, canvas.width, canvas.height); } catch(e) {}
+    } else {
+      ctx2d.fillStyle = '#000';
+      ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    // Draw subtitle
+    if (currentSubtitle) {
+      drawSubtitleOnCanvas(ctx2d, currentSubtitle, canvas.width, canvas.height, subtitleStyleObj);
+    }
+
+    // Use requestVideoFrameCallback for video (syncs with actual video frames, eliminates stuttering)
+    // Fall back to requestAnimationFrame for images or unsupported browsers
+    if (video && hasRvfc) {
+      video.requestVideoFrameCallback(drawFrames);
+    } else {
+      requestAnimationFrame(drawFrames);
+    }
+  }
+
+  // Step 1: Pre-generate all TTS audio (if we have subtitles)
+  // This is the KEY to audio-video synchronization: all audio is pre-loaded
+  // and scheduled precisely, eliminating network latency gaps
+  function beginRender() {
+    // Re-decode BGM if not already pre-decoded (ensures buffer is ready for recording)
+    if (bgmId && (!preDecodedBgmBuffer || preDecodedBgmId !== bgmId)) {
+      console.log('BGM: Pre-decoded buffer not ready, re-decoding in beginRender...');
+      preDecodeBgm(bgmId);
+    }
+    if (subtitleLines.length > 0) {
+      console.log('Pre-generating TTS audio for ' + subtitleLines.length + ' lines (quality: ' + qualOption.name + ')...');
+      preGenerateTTSBuffers(subtitleLines, voiceObj,
+        function(idx, total) {
+          console.log('TTS pre-gen progress: ' + (idx+1) + '/' + total);
+        },
+        function(buffers) {
+          ttsBuffers = buffers;
+          totalTtsDuration = buffers.reduce(function(sum, b) { return sum + b.duration + 0.12; }, 0);
+          console.log('TTS pre-gen complete: ' + buffers.filter(function(b){return b.buffer;}).length + '/' + buffers.length + ' buffers loaded, total: ' + totalTtsDuration.toFixed(2) + 's');
+          loadMediaAndRecord();
+        },
+        function(err) {
+          console.warn('TTS pre-gen error, using estimates:', err);
+          ttsBuffers = subtitleLines.map(function(line) {
+            return { buffer: null, duration: Math.max(1.5, line.length * 0.22), text: line };
+          });
+          totalTtsDuration = ttsBuffers.reduce(function(sum, b) { return sum + b.duration + 0.12; }, 0);
+          loadMediaAndRecord();
+        }
+      );
+    } else {
+      console.log('No subtitles, rendering video only');
+      loadMediaAndRecord();
+    }
+  }
+
+  // Step 2: Load media (video/image) and start recording
+  function loadMediaAndRecord() {
+    if (work.type === 'image' || (work.url && work.url.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
+      // Image type - draw static frame + audio
+      image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = function() {
+        // Set canvas to target resolution (upscale for 4K/8K output)
+        canvas.width = targetW;
+        canvas.height = targetH;
+        // Draw initial frame
+        ctx2d.drawImage(image, 0, 0, canvas.width, canvas.height);
+        startRecording();
+      };
+      image.onerror = function() {
+        cleanup();
+        if (onError) onError(new Error('Image load failed'));
+      };
+      image.src = work.url;
+    } else {
+      // Video type
+      video = document.createElement('video');
+      video.src = work.url;
+      video.muted = true; // Mute original audio - we add BGM + TTS
+      video.playsInline = true;
+      video.crossOrigin = 'anonymous';
+
+      video.onloadedmetadata = function() {
+        // Set canvas to target resolution (may upscale from source for 4K/8K)
+        canvas.width = targetW;
+        canvas.height = targetH;
+        console.log('Canvas set to ' + targetW + 'x' + targetH + ' (source video: ' + (video.videoWidth||'?') + 'x' + (video.videoHeight||'?') + ')');
+        startRecording();
+        video.play().catch(function(e) { console.warn('Video play failed:', e); });
+      };
+
+      // Video ended - loop to match TTS duration (video loops while TTS is still playing)
+      video.addEventListener('ended', function() {
+        if (!recordingDone) {
+          // Loop video to match TTS duration - this keeps video playing while audio continues
+          try { video.currentTime = 0; video.play().catch(function(){}); } catch(e) {}
+        }
+      });
+
+      video.onerror = function() {
+        cleanup();
+        if (onError) onError(new Error('Video load failed'));
+      };
+    }
+
+    // Safety timeout: max 300 seconds (longer for 4K/8K rendering)
+    var timeoutMs = targetBitrate > 50000000 ? 300000 : 180000;
+    setTimeout(function() {
+      if (!recordingDone) {
+        console.warn('Render timeout (' + (timeoutMs/1000) + 's), forcing stop');
+        finishRecording();
+      }
+    }, timeoutMs);
+  }
+
+  // Start the render pipeline
+  beginRender();
 }
 
 // ========== Composite Video Player (Voice + BGM + Subtitles) ==========
@@ -3601,12 +4495,15 @@ function buildSubtitleStyle(sub) {
 
 function playCompositeVideo(work, options) {
   options = options || {};
+  // 停止静默振荡器（生成完成，AudioContext应该已经保持活跃）
+  stopSilentOscillator();
   // 存储当前作品用于重播
   currentCompositeWork = work;
-  var subtitleLines = work.script ? splitSubtitleLines(work.script) : [];
+  var isComposited = work.isComposited || false;
+  var subtitleLines = isComposited ? [] : (work.script ? splitSubtitleLines(work.script) : []);
   var subtitleStyle = work.subtitleStyleObj ? buildSubtitleStyle(work.subtitleStyleObj) : buildSubtitleStyle(null);
-  var voiceObj = work.voiceObj || null;
-  var bgmId = work.bgmId || null;
+  var voiceObj = isComposited ? null : (work.voiceObj || null);
+  var bgmId = isComposited ? null : (work.bgmId || null);
 
   // Stop any existing playback
   stopCompositePlayback();
@@ -3622,110 +4519,26 @@ function playCompositeVideo(work, options) {
 
   // Build media element
   // AI auto-detects: when BGM or voice dubbing is added, mute original video audio
-  var hasAudioOverlay = (bgmId || voiceObj || work.script);
+  var hasAudioOverlay = isComposited ? false : (bgmId || voiceObj || work.script);
   var mediaHtml = '';
   if (work.type === 'video') {
-    mediaHtml = '<video id="comp-video" src="' + work.url + '" autoplay loop' + (hasAudioOverlay ? ' muted' : '') + ' style="max-width:100%;max-height:50vh;border-radius:12px;box-shadow:0 8px 32px rgba(155,77,255,0.3);"></video>';
+    mediaHtml = '<video id="comp-video" src="' + work.url + '" autoplay playsinline' + (hasAudioOverlay ? ' muted' : '') + ' style="max-width:100%;max-height:50vh;border-radius:12px;box-shadow:0 8px 32px rgba(155,77,255,0.3);"></video>';
   } else {
     mediaHtml = '<img id="comp-video" src="' + work.url + '" style="max-width:100%;max-height:50vh;border-radius:12px;box-shadow:0 8px 32px rgba(155,77,255,0.3);" />';
   }
 
-  // Info bar showing active features
-  var infoBadges = '';
-  infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(78,205,196,0.15);border-radius:12px;font-size:11px;color:var(--editor-cyan);">🎤 ' + (voiceObj ? voiceObj.name : '默认配音') + '</span>';
-  if (bgmId) {
-    var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
-                   customBgmTracks.find(function(b) { return b.id === bgmId; });
-    infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(155,77,255,0.15);border-radius:12px;font-size:11px;color:var(--tech-purple-light);">🎵 ' + (bgmTrack ? bgmTrack.name : '背景音乐') + '</span>';
-  }
-  infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(255,215,0,0.15);border-radius:12px;font-size:11px;color:#FFD700;">📝 字幕</span>';
-  if (work.aiEnhance) {
-    infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(78,205,196,0.1);border-radius:12px;font-size:10px;color:var(--editor-cyan);">🎥 运镜: ' + work.aiEnhance.cam + '</span>';
-    infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(255,165,0,0.1);border-radius:12px;font-size:10px;color:#FFA500;">✨ 特效: ' + work.aiEnhance.effect + '</span>';
-    infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(155,77,255,0.1);border-radius:12px;font-size:10px;color:var(--tech-purple-light);">⚡ 变速: ' + work.aiEnhance.speed + '</span>';
-  }
-  if (hasAudioOverlay && work.type === 'video') {
-    infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(255,100,100,0.15);border-radius:12px;font-size:11px;color:#FF6B6B;">🔇 原声已关闭</span>';
-  }
-  if (work.audioSync && work.audioSync.synced) {
-    infoBadges += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(76,175,80,0.15);border-radius:12px;font-size:10px;color:#4CAF50;">⏱ AI时长匹配: ' + work.duration + '</span>';
-  }
-
-  // BGM volume control bar (only show if bgmId exists)
-  var bgmControlHtml = '';
-  if (bgmId) {
-    bgmControlHtml = '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 14px;background:rgba(255,255,255,0.08);border-radius:20px;">' +
-      '<span style="font-size:11px;color:var(--text-medium-gray);">🎵 背景音乐</span>' +
-      '<button id="comp-bgm-mute" style="width:26px;height:26px;border-radius:50%;border:none;background:rgba(155,77,255,0.2);color:var(--tech-purple-light);font-size:12px;cursor:pointer;flex-shrink:0;" onclick="toggleCompBgmMute()">🔊</button>' +
-      '<input type="range" id="comp-bgm-vol" style="width:80px;accent-color:var(--tech-purple-light);" min="0" max="100" value="40" oninput="setCompBgmVol(this.value)">' +
-      '<span id="comp-bgm-vol-val" style="font-size:11px;color:var(--text-light-gray);min-width:28px;text-align:right;">40%</span>' +
-      '</div>';
-  }
-
+  // Clean overlay - ONLY show 渲染完成 + essential buttons
   overlay.innerHTML = '<div style="text-align:center;width:100%;max-width:420px;">' +
     (options.showSuccess !== false ? '<div style="color:#4CAF50;font-size:36px;margin-bottom:4px;">✓</div>' +
-    '<div style="color:var(--text-white);font-size:18px;font-weight:700;margin-bottom:4px;">渲染完成！</div>' +
-    '<div style="color:var(--tech-purple-light);font-size:12px;margin-bottom:12px;">视频已合成语音配音、背景音乐和字幕</div>' : '') +
+    '<div style="color:var(--text-white);font-size:18px;font-weight:700;margin-bottom:12px;">渲染完成！</div>' : '') +
     // Video wrapper with subtitle overlay
     '<div style="position:relative;display:inline-block;max-width:100%;">' +
       mediaHtml +
       '<div id="comp-subtitle" style="position:absolute;bottom:12%;left:50%;transform:translateX(-50%);max-width:90%;text-align:center;pointer-events:none;opacity:0;transition:opacity 0.3s;' + subtitleStyle + '"></div>' +
     '</div>' +
-    // Info badges
-    '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px;">' + infoBadges + '</div>' +
-    // BGM volume control
-    bgmControlHtml +
-    // Title
-    '<div style="color:var(--text-light-gray);font-size:13px;margin-top:10px;font-weight:500;">' + work.title + '</div>' +
-    '<div style="color:var(--text-medium-gray);font-size:11px;margin-top:2px;">时长 ' + work.duration + ' · ' + (work.resolution || '高清') + '</div>' +
-    // AI enhancement info
-    (work.aiEnhance ? '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px;">' +
-      '<span style="padding:3px 10px;background:rgba(78,205,196,0.12);border-radius:12px;font-size:10px;color:var(--editor-cyan);">运镜: ' + (work.aiEnhance.cam || 'AI自动') + '</span>' +
-      '<span style="padding:3px 10px;background:rgba(255,215,0,0.12);border-radius:12px;font-size:10px;color:#FFD700;">特效: ' + (work.aiEnhance.effect || 'AI自动') + '</span>' +
-      '<span style="padding:3px 10px;background:rgba(155,77,255,0.12);border-radius:12px;font-size:10px;color:var(--tech-purple-light);">变速: ' + (work.aiEnhance.speed || 'AI自动') + '</span>' +
-    '</div>' : '') +
-    // AI scene analysis breakdown
-    (work.aiEnhance && work.aiEnhance.scenes && work.aiEnhance.scenes.length > 0 ?
-      '<div style="margin-top:8px;width:100%;max-width:380px;background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 12px;">' +
-        '<div style="font-size:11px;color:var(--editor-cyan);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:4px;">' +
-          '<span>🤖 AI场景分析</span>' +
-        '</div>' +
-        work.aiEnhance.scenes.map(function(s, i) {
-          return '<div style="display:flex;align-items:flex-start;gap:6px;padding:3px 0;font-size:10px;color:var(--text-light-gray);">' +
-            '<span style="color:var(--text-medium-gray);min-width:42px;flex-shrink:0;">' + s.time + '</span>' +
-            '<span style="flex:1;">' + s.scene + '</span>' +
-            '<span style="color:var(--editor-cyan);min-width:44px;text-align:right;">' + s.cam + '</span>' +
-            '<span style="color:#FFA500;min-width:40px;text-align:right;">' + s.effect + '</span>' +
-            '<span style="color:var(--tech-purple-light);min-width:36px;text-align:right;">' + s.speed + '</span>' +
-          '</div>';
-        }).join('') +
-        '<div style="display:flex;gap:6px;margin-top:4px;font-size:9px;color:var(--text-dark-gray);">' +
-          '<span style="min-width:42px;"></span><span style="flex:1;"></span>' +
-          '<span style="min-width:44px;text-align:right;">运镜</span>' +
-          '<span style="min-width:40px;text-align:right;">特效</span>' +
-          '<span style="min-width:36px;text-align:right;">变速</span>' +
-        '</div>' +
-      '</div>' : '') +
-    // AI音视频时长匹配信息
-    (work.audioSync && work.audioSync.synced ?
-      '<div style="margin-top:8px;width:100%;max-width:380px;background:rgba(76,175,80,0.08);border-radius:10px;padding:10px 12px;border:1px solid rgba(76,175,80,0.2);">' +
-        '<div style="font-size:11px;color:#4CAF50;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:4px;">' +
-          '<span>⏱ AI音视频时长匹配</span>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-light-gray);padding:2px 0;">' +
-          '<span>语音时长</span><span style="color:#4CAF50;">' + work.audioSync.voiceDur + '秒</span>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-light-gray);padding:2px 0;">' +
-          '<span>视频时长</span><span style="color:#4CAF50;">' + work.audioSync.videoDur + '秒</span>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-light-gray);padding:2px 0;">' +
-          '<span>同步策略</span><span style="color:var(--editor-cyan);">' + work.audioSync.strategy + '</span>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-light-gray);padding:2px 0;">' +
-          '<span>背景音乐</span><span style="color:var(--tech-purple-light);">' + (work.audioSync.bgmCat === '无' ? '未选择' : work.audioSync.bgmCat + '型') + '</span>' +
-        '</div>' +
-      '</div>' : '') +
-    // Buttons
+    // Hidden BGM enable button (only shows if BGM fails to auto-start)
+    '<button id="comp-bgm-enable-btn" style="display:none;padding:8px 20px;margin-top:8px;border-radius:50px;border:1px solid rgba(155,77,255,0.5);background:rgba(155,77,255,0.15);color:var(--tech-purple-light);font-size:13px;cursor:pointer;font-weight:600;" onclick="enableCompBgm()">🎵 点击启用背景音乐</button>' +
+    // Buttons only - no AI badges, no scene analysis, no duration match, no BGM volume control
     '<div style="display:flex;gap:10px;margin-top:16px;justify-content:center;flex-wrap:wrap;">' +
       '<button style="padding:10px 20px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:13px;cursor:pointer;" onclick="stopCompositePlayback()">关闭</button>' +
       '<button id="comp-replay-btn" style="display:none;padding:10px 20px;border-radius:50px;border:1px solid rgba(255,215,0,0.5);background:rgba(255,215,0,0.1);color:#FFD700;font-size:13px;cursor:pointer;font-weight:600;" onclick="replayCompositeVideo()">🔄 重新播放</button>' +
@@ -3736,16 +4549,25 @@ function playCompositeVideo(work, options) {
   '</div>';
   document.body.appendChild(overlay);
 
-  // --- 手动循环视频（某些移动端WebView不支持loop属性） ---
+  // --- 手动循环视频（不使用loop属性，确保ended事件能正常触发） ---
   var compVideoEl = document.getElementById('comp-video');
   var playbackFinished = false; // 标记语音/字幕是否已完成
+  var stopForcePoll = null; // 强制停止轮询定时器
   if (compVideoEl && compVideoEl.tagName === 'VIDEO') {
     compVideoEl.addEventListener('ended', function() {
+      // 合成视频播放结束 - 显示重新播放按钮
+      if (isComposited) {
+        var replayBtn = document.getElementById('comp-replay-btn');
+        if (replayBtn) replayBtn.style.display = 'inline-flex';
+        showToast('✓ 视频播放完毕');
+        return;
+      }
       // 如果语音/字幕还没播完，手动重新播放视频
       if (!playbackFinished && document.getElementById('composite-player-overlay')) {
         try {
           compVideoEl.currentTime = 0;
-          compVideoEl.play().catch(function(e) {
+          var p = compVideoEl.play();
+          if (p && p.catch) p.catch(function(e) {
             console.warn('Video replay failed:', e);
           });
         } catch(e) {
@@ -3757,6 +4579,25 @@ function playCompositeVideo(work, options) {
     compVideoEl.addEventListener('error', function() {
       console.error('Video element error:', compVideoEl.error);
     });
+  }
+
+  // 强制停止视频的函数（移动端WebView可能忽略pause()）
+  function forceStopVideo() {
+    var vEl = document.getElementById('comp-video');
+    if (vEl && vEl.tagName === 'VIDEO') {
+      try {
+        vEl.pause();
+        vEl.removeAttribute('loop');
+        vEl.loop = false;
+        vEl.currentTime = vEl.duration || 0;
+      } catch(e) {
+        console.warn('forceStopVideo error:', e);
+      }
+    }
+    if (stopForcePoll) {
+      clearInterval(stopForcePoll);
+      stopForcePoll = null;
+    }
   }
 
   // --- BGM volume state ---
@@ -3810,21 +4651,81 @@ function playCompositeVideo(work, options) {
     applyBgmVol();
   };
 
-  // Start BGM immediately (内置真实歌曲 + 自定义上传歌曲)
+  // Start BGM - Use pre-decoded buffer first (most reliable on mobile)
   if (bgmId) {
     stopBgmAudioEl();
     bgmPlayingId = null;
-    // 先查内置真实歌曲，再查自定义上传
     var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
                    customBgmTracks.find(function(b) { return b.id === bgmId; });
     if (bgmTrack) {
-      // Use Web Audio API for real songs (works on mobile WebView)
-      // Pass initial volume with ducking applied (voiceSpeaking is false at start, but BGM starts low)
+      var bgmCtx = waInit();
       var initVol = (compBgmVol / 100) * (voiceSpeaking ? 0.4 : 1.0) * 0.8;
-      var ok = startBgmAudioEl(bgmTrack.url, bgmTrack.name, initVol);
-      if (ok) {
-        bgmPlayingId = bgmId;
-        // applyBgmVol will be called again when voice starts/stops to adjust ducking
+      initVol = Math.max(0.01, initVol);
+      var bgmStarted = false;
+
+      // Method 1: Use pre-decoded buffer (best - decoded during user gesture)
+      if (preDecodedBgmBuffer && preDecodedBgmId === bgmId && bgmCtx) {
+        try {
+          // Try to resume context (might work if previously unlocked)
+          if (bgmCtx.state === 'suspended') {
+            bgmCtx.resume().catch(function(e) { console.warn('BGM resume failed:', e); });
+          }
+          bgmBufferNode = bgmCtx.createBufferSource();
+          bgmBufferNode.buffer = preDecodedBgmBuffer;
+          bgmBufferNode.loop = true;
+          bgmBufferGain = bgmCtx.createGain();
+          bgmBufferGain.gain.value = initVol;
+          bgmBufferNode.connect(bgmBufferGain);
+          bgmBufferGain.connect(waMasterGain);
+          bgmBufferNode.start(0);
+          bgmAllBufferNodes.push(bgmBufferNode);
+          bgmPlayingId = bgmId;
+          bgmStarted = true;
+          console.log('BGM started via pre-decoded buffer:', bgmTrack.name);
+        } catch(e) {
+          console.warn('BGM pre-decoded buffer play failed:', e);
+        }
+      }
+
+      // Method 2: Try startBgmAudioEl (Web Audio API with fetch/decode)
+      if (!bgmStarted) {
+        var ok = startBgmAudioEl(bgmTrack.url, bgmTrack.name, initVol);
+        if (ok) {
+          bgmPlayingId = bgmId;
+          bgmStarted = true;
+          console.log('BGM started via startBgmAudioEl:', bgmTrack.name);
+        }
+      }
+
+      // Method 3: Direct Audio element fallback
+      if (!bgmStarted) {
+        try {
+          var fallbackAudio = new Audio(bgmTrack.url);
+          fallbackAudio.loop = true;
+          fallbackAudio.volume = initVol;
+          fallbackAudio.setAttribute('playsinline', '');
+          fallbackAudio.setAttribute('data-bgm-audio', '1');
+          fallbackAudio.play().then(function() {
+            bgmAudioEl = fallbackAudio;
+            bgmPlayingId = bgmId;
+            bgmStarted = true;
+            console.log('BGM started via Audio element:', bgmTrack.name);
+          }).catch(function(e) {
+            console.warn('BGM Audio element failed:', e);
+          });
+        } catch(e2) {
+          console.error('BGM all methods failed:', e2);
+        }
+      }
+
+      // Method 4: If BGM not started, add a click-to-enable button
+      if (!bgmStarted) {
+        setTimeout(function() {
+          if (!bgmPlayingId && document.getElementById('composite-player-overlay')) {
+            var bgmEnableBtn = document.getElementById('comp-bgm-enable-btn');
+            if (bgmEnableBtn) bgmEnableBtn.style.display = 'inline-flex';
+          }
+        }, 1000);
       }
     }
   }
@@ -3848,18 +4749,35 @@ function playCompositeVideo(work, options) {
   // Speak each subtitle line sequentially, syncing subtitle display with TTS
   function speakNextLine() {
     if (currentLineIdx >= subtitleLines.length) {
-      // All lines done - stop playback, do NOT loop
+      // All lines done
+      if (isComposited) {
+        // Composited video - let it play to the end naturally, don't stop
+        return;
+      }
+      // Stop playback, do NOT loop
       playbackFinished = true; // 阻止视频继续循环
       hideSubtitle();
       // Stop BGM
       stopBgmAudioEl();
       bgmPlayingId = null;
-      // Stop video
-      var videoEl = document.getElementById('comp-video');
-      if (videoEl && videoEl.pause) {
-        videoEl.pause();
-        videoEl.loop = false;
-      }
+      // Stop video - use forceStopVideo for mobile WebView compatibility
+      forceStopVideo();
+      // 轮询确保视频真的停了（某些移动端WebView的pause()有延迟）
+      var pollCount = 0;
+      stopForcePoll = setInterval(function() {
+        var vEl = document.getElementById('comp-video');
+        if (!vEl || pollCount > 10) {
+          if (stopForcePoll) { clearInterval(stopForcePoll); stopForcePoll = null; }
+          return;
+        }
+        try {
+          if (!vEl.paused) {
+            vEl.pause();
+            vEl.loop = false;
+          }
+        } catch(e) {}
+        pollCount++;
+      }, 300);
       // Show completion toast
       showToast('✓ 视频播放完毕');
       // Show a replay button
@@ -4134,6 +5052,7 @@ function playCompositeVideo(work, options) {
 
   // Cleanup function
   compositeCleanup = function() {
+    playbackFinished = true; // 确保停止循环
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -4142,6 +5061,12 @@ function playCompositeVideo(work, options) {
     waStopAll();
     bgmPlayingId = null;
     voiceSpeaking = false;
+    // 强制停止视频
+    var vEl = document.getElementById('comp-video');
+    if (vEl && vEl.tagName === 'VIDEO') {
+      try { vEl.pause(); vEl.loop = false; vEl.removeAttribute('loop'); } catch(e) {}
+    }
+    if (stopForcePoll) { clearInterval(stopForcePoll); stopForcePoll = null; }
     window.setCompBgmVol = null;
     window.toggleCompBgmMute = null;
     var el = document.getElementById('composite-player-overlay');
@@ -4166,6 +5091,82 @@ function stopCompositePlayback() {
 
 // 存储当前播放的作品，用于重播
 var currentCompositeWork = null;
+var lastRenderedBlob = null; // Store last rendered video blob for save/upload (avoids fetch on mobile)
+
+function enableCompBgm() {
+  if (!currentCompositeWork || !currentCompositeWork.bgmId) {
+    showToast('未选择背景音乐');
+    return;
+  }
+  var bgmId = currentCompositeWork.bgmId;
+  var bgmTrack = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
+                 customBgmTracks.find(function(b) { return b.id === bgmId; });
+  if (!bgmTrack) return;
+
+  // Resume AudioContext in user gesture
+  var ctx = waInit();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().then(function() {
+      console.log('AudioContext resumed via user click');
+    }).catch(function(e) {
+      console.warn('AudioContext resume failed:', e);
+    });
+  }
+
+  stopBgmAudioEl();
+  bgmPlayingId = null;
+
+  // Try pre-decoded buffer first
+  if (preDecodedBgmBuffer && preDecodedBgmId === bgmId && ctx) {
+    try {
+      bgmBufferNode = ctx.createBufferSource();
+      bgmBufferNode.buffer = preDecodedBgmBuffer;
+      bgmBufferNode.loop = true;
+      bgmBufferGain = ctx.createGain();
+      bgmBufferGain.gain.value = 0.32;
+      bgmBufferNode.connect(bgmBufferGain);
+      bgmBufferGain.connect(waMasterGain);
+      bgmBufferNode.start(0);
+      bgmAllBufferNodes.push(bgmBufferNode);
+      bgmPlayingId = bgmId;
+      var btn = document.getElementById('comp-bgm-enable-btn');
+      if (btn) btn.style.display = 'none';
+      showToast('✓ 背景音乐已启用');
+      return;
+    } catch(e) {
+      console.warn('BGM enable via buffer failed:', e);
+    }
+  }
+
+  // Fallback: startBgmAudioEl
+  var ok = startBgmAudioEl(bgmTrack.url, bgmTrack.name, 0.32);
+  if (ok) {
+    bgmPlayingId = bgmId;
+    var btn = document.getElementById('comp-bgm-enable-btn');
+    if (btn) btn.style.display = 'none';
+    showToast('✓ 背景音乐已启用');
+  } else {
+    // Last resort: Audio element
+    try {
+      var audio = new Audio(bgmTrack.url);
+      audio.loop = true;
+      audio.volume = 0.32;
+      audio.setAttribute('playsinline', '');
+      audio.setAttribute('data-bgm-audio', '1');
+      audio.play().then(function() {
+        bgmAudioEl = audio;
+        bgmPlayingId = bgmId;
+        var btn = document.getElementById('comp-bgm-enable-btn');
+        if (btn) btn.style.display = 'none';
+        showToast('✓ 背景音乐已启用');
+      }).catch(function(e) {
+        showToast('背景音乐启用失败: ' + e.message);
+      });
+    } catch(e2) {
+      showToast('背景音乐启用失败');
+    }
+  }
+}
 
 function replayCompositeVideo() {
   if (!currentCompositeWork) return;
@@ -4177,6 +5178,15 @@ function replayCompositeVideo() {
 }
 
 // ========== Save Video to Album / Download ==========
+function blobToDataURL(blob, callback) {
+  try {
+    var reader = new FileReader();
+    reader.onloadend = function() { callback(reader.result); };
+    reader.onerror = function() { callback(null); };
+    reader.readAsDataURL(blob);
+  } catch(e) { callback(null); }
+}
+
 function saveVideoToAlbum(url, title) {
   if (!url) {
     showToast('无法获取视频地址');
@@ -4187,119 +5197,211 @@ function saveVideoToAlbum(url, title) {
   
   var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + '.mp4';
 
-  function doDownload(downloadUrl) {
-    var success = false;
-    // 方法1: 使用<a>标签download属性（最兼容）
+  // 方法1: navigator.share with files (移动端最可靠) - use stored blob directly
+  var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
+  function tryShareWithFiles(blobData) {
+    if (!navigator.share || !navigator.canShare) return false;
+    if (!blobData) return false;
     try {
+      var file = new File([blobData], fileName, { type: blobData.type || 'video/mp4' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({
+          files: [file],
+          title: title || '视频作品',
+          text: title || '视频作品'
+        }).then(function() {
+          if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+          showToast('✓ 视频已保存到相册');
+        }).catch(function(e) {
+          if (e.name !== 'AbortError') {
+            tryDownload(blobData);
+          } else {
+            if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+          }
+        });
+        return true;
+      } else {
+        return false;
+      }
+    } catch(e) {
+      return false;
+    }
+  }
+
+  // 方法2: 直接下载 (创建<a>标签 with blob URL)
+  function tryDownload(blobData) {
+    try {
+      var blobUrl = (blobData instanceof Blob) ? URL.createObjectURL(blobData) : url;
       var a = document.createElement('a');
-      a.href = downloadUrl;
+      a.href = blobUrl;
       a.download = fileName;
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       setTimeout(function() {
         if (a.parentElement) document.body.removeChild(a);
-      }, 5000);
-      success = true;
-    } catch(e1) {
-      console.error('Download method 1 failed:', e1);
+      }, 3000);
+    } catch(e) {
+      console.error('Download failed:', e);
     }
+    // 同时显示长按保存弹窗作为备选
+    showLongPressSave(url, title);
+  }
+
+  // 方法3: 长按保存弹窗 (最后的兜底方案)
+  function showLongPressSave(saveUrl, saveTitle) {
+    var existing = document.getElementById('long-press-save-overlay');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'long-press-save-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:10001;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
     
-    // 方法2: 新窗口打开（让用户长按保存）
-    if (!success) {
-      try {
-        var newWin = window.open(downloadUrl, '_blank');
-        if (!newWin) {
-          // 弹窗被阻止，用location跳转
-          window.location.href = downloadUrl;
-        }
-        success = true;
-      } catch(e2) {
-        console.error('Download method 2 failed:', e2);
-      }
-    }
-
-    // 方法3: 直接跳转
-    if (!success) {
-      try {
-        window.location.href = downloadUrl;
-      } catch(e3) {
-        console.error('All download methods failed:', e3);
-      }
-    }
-
+    overlay.innerHTML = '<div style="color:white;font-size:18px;font-weight:700;margin-bottom:8px;">💾 保存视频到相册</div>' +
+      '<div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:12px;text-align:center;line-height:1.8;max-width:320px;background:rgba(78,205,196,0.1);padding:10px 16px;border-radius:10px;border:1px solid rgba(78,205,196,0.3);">' +
+        '📌 <b>长按下方视频画面</b><br>在弹出菜单中选择<br><b>"保存视频"或"下载视频"</b><br>即可保存到手机相册</div>' +
+      '<video src="' + saveUrl + '" controls playsinline style="max-width:90%;max-height:40vh;border-radius:12px;background:#000;"></video>' +
+      '<div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:8px;">' + (saveTitle || '视频作品') + '</div>' +
+      '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center;">' +
+        '<a href="' + saveUrl + '" download="' + fileName + '" style="padding:10px 24px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:var(--editor-cyan);font-size:13px;cursor:pointer;text-decoration:none;">📥 下载到设备</a>' +
+        '<button style="padding:10px 24px;border-radius:50px;border:none;background:var(--red-start);color:white;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'long-press-save-overlay\').remove()">关闭</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    
     if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-    showToast('✓ 视频已开始保存到手机相册/下载文件夹，如未自动下载请长按视频选择保存');
   }
 
-  // For blob: or data: URLs, directly download
-  if (url.indexOf('blob:') === 0 || url.indexOf('data:') === 0) {
-    doDownload(url);
-    return;
-  }
-
-  // For HTTP URLs, try fetch + blob download for better mobile compatibility
-  try {
-    fetch(url)
-      .then(function(res) { return res.blob(); })
-      .then(function(blob) {
-        var blobUrl = URL.createObjectURL(blob);
-        doDownload(blobUrl);
-        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 30000);
-      })
-      .catch(function(err) {
-        console.error('Fetch blob failed, trying direct download:', err);
-        doDownload(url);
-      });
-  } catch(e) {
-    doDownload(url);
+  // Try methods in order: share with blob > download with blob > long-press
+  if (savedBlob) {
+    if (tryShareWithFiles(savedBlob)) return;
+    tryDownload(savedBlob);
+  } else {
+    // Fallback: no blob available, try URL directly
+    if (tryShareWithFiles(url)) return;
+    tryDownload(url);
   }
 }
 
-// ========== Upload Current Video to Work Library ==========
 function uploadCurrentToWorkLib() {
-  if (!currentCompositeWork) {
-    showToast('无法获取当前视频信息');
-    return;
-  }
+  try {
+  // 获取当前作品信息（多种方式fallback）
   var work = currentCompositeWork;
-  
-  // 检查是否已经在作品库中（通过URL判断）
-  var existing = works.find(function(w) { return w.url === work.url && w.title === work.title; });
-  if (existing) {
-    showToast('该视频已在作品库中');
+  if (!work) {
+    // 尝试从当前播放器中的视频元素获取URL
+    var vEl = document.getElementById('comp-video');
+    if (vEl) {
+      work = {
+        title: '我的视频作品',
+        duration: '0:15',
+        url: vEl.src || vEl.currentSrc || '',
+        type: vEl.tagName === 'VIDEO' ? 'video' : 'image',
+        resolution: '高清'
+      };
+    }
+  }
+  if (!work || !work.url) {
+    showToast('无法获取当前视频信息，请重试');
     return;
   }
+  // Get the blob for persistence (avoids fetch on mobile)
+  var uploadBlob = lastRenderedBlob || (work._blob) || null;
   
   var btn = document.getElementById('comp-upload-btn');
   if (btn) { btn.textContent = '上传中...'; btn.style.opacity = '0.7'; }
   
-  // 复制作品信息到作品库
-  var newWork = {
-    title: work.title || '我的视频作品',
-    duration: work.duration || '0:15',
-    script: work.script || '',
-    time: '刚刚',
-    url: work.url,
-    type: work.type || 'video',
-    resolution: work.resolution || '高清',
-    voiceObj: work.voiceObj || null,
-    bgmId: work.bgmId || null,
-    subtitleStyleObj: work.subtitleStyleObj || null,
-    aiEnhance: work.aiEnhance || null,
-    audioSync: work.audioSync || null
-  };
+  // 上传到作品库
+  var uploadedToWork = false;
+  var existingWork = works.find(function(w) { return w.url === work.url; });
+  if (!existingWork) {
+    var newWork = {
+      title: work.title || '我的视频作品',
+      duration: work.duration || '0:15',
+      script: work.script || '',
+      time: '刚刚',
+      url: work.url,
+      type: work.type || 'video',
+      resolution: work.resolution || '高清',
+      voiceObj: work.voiceObj || null,
+      bgmId: work.bgmId || null,
+      subtitleStyleObj: work.subtitleStyleObj || null,
+      aiEnhance: work.aiEnhance || null,
+      audioSync: work.audioSync || null
+    };
+    works.unshift(newWork);
+    saveWorksToStorage();
+    renderWorks();
+    uploadedToWork = true;
+  }
   
-  works.unshift(newWork);
-  renderWorks();
+  // 上传到素材库
+  var uploadedToMaterial = false;
+  var existingMaterial = materialItems.find(function(m) { return m.url === work.url; });
+  if (!existingMaterial) {
+    var matId = 'mat_' + Date.now();
+    var matItem = {
+      id: matId,
+      name: (work.title || '视频作品').substring(0, 20),
+      type: work.type || 'video',
+      size: '渲染作品',
+      resolution: work.resolution || '高清',
+      url: work.url,
+      time: '刚刚'
+    };
+    materialItems.push(matItem);
+    // Save to IndexedDB using stored blob (avoids fetch on mobile)
+    try {
+      if (uploadBlob) {
+        var file = new File([uploadBlob], (work.title || '视频作品') + '.mp4', { type: uploadBlob.type || 'video/mp4' });
+        saveMaterialToDB(matItem, file);
+        console.log('Material saved to IndexedDB via stored blob');
+      } else {
+        // Fallback: try to fetch URL
+        fetch(work.url).then(function(res) { return res.blob(); }).then(function(blob) {
+          var file = new File([blob], (work.title || '视频作品') + '.mp4', { type: blob.type || 'video/mp4' });
+          saveMaterialToDB(matItem, file);
+        }).catch(function(e) {
+          console.warn('Could not persist uploaded material (fetch failed):', e);
+        });
+      }
+    } catch(e) {
+      console.warn('IndexedDB save error:', e);
+    }
+    renderMaterialList();
+    updateMaterialCount();
+    updateGenMaterialCount();
+    uploadedToMaterial = true;
+  }
   
-  if (btn) { btn.textContent = '✓ 已上传'; btn.style.opacity = '1'; btn.style.background = 'linear-gradient(90deg, #45a049, #4CAF50)'; }
-  showToast('✓ 视频已成功上传到作品库');
+  // 显示结果
+  var msg;
+  if (uploadedToWork && uploadedToMaterial) {
+    msg = '✓ 已上传到作品库和素材库';
+  } else if (uploadedToWork) {
+    msg = '✓ 已上传到作品库';
+  } else if (uploadedToMaterial) {
+    msg = '✓ 已上传到素材库';
+  } else {
+    msg = '✓ 视频已在作品库中';
+  }
   
-  // 3秒后恢复按钮
+  if (btn) {
+    btn.textContent = '✓ 已上传';
+    btn.style.opacity = '1';
+    btn.style.background = 'linear-gradient(90deg, #45a049, #4CAF50)';
+  }
+  showToast(msg, 3000);
+  
   setTimeout(function() {
-    if (btn) { btn.textContent = '📤 上传到作品库'; btn.style.background = 'linear-gradient(90deg, #4CAF50, #45a049)'; }
+    if (btn) {
+      btn.textContent = '📤 上传到作品库';
+      btn.style.background = 'linear-gradient(90deg, #4CAF50, #45a049)';
+    }
   }, 3000);
+  } catch(e) {
+    console.error('uploadCurrentToWorkLib error:', e);
+    showToast('上传失败: ' + (e.message || '未知错误'));
+    var btn = document.getElementById('comp-upload-btn');
+    if (btn) { btn.textContent = '📤 上传到作品库'; btn.style.opacity = '1'; }
+  }
 }
 
 function showRenderResult(work) {
@@ -4313,6 +5415,92 @@ function closeRenderResult() {
 // ========== Material Library ==========
 var materialItems = [];
 var materialSelectMode = false;
+var materialDB = null;
+
+// --- IndexedDB for material persistence ---
+function initMaterialDB(callback) {
+  try {
+    var request = indexedDB.open('zhugeMaterialDB', 1);
+    request.onupgradeneeded = function(e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('materials')) {
+        db.createObjectStore('materials', { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = function(e) {
+      materialDB = e.target.result;
+      if (callback) callback();
+    };
+    request.onerror = function(e) {
+      console.error('IndexedDB error:', e);
+      if (callback) callback();
+    };
+  } catch(e) {
+    console.error('IndexedDB init failed:', e);
+    if (callback) callback();
+  }
+}
+
+function saveMaterialToDB(item, file) {
+  if (!materialDB) return;
+  try {
+    var tx = materialDB.transaction(['materials'], 'readwrite');
+    var store = tx.objectStore('materials');
+    store.put({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      size: item.size,
+      resolution: item.resolution,
+      file: file
+    });
+  } catch(e) { console.error('saveMaterialToDB error:', e); }
+}
+
+function deleteMaterialFromDB(id) {
+  if (!materialDB) return;
+  try {
+    var tx = materialDB.transaction(['materials'], 'readwrite');
+    tx.objectStore('materials').delete(id);
+  } catch(e) { console.error('deleteMaterialFromDB error:', e); }
+}
+
+function loadMaterialsFromDB(callback) {
+  if (!materialDB) { if (callback) callback(); return; }
+  try {
+    var tx = materialDB.transaction(['materials'], 'readonly');
+    var request = tx.objectStore('materials').getAll();
+    request.onsuccess = function(e) {
+      var items = e.target.result || [];
+      items.forEach(function(dbItem) {
+        var url = URL.createObjectURL(dbItem.file);
+        if (dbItem.type === 'audio' || (dbItem.resolution === '自定义BGM')) {
+          // Load as custom BGM track
+          customBgmTracks.push({
+            id: dbItem.id,
+            name: dbItem.name,
+            cat: '自定义',
+            dur: dbItem.size,
+            url: url,
+            isCustom: true
+          });
+        } else {
+          // Load as material
+          materialItems.push({
+            id: dbItem.id,
+            name: dbItem.name,
+            type: dbItem.type,
+            size: dbItem.size,
+            resolution: dbItem.resolution,
+            url: url
+          });
+        }
+      });
+      if (callback) callback();
+    };
+    request.onerror = function() { if (callback) callback(); };
+  } catch(e) { console.error('loadMaterialsFromDB error:', e); if (callback) callback(); }
+}
 
 function handleMaterialUpload(input) {
   var files = input.files;
@@ -4322,19 +5510,21 @@ function handleMaterialUpload(input) {
     var file = files[i];
     var isVideo = file.type.indexOf('video') >= 0;
     var url = URL.createObjectURL(file);
-    materialItems.push({
+    var item = {
       id: 'mat_' + Date.now() + '_' + i,
       name: file.name,
       type: isVideo ? 'video' : 'image',
       url: url,
       size: (file.size / 1024 / 1024).toFixed(1) + 'MB',
       resolution: isVideo ? '高清' : '高清'
-    });
+    };
+    materialItems.push(item);
+    saveMaterialToDB(item, file);
   }
   input.value = '';
   renderMaterialList();
   updateMaterialCount();
-  showToast('已添加 ' + files.length + ' 个素材');
+  showToast('已添加 ' + files.length + ' 个素材（已永久保存）');
 }
 
 // ========== Camera / Video Capture ==========
@@ -4691,19 +5881,41 @@ function renderMaterialList() {
   var html = '';
   materialItems.forEach(function(m) {
     var thumbContent = '';
+    var thumbId = 'mat-thumb-' + m.id;
     if (m.type === 'video') {
-      thumbContent = '<video src="' + m.url + '" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video>';
+      // Use div placeholder (NO video element = NO play button)
+      thumbContent = '<div id="' + thumbId + '" style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;"><div style="font-size:24px;opacity:0.4;">🎬</div></div>';
+      thumbContent += '<img id="' + thumbId + '-img" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;display:none;" />';
     } else {
-      thumbContent = '<img src="' + m.url + '" style="width:100%;height:100%;object-fit:cover;" />';
+      thumbContent = '<img src="' + m.url + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />';
     }
-    var badge = m.type === 'video' ? '<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.7);color:white;font-size:9px;padding:1px 4px;border-radius:3px;">VIDEO</div>' : '<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.7);color:white;font-size:9px;padding:1px 4px;border-radius:3px;">IMG</div>';
-    var deleteBtn = materialSelectMode ? '<div style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(255,65,108,0.9);display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;font-size:14px;z-index:2;" onclick="event.stopPropagation();deleteMaterial(\'' + m.id + '\')">✕</div>' : '';
+    // Small badge
+    var badge = m.type === 'video' ? '<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:rgba(255,255,255,0.9);font-size:8px;padding:1px 5px;border-radius:3px;font-weight:500;z-index:3;">VIDEO</div>' : '<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:rgba(255,255,255,0.9);font-size:8px;padding:1px 5px;border-radius:3px;font-weight:500;z-index:3;">IMG</div>';
+    var deleteBtn = materialSelectMode ? '<div style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(255,65,108,0.9);display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;font-size:14px;z-index:4;" onclick="event.stopPropagation();deleteMaterial(\'' + m.id + '\')">✕</div>' : '';
     html += '<div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;cursor:pointer;background:var(--bg-card);" onclick="previewMaterial(\'' + m.id + '\')">' +
       deleteBtn +
       thumbContent +
       badge +
     '</div>';
   });
+  // Async: generate canvas thumbnails for videos
+  setTimeout(function() {
+    materialItems.forEach(function(m) {
+      if (m.type === 'video') {
+        generateVideoThumbnail(m.url, function(dataUrl) {
+          if (dataUrl) {
+            var imgEl = document.getElementById('mat-thumb-' + m.id + '-img');
+            var divEl = document.getElementById('mat-thumb-' + m.id);
+            if (imgEl) {
+              imgEl.src = dataUrl;
+              imgEl.style.display = 'block';
+            }
+            if (divEl) divEl.style.display = 'none';
+          }
+        });
+      }
+    });
+  }, 100);
   container.innerHTML = html;
 }
 
@@ -4726,6 +5938,7 @@ function deleteMaterial(id) {
   var item = materialItems.find(function(m) { return m.id === id; });
   if (item && item.url) URL.revokeObjectURL(item.url);
   materialItems = materialItems.filter(function(m) { return m.id !== id; });
+  deleteMaterialFromDB(id);
   renderMaterialList();
   updateMaterialCount();
   showToast('已删除素材');
@@ -4754,6 +5967,56 @@ function previewMaterial(id) {
 // ========== Works ==========
 var worksSelectMode = false;
 
+function saveWorksToStorage() {
+  try {
+    // Only save metadata (not video data) - store work info without blob URLs
+    var meta = works.map(function(w) {
+      return {
+        title: w.title,
+        duration: w.duration,
+        script: w.script,
+        time: w.time,
+        type: w.type,
+        resolution: w.resolution,
+        voiceObj: w.voiceObj ? { name: w.voiceObj.name, id: w.voiceObj.id } : null,
+        bgmId: w.bgmId,
+        aiEnhance: w.aiEnhance,
+        audioSync: w.audioSync
+      };
+    });
+    localStorage.setItem('zhugeWorksMeta', JSON.stringify(meta));
+  } catch(e) { console.error('saveWorksToStorage error:', e); }
+}
+
+function loadWorksFromStorage() {
+  try {
+    var saved = localStorage.getItem('zhugeWorksMeta');
+    if (!saved) return;
+    var meta = JSON.parse(saved);
+    if (!Array.isArray(meta)) return;
+    // Note: works loaded from storage won't have playable URLs (blob URLs are session-specific)
+    // They'll show as metadata only until user re-generates or re-uploads
+    meta.forEach(function(m) {
+      if (!m.url) { // Only load works that don't have URL (or mark as needing re-upload)
+        works.push({
+          title: m.title || '我的作品',
+          duration: m.duration || '0:15',
+          script: m.script || '',
+          time: m.time || '之前',
+          type: m.type || 'video',
+          resolution: m.resolution || '高清',
+          voiceObj: m.voiceObj || null,
+          bgmId: m.bgmId || null,
+          aiEnhance: m.aiEnhance || null,
+          audioSync: m.audioSync || null,
+          url: null, // No URL after page reload
+          _needsReupload: true
+        });
+      }
+    });
+  } catch(e) { console.error('loadWorksFromStorage error:', e); }
+}
+
 function renderWorks() {
   var container = document.getElementById('works-content');
   if (works.length === 0) {
@@ -4774,11 +6037,14 @@ function renderWorks() {
   html += '<div class="works-grid">';
   works.forEach(function(w, idx) {
     var thumbContent = '';
+    var thumbId = 'work-thumb-' + idx;
     if (w.url) {
       if (w.type === 'video') {
-        thumbContent = '<video src="' + w.url + '" style="width:100%;height:100%;object-fit:cover;" muted preload="metadata"></video>';
+        // Use div placeholder (NO video element = NO play button)
+        thumbContent = '<div id="' + thumbId + '" style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;"><div style="font-size:24px;opacity:0.4;">🎬</div></div>';
+        thumbContent += '<img id="' + thumbId + '-img" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;display:none;" />';
       } else {
-        thumbContent = '<img src="' + w.url + '" style="width:100%;height:100%;object-fit:cover;" />';
+        thumbContent = '<img src="' + w.url + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />';
       }
     } else {
       thumbContent = '<div style="color:var(--text-dark-gray);font-size:11px;">无预览</div>';
@@ -4803,6 +6069,99 @@ function renderWorks() {
   });
   html += '</div>';
   container.innerHTML = html;
+  // Async: generate canvas thumbnails for work videos
+  setTimeout(function() {
+    works.forEach(function(w, idx) {
+      if (w.type === 'video' && w.url) {
+        generateVideoThumbnail(w.url, function(dataUrl) {
+          if (dataUrl) {
+            var imgEl = document.getElementById('work-thumb-' + idx + '-img');
+            var divEl = document.getElementById('work-thumb-' + idx);
+            if (imgEl) {
+              imgEl.src = dataUrl;
+              imgEl.style.display = 'block';
+            }
+            if (divEl) divEl.style.display = 'none';
+          }
+        });
+      }
+    });
+  }, 100);
+}
+
+// Generate video thumbnail using canvas (captures first frame)
+var _thumbCache = {}; // cache: url -> dataUrl
+function generateVideoThumbnail(url, callback) {
+  if (!url || !callback) return;
+  // Check cache
+  if (_thumbCache[url]) {
+    callback(_thumbCache[url]);
+    return;
+  }
+  try {
+    var video = document.createElement('video');
+    video.muted = true;
+    video.preload = 'metadata';
+    video.setAttribute('playsinline', '');
+    // blob: URLs are same-origin, don't set crossOrigin (causes issues)
+    if (url.indexOf('blob:') !== 0 && url.indexOf('data:') !== 0) {
+      video.crossOrigin = 'anonymous';
+    }
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var done = false;
+    
+    var timeout = setTimeout(function() {
+      if (!done) {
+        done = true;
+        callback(null);
+      }
+    }, 5000);
+    
+    video.onloadeddata = function() {
+      try {
+        // Seek to 0.1s to get a frame
+        video.currentTime = Math.min(0.1, (video.duration || 1) / 2);
+      } catch(e) {
+        // If seek fails, try drawing current frame
+        drawFrame();
+      }
+    };
+    
+    video.onseeked = function() {
+      drawFrame();
+    };
+    
+    function drawFrame() {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      try {
+        canvas.width = video.videoWidth || 360;
+        canvas.height = video.videoHeight || 640;
+        // Scale down to thumbnail size for performance
+        var maxDim = 360;
+        if (canvas.width > maxDim || canvas.height > maxDim) {
+          var scale = maxDim / Math.max(canvas.width, canvas.height);
+          canvas.width = Math.round(canvas.width * scale);
+          canvas.height = Math.round(canvas.height * scale);
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        _thumbCache[url] = dataUrl;
+        callback(dataUrl);
+      } catch(e) {
+        console.warn('Thumbnail generation failed:', e);
+        callback(null);
+      }
+    }
+    
+    video.src = url;
+    video.load();
+  } catch(e) {
+    console.warn('Thumbnail creation error:', e);
+    callback(null);
+  }
 }
 
 function toggleWorksSelectMode() {
@@ -4894,9 +6253,12 @@ var bgmPlayingId = null;
 var bgmAudioEl = null; // kept for backward compat, always null now
 var customBgmTracks = []; // User-uploaded custom BGM tracks
 // Web Audio API nodes for real BGM playback (works on mobile WebView)
-var bgmBufferNode = null; // AudioBufferSourceNode
+var bgmBufferNode = null; // AudioBufferSourceNode (current)
 var bgmBufferGain = null; // GainNode for volume control
 var bgmLoadingId = null;  // track currently loading BGM id (prevent race)
+var bgmAllBufferNodes = []; // track ALL active buffer sources for reliable stop
+var preDecodedBgmBuffer = null; // pre-decoded BGM buffer (decoded during user gesture)
+var preDecodedBgmId = null; // id of the pre-decoded BGM track
 
 // --- Web Audio API Engine (fallback for preset tracks) ---
 var waCtx = null;
@@ -4927,6 +6289,89 @@ function waInit() {
     });
   }
   return waCtx;
+}
+
+// Silent oscillator to keep AudioContext alive during long operations (e.g. 14s video generation)
+var _silentOsc = null;
+var _silentGain = null;
+
+function startSilentOscillator() {
+  var ctx = waInit();
+  if (!ctx || _silentOsc) return;
+  try {
+    _silentOsc = ctx.createOscillator();
+    _silentGain = ctx.createGain();
+    _silentGain.gain.value = 0; // completely silent
+    _silentOsc.connect(_silentGain);
+    _silentGain.connect(waMasterGain);
+    _silentOsc.start(0);
+    console.log('Silent oscillator started to keep AudioContext alive');
+  } catch(e) {
+    console.warn('Silent oscillator failed:', e);
+  }
+}
+
+function stopSilentOscillator() {
+  if (_silentOsc) {
+    try { _silentOsc.stop(); } catch(e) {}
+    try { _silentOsc.disconnect(); } catch(e) {}
+    _silentOsc = null;
+  }
+  if (_silentGain) {
+    try { _silentGain.disconnect(); } catch(e) {}
+    _silentGain = null;
+  }
+}
+
+// Pre-decode BGM buffer during user gesture (for use in composite video later)
+function preDecodeBgm(bgmId) {
+  if (!bgmId) return;
+  var track = BGM_TRACKS.find(function(b) { return b.id === bgmId; }) ||
+              customBgmTracks.find(function(b) { return b.id === bgmId; });
+  if (!track || !track.url) return;
+  var ctx = waInit();
+  if (!ctx) return;
+  
+  console.log('BGM pre-decode: Starting for track:', track.name, 'id:', bgmId);
+  
+  // Use fetch() for ALL URL types (works for data: URIs too, more reliable than atob)
+  try {
+    fetch(track.url).then(function(res) {
+      console.log('BGM pre-decode: fetch succeeded');
+      return res.arrayBuffer();
+    }).then(function(ab) {
+      console.log('BGM pre-decode: Got ArrayBuffer, size:', ab.byteLength);
+      // Use Promise-based decodeAudioData (more reliable than callback API)
+      return ctx.decodeAudioData(ab);
+    }).then(function(buffer) {
+      preDecodedBgmBuffer = buffer;
+      preDecodedBgmId = bgmId;
+      console.log('BGM pre-decode: SUCCESS! Duration:', buffer.duration.toFixed(2) + 's, track:', track.name);
+    }).catch(function(e) {
+      console.warn('BGM pre-decode: FAILED via fetch/decode:', e);
+      // Fallback: try manual atob decode for data URIs
+      if (track.url.startsWith('data:')) {
+        try {
+          var b64 = track.url.split(',')[1];
+          var binStr = atob(b64);
+          var ab2 = new ArrayBuffer(binStr.length);
+          var u8arr = new Uint8Array(ab2);
+          for (var j = 0; j < binStr.length; j++) u8arr[j] = binStr.charCodeAt(j);
+          ctx.decodeAudioData(ab2, function(buffer) {
+            preDecodedBgmBuffer = buffer;
+            preDecodedBgmId = bgmId;
+            console.log('BGM pre-decode: SUCCESS via callback API! Duration:', buffer.duration.toFixed(2) + 's');
+          }, function(e2) {
+            console.warn('BGM pre-decode: Callback API also failed:', e2);
+          });
+        } catch(e3) {
+          console.warn('BGM pre-decode: atob fallback error:', e3);
+        }
+      }
+    });
+  } catch(e) {
+    console.warn('BGM pre-decode: fetch error:', e);
+  }
 }
 
 function waNoteFreq(note) {
@@ -5347,6 +6792,9 @@ function renderBgmListInline() {
 }
 
 function toggleBgmPlayback(id) {
+  // Always stop any currently playing BGM first
+  stopBgmAudioEl();
+  // If clicking the currently playing track, just stop
   if (bgmPlayingId === id) {
     stopBgmPlayback();
     return;
@@ -5359,8 +6807,6 @@ function toggleBgmPlayback(id) {
     return;
   }
   
-  // Stop previous
-  stopBgmAudioEl();
   bgmPlayingId = null;
   
   // Use Web Audio API for real songs (works on mobile WebView)
@@ -5397,7 +6843,7 @@ function startBgmAudioEl(url, name, initialVol) {
   var loadId = 'load_' + Date.now();
   bgmLoadingId = loadId;
 
-  // Strategy 0: Data URI - decode base64 directly (most reliable, no fetch needed)
+  // Strategy 0: Data URI - decode base64 directly
   if (url.startsWith('data:')) {
     var ctx0 = waInit();
     if (ctx0) {
@@ -5407,33 +6853,63 @@ function startBgmAudioEl(url, name, initialVol) {
         var ab0 = new ArrayBuffer(binStr.length);
         var u8arr = new Uint8Array(ab0);
         for (var j = 0; j < binStr.length; j++) { u8arr[j] = binStr.charCodeAt(j); }
-        var dp = ctx0.decodeAudioData(ab0, function(buffer) {
+        
+        // Timeout: if decodeAudioData doesn't fire within 3s, fall back to Audio element
+        var bgmFallbackStarted = false;
+        var decodeTimeout = setTimeout(function() {
+          if (bgmLoadingId === loadId) {
+            console.warn('BGM decodeAudioData timeout, falling back to Audio element');
+            bgmFallbackStarted = true;
+            startBgmAudioFallback(url, name, vol, loadId);
+          }
+        }, 3000);
+        
+        var onDecodeSuccess = function(buffer) {
+          clearTimeout(decodeTimeout);
           if (bgmLoadingId !== loadId) return;
-          bgmBufferNode = ctx0.createBufferSource();
-          bgmBufferNode.buffer = buffer;
-          bgmBufferNode.loop = true;
-          bgmBufferGain = ctx0.createGain();
-          bgmBufferGain.gain.value = vol;
-          bgmBufferNode.connect(bgmBufferGain);
-          bgmBufferGain.connect(waMasterGain);
-          bgmBufferNode.start(0);
-          console.log('BGM playing via data URI (Web Audio API):', name);
-        }, function(err) {
+          if (bgmFallbackStarted) return; // fallback already started, skip
+          try {
+            bgmBufferNode = ctx0.createBufferSource();
+            bgmBufferNode.buffer = buffer;
+            bgmBufferNode.loop = true;
+            bgmBufferGain = ctx0.createGain();
+            bgmBufferGain.gain.value = vol;
+            bgmBufferNode.connect(bgmBufferGain);
+            bgmBufferGain.connect(waMasterGain);
+            bgmBufferNode.start(0);
+            bgmAllBufferNodes.push(bgmBufferNode);
+            console.log('BGM playing via data URI (Web Audio API):', name);
+          } catch(e) {
+            console.warn('BGM bufferSource start error:', e);
+            startBgmAudioFallback(url, name, vol, loadId);
+          }
+        };
+        
+        var onDecodeError = function(err) {
+          clearTimeout(decodeTimeout);
           console.warn('BGM data URI decode failed:', err);
           if (bgmLoadingId !== loadId) return;
           startBgmAudioFallback(url, name, vol, loadId);
-        });
+        };
+        
+        var dp;
+        try {
+          dp = ctx0.decodeAudioData(ab0, onDecodeSuccess, onDecodeError);
+        } catch(decodeErr) {
+          // Some mobile WebViews throw synchronously
+          clearTimeout(decodeTimeout);
+          console.warn('BGM decodeAudioData threw:', decodeErr);
+          return startBgmAudioFallback(url, name, vol, loadId);
+        }
         if (dp && typeof dp.then === 'function') {
-          dp.catch(function(e) {
-            if (bgmLoadingId !== loadId) return;
-            startBgmAudioFallback(url, name, vol, loadId);
-          });
+          dp.then(onDecodeSuccess).catch(onDecodeError);
         }
         return true;
       } catch(e) {
         console.warn('BGM data URI decode error:', e);
       }
     }
+    // AudioContext not available, use Audio element
     return startBgmAudioFallback(url, name, vol, loadId);
   }
 
@@ -5469,6 +6945,7 @@ function startBgmAudioEl(url, name, initialVol) {
         bgmBufferNode.connect(bgmBufferGain);
         bgmBufferGain.connect(waMasterGain);
         bgmBufferNode.start(0);
+        bgmAllBufferNodes.push(bgmBufferNode);
         console.log('BGM playing via Web Audio API:', name, 'vol:', vol);
       })
       .catch(function(err) {
@@ -5484,33 +6961,39 @@ function startBgmAudioEl(url, name, initialVol) {
   return startBgmAudioFallback(url, name, vol, loadId);
 }
 
-// HTML5 Audio fallback (works on file:// desktop, blocked on some mobile WebView)
+// HTML5 Audio fallback (works on file:// desktop and many mobile WebViews)
 function startBgmAudioFallback(url, name, vol, loadId) {
   try {
     bgmAudioEl = new Audio();
     bgmAudioEl.loop = true;
     bgmAudioEl.volume = vol;
     bgmAudioEl.preload = 'auto';
+    bgmAudioEl.setAttribute('playsinline', '');
+    bgmAudioEl.setAttribute('data-bgm-audio', '1');
 
     var thisAudio = bgmAudioEl;
     var errorHandled = false;
+    var hasStarted = false;
 
     bgmAudioEl.addEventListener('canplay', function() {
       if (bgmAudioEl !== thisAudio || errorHandled) return;
-      console.log('BGM playing via Audio element fallback:', name);
+      console.log('BGM Audio element ready (canplay):', name);
+    });
+
+    bgmAudioEl.addEventListener('playing', function() {
+      if (bgmAudioEl !== thisAudio) return;
+      hasStarted = true;
+      console.log('BGM Audio fallback playing:', name);
     });
 
     bgmAudioEl.addEventListener('error', function() {
       if (bgmAudioEl !== thisAudio || errorHandled) return;
       errorHandled = true;
-      console.error('BGM Audio fallback also failed:', thisAudio.error);
+      console.error('BGM Audio fallback failed:', thisAudio.error);
       if (bgmLoadingId !== loadId) return;
-      showToast('背景音乐加载失败: ' + (name || ''));
+      // Don't show toast during composite video (would be annoying)
       bgmPlayingId = null;
       bgmLoadingId = null;
-      renderBgmList();
-      renderCustomBgmList();
-      renderBgmListInline();
     });
 
     bgmAudioEl.src = url;
@@ -5519,39 +7002,50 @@ function startBgmAudioFallback(url, name, vol, loadId) {
     var playPromise = bgmAudioEl.play();
     if (playPromise && typeof playPromise.then === 'function') {
       playPromise.then(function() {
-        console.log('BGM Audio fallback playing:', name);
+        console.log('BGM Audio play() resolved:', name);
       }).catch(function(e) {
-        console.warn('BGM Audio play() rejected:', e.name);
+        console.warn('BGM Audio play() rejected:', e.name, e.message);
         if (e.name === 'NotAllowedError') {
-          // Try muted then unmute
+          // Try muted then unmute after 200ms
           try {
             thisAudio.muted = true;
-            thisAudio.play().then(function() {
-              setTimeout(function() {
-                if (bgmAudioEl === thisAudio) thisAudio.muted = false;
-              }, 200);
-            }).catch(function() {});
+            var p2 = thisAudio.play();
+            if (p2 && p2.then) {
+              p2.then(function() {
+                setTimeout(function() {
+                  if (bgmAudioEl === thisAudio) thisAudio.muted = false;
+                }, 200);
+              }).catch(function() {});
+            }
           } catch(e2) {}
         }
       });
     }
 
+    // Safety timeout: if Audio hasn't started in 5s, log warning
+    setTimeout(function() {
+      if (bgmLoadingId === loadId && !hasStarted && bgmAudioEl === thisAudio) {
+        console.warn('BGM Audio fallback timed out (5s), may not be playing');
+      }
+    }, 5000);
+
     return true;
   } catch(e) {
     console.error('BGM Audio fallback creation failed:', e);
-    showToast('背景音乐播放失败: ' + (name || ''));
     bgmPlayingId = null;
     bgmLoadingId = null;
-    renderBgmList();
-    renderCustomBgmList();
-    renderBgmListInline();
     return false;
   }
 }
 
 function stopBgmAudioEl() {
   bgmLoadingId = null; // cancel any pending load
-  // Stop Web Audio API nodes
+  // Stop ALL tracked Web Audio API buffer nodes
+  bgmAllBufferNodes.forEach(function(node) {
+    try { node.stop(); } catch(e) {}
+    try { node.disconnect(); } catch(e) {}
+  });
+  bgmAllBufferNodes = [];
   if (bgmBufferNode) {
     try { bgmBufferNode.stop(); } catch(e) {}
     try { bgmBufferNode.disconnect(); } catch(e) {}
@@ -5566,6 +7060,14 @@ function stopBgmAudioEl() {
     try { bgmAudioEl.pause(); bgmAudioEl.currentTime = 0; } catch(e) {}
     bgmAudioEl = null;
   }
+  // Stop any orphaned BGM audio elements (prevent stuck playback)
+  try {
+    var orphans = document.querySelectorAll('audio[data-bgm-audio="1"]');
+    orphans.forEach(function(a) {
+      try { a.pause(); a.currentTime = 0; } catch(e) {}
+      try { a.remove(); } catch(e) {}
+    });
+  } catch(e) {}
 }
 
 function setBgmAudioElVolume(vol) {
@@ -5606,11 +7108,25 @@ function handleCustomBgmUpload(input) {
       url: url,
       isCustom: true
     });
+    // Save to IndexedDB for persistence
+    if (materialDB) {
+      try {
+        var tx = materialDB.transaction(['materials'], 'readwrite');
+        tx.objectStore('materials').put({
+          id: id,
+          name: name,
+          type: 'audio',
+          size: sizeMB + 'MB',
+          resolution: '自定义BGM',
+          file: file
+        });
+      } catch(e) { console.error('Custom BGM save error:', e); }
+    }
   }
   input.value = '';
   renderCustomBgmList();
   renderBgmListInline();
-  showToast('已添加 ' + files.length + ' 首真实歌曲，点击播放试听');
+  showToast('已添加 ' + files.length + ' 首真实歌曲（已永久保存）');
 }
 
 function renderCustomBgmList() {
@@ -5636,6 +7152,7 @@ function deleteCustomBgm(id) {
   if (idx < 0) return;
   var b = customBgmTracks[idx];
   if (b.url) URL.revokeObjectURL(b.url);
+  deleteMaterialFromDB(id);
   if (bgmPlayingId === id) {
     stopBgmAudioEl();
     bgmPlayingId = null;
@@ -5992,6 +7509,12 @@ function loadProfile() {
 function startGeneration() {
   // 预初始化音频上下文（必须在用户点击手势内调用）
   waInit();
+  // 启动静默振荡器，保持AudioContext活跃
+  startSilentOscillator();
+  // 预解码BGM音频缓冲（在用户手势内，确保后续播放可用）
+  if (selectedBgm) {
+    preDecodeBgm(selectedBgm.id);
+  }
   // 预加载TTS语音列表
   if ('speechSynthesis' in window) {
     window.speechSynthesis.getVoices();
@@ -6083,7 +7606,7 @@ function startGeneration() {
         duration: finalDurStr,
         script: selectedTemplate._rewritten || selectedTemplate.preview,
         time: '刚刚',
-        resolution: resultMedia ? resultMedia.resolution : '高清',
+        resolution: (QUALITY_OPTIONS.find(function(q){return q.id===selectedQuality;})||{}).name || '高清',
         voiceObj: selectedVoice || VOICES[0],
         bgmId: selectedBgm ? selectedBgm.id : null,
         subtitleStyleObj: selectedSubtitle || SUBTITLE_STYLES[0],
@@ -6105,14 +7628,31 @@ function startGeneration() {
         newWork.url = resultMedia.url;
         newWork.type = resultMedia.type;
       }
-      works.unshift(newWork);
-      renderWorks();
-      showToast('✓ 视频已自动上传到作品库（AI已匹配音视频时长 ' + finalDurStr + '）');
+      // 真实合成视频
+      var msgEl2 = document.getElementById('editor-gen-msg');
+      var barEl2 = document.getElementById('editor-gen-bar');
+      var pctEl2 = document.getElementById('editor-gen-pct');
+      if (msgEl2) msgEl2.innerHTML = '<div style="width:18px;height:18px;border:2px solid var(--tech-purple);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div><span>🎬 正在合成视频（语音+背景音乐+字幕）...</span>';
+      if (barEl2) barEl2.style.width = '100%';
+      if (pctEl2) pctEl2.textContent = '合成中...';
 
-      // 关闭进度遮罩，使用合成播放器展示结果
-      var overlayEl = document.getElementById('editor-gen-overlay');
-      if (overlayEl) overlayEl.remove();
-      playCompositeVideo(newWork, { showSuccess: true, showViewWorks: true });
+      renderCompositeVideo(newWork, function(compositedUrl) {
+        newWork.url = compositedUrl;
+        newWork.type = 'video';
+        newWork.isComposited = true;
+        works.unshift(newWork);
+        renderWorks();
+        var overlayEl = document.getElementById('editor-gen-overlay');
+        if (overlayEl) overlayEl.remove();
+        playCompositeVideo(newWork, { showSuccess: true, showViewWorks: true });
+      }, function(err) {
+        console.error('Composite render failed, using original:', err);
+        works.unshift(newWork);
+        renderWorks();
+        var overlayEl = document.getElementById('editor-gen-overlay');
+        if (overlayEl) overlayEl.remove();
+        playCompositeVideo(newWork, { showSuccess: true, showViewWorks: true });
+      });
       return;
     }
     var step = steps[stepIdx];
@@ -6184,13 +7724,33 @@ function saveApiKeys() {
   var ffmpegPath = document.getElementById('api-key-ffmpeg').value.trim();
   var statusEl = document.getElementById('menu-apikey-status');
   if (llmKey || ttsKey || ffmpegPath) {
+    try {
+      localStorage.setItem('zhugeApiKey_llm', llmKey);
+      localStorage.setItem('zhugeApiKey_tts', ttsKey);
+      localStorage.setItem('zhugeApiKey_ffmpeg', ffmpegPath);
+    } catch(e) {}
     if (statusEl) statusEl.textContent = '已配置 ›';
-    showToast('API密钥配置已保存');
+    showToast('API密钥配置已永久保存');
   } else {
     showToast('请至少填写一项配置');
     return;
   }
   goBack();
+}
+
+function loadApiKeys() {
+  try {
+    var savedLlm = localStorage.getItem('zhugeApiKey_llm');
+    var savedTts = localStorage.getItem('zhugeApiKey_tts');
+    var savedFfmpeg = localStorage.getItem('zhugeApiKey_ffmpeg');
+    if (savedLlm) { var el = document.getElementById('api-key-llm'); if (el) el.value = savedLlm; }
+    if (savedTts) { var el = document.getElementById('api-key-tts'); if (el) el.value = savedTts; }
+    if (savedFfmpeg) { var el = document.getElementById('api-key-ffmpeg'); if (el) el.value = savedFfmpeg; }
+    if (savedLlm || savedTts || savedFfmpeg) {
+      var statusEl = document.getElementById('menu-apikey-status');
+      if (statusEl) statusEl.textContent = '已配置 ›';
+    }
+  } catch(e) {}
 }
 
 // ========== Rating ==========
@@ -6218,6 +7778,7 @@ function submitRating() {
 
 // ========== Init ==========
 loadProfile();
+loadApiKeys();
 renderCategories();
 renderTemplates('');
 renderVoices();
@@ -6227,6 +7788,20 @@ renderSubtitleGrid();
 renderTitleGrid();
 renderWorks();
 updateRewriteBtn();
+// Initialize IndexedDB and load persisted materials
+initMaterialDB(function() {
+  loadMaterialsFromDB(function() {
+    renderMaterialList();
+    updateMaterialCount();
+    updateGenMaterialCount();
+    renderCustomBgmList();
+    renderBgmListInline();
+    console.log('Materials loaded from IndexedDB:', materialItems.length, 'Custom BGM:', customBgmTracks.length);
+  });
+});
+// Load works metadata from localStorage
+loadWorksFromStorage();
+if (works.length > 0) renderWorks();
 </script>
 
 
