@@ -5399,9 +5399,23 @@ function renderCompositeVideo(work, onComplete, onError) {
     scheduledTimers.forEach(function(t) { clearTimeout(t); });
     scheduledTimers = [];
     stopCloudTTS();
-    if (video) { try { video.pause(); } catch(e) {} }
+    if (video) {
+      try { video.pause(); } catch(e) {}
+      try { video.removeAttribute('src'); video.load(); } catch(e) {}
+    }
     // Now safe to stop the silent oscillator (recording is done)
     stopSilentOscillator();
+    // Free canvas memory (critical for mobile - prevents OOM when saving)
+    try {
+      if (canvas) {
+        canvas.width = 1;
+        canvas.height = 1;
+      }
+    } catch(e) {}
+    // Free TTS buffers
+    ttsBuffers = [];
+    // Clear chunks array reference (blob already created from it)
+    chunks = [];
   }
 
   function finishRecording() {
@@ -6017,6 +6031,7 @@ function playCompositeVideo(work, options) {
       '<button style="padding:10px 20px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:13px;cursor:pointer;" onclick="stopCompositePlayback()">关闭</button>' +
       '<button id="comp-replay-btn" style="display:none;padding:10px 20px;border-radius:50px;border:1px solid rgba(255,215,0,0.5);background:rgba(255,215,0,0.1);color:#FFD700;font-size:13px;cursor:pointer;font-weight:600;" onclick="replayCompositeVideo()">🔄 重新播放</button>' +
       '<button id="comp-save-btn" style="padding:10px 20px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:var(--editor-cyan);font-size:13px;cursor:pointer;font-weight:600;" onclick="saveVideoToAlbum(\'' + (work.url || '') + '\', \'' + (work.title || '视频作品').replace(/'/g, "\\'") + '\')">💾 保存到相册</button>' +
+      '<button id="comp-longpress-btn" style="padding:10px 20px;border-radius:50px;border:1px solid rgba(255,215,0,0.5);background:rgba(255,215,0,0.1);color:#FFD700;font-size:13px;cursor:pointer;font-weight:600;" onclick="showLongPressSaveGuide(\'' + (work.url || '') + '\')">📱 长按保存</button>' +
       '<button id="comp-upload-btn" style="padding:10px 20px;border-radius:50px;border:none;background:linear-gradient(90deg, #4CAF50, #45a049);color:white;font-size:13px;cursor:pointer;font-weight:600;" onclick="uploadCurrentToWorkLib()">📤 上传到作品库</button>' +
       (options.showViewWorks !== false ? '<button style="padding:10px 20px;border-radius:50px;border:none;background:linear-gradient(90deg, var(--gen-purple-start), var(--gen-purple-end));color:white;font-size:13px;cursor:pointer;font-weight:600;" onclick="stopCompositePlayback();navigate(\'screen-works\', true)">查看作品库</button>' : '') +
     '</div>' +
@@ -6661,6 +6676,61 @@ function blobToDataURL(blob, callback) {
   } catch(e) { callback(null); }
 }
 
+function freeOverlayVideoMemory() {
+  // Free the video element in the composite player overlay to release decoder memory
+  // This is critical before saving on mobile to prevent OOM crash
+  var vEl = document.getElementById('comp-video');
+  if (vEl && vEl.tagName === 'VIDEO') {
+    try {
+      vEl.pause();
+      // Don't remove src completely - we need it for replay
+      // But we can pause and reduce memory by seeking to 0
+      try { vEl.currentTime = 0; } catch(e) {}
+    } catch(e) {}
+  }
+  // Force garbage collection hint (if available)
+  if (window.gc) { try { window.gc(); } catch(e) {} }
+}
+
+function showLongPressSaveGuide(url) {
+  // Show a full-screen overlay with the video for long-press saving
+  // This is the most reliable save method on mobile WebView
+  var saveOverlay = document.createElement('div');
+  saveOverlay.id = 'longpress-save-overlay';
+  saveOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.97);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
+
+  // Determine if mobile
+  var isMob = isMobileWebView();
+
+  saveOverlay.innerHTML =
+    '<div style="color:#4ECDC4;font-size:18px;font-weight:700;margin-bottom:8px;">📱 长按视频保存到相册</div>' +
+    '<div style="color:#aaa;font-size:13px;margin-bottom:16px;text-align:center;max-width:320px;">' +
+    (isMob ? '长按下方视频画面，在弹出菜单中选择<br>"保存视频"或"保存到相册"' : '点击下方视频画面右下角下载按钮') +
+    '</div>' +
+    '<div style="position:relative;display:inline-block;max-width:100%;">' +
+      '<video src="' + url + '" controls playsinline' + (isMob ? '' : ' autoplay') + ' style="max-width:100%;max-height:55vh;border-radius:12px;box-shadow:0 8px 32px rgba(78,205,196,0.3);"></video>' +
+    '</div>' +
+    '<div style="margin-top:16px;display:flex;gap:12px;">' +
+      '<button onclick="document.getElementById(\'longpress-save-overlay\').remove()" style="padding:10px 30px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:14px;cursor:pointer;">关闭</button>' +
+    '</div>';
+
+  // Remove existing overlay if any
+  var existing = document.getElementById('longpress-save-overlay');
+  if (existing) existing.remove();
+
+  document.body.appendChild(saveOverlay);
+
+  // Try to play the video on mobile (needs user gesture)
+  if (isMob) {
+    var v = saveOverlay.querySelector('video');
+    if (v) {
+      v.play().catch(function(e) {
+        console.warn('Auto-play prevented in long-press overlay:', e);
+      });
+    }
+  }
+}
+
 function saveVideoToAlbum(url, title) {
   if (!url) {
     showToast('无法获取视频地址');
@@ -6670,61 +6740,103 @@ function saveVideoToAlbum(url, title) {
   var btn = document.getElementById('comp-save-btn');
   if (btn) { btn.textContent = '正在保存...'; btn.style.opacity = '0.7'; }
 
-  var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + '.mp4';
+  // Determine file extension based on blob type
   var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
-  var isPakePlus = window.__pakeplus || (typeof window.AndroidBridge !== 'undefined') || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.saveVideo);
+  var blobType = savedBlob ? (savedBlob.type || '') : '';
+  var isWebm = blobType.indexOf('webm') >= 0;
+  var ext = isWebm ? '.webm' : '.mp4';
+  var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
+
+  // Check if running in mobile WebView
+  var isMobile = isMobileWebView();
 
   function restoreBtn() {
     if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
   }
 
-  // 方法1: navigator.share + files（移动端原生分享面板，含"保存视频"选项）
-  function doShare(blob) {
-    if (navigator.share && navigator.canShare && blob) {
+  // === Step 1: Free memory before saving ===
+  // Pause and release video decoder memory (critical for mobile)
+  freeOverlayVideoMemory();
+
+  // === Step 2: Mobile path - SIMPLEST possible approach ===
+  // On mobile WebView, navigator.share with files creates new File([blob]) which
+  // DUPLICATES the entire video data in memory, causing OOM crash.
+  // Solution: use the EXISTING blob URL directly with <a download>, no new objects.
+  // Also defer the click to next event loop to allow memory cleanup to complete.
+  function doMobileSave() {
+    // Use setTimeout to defer the download trigger, allowing GC to run first
+    setTimeout(function() {
       try {
-        var file = new File([blob], fileName, { type: (blob.type || 'video/mp4') });
+        // Use the existing URL directly - do NOT create new blob URLs
+        var a = document.createElement('a');
+        a.href = url;  // Use existing blob: URL directly
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        // Clean up the anchor after a delay
+        setTimeout(function() {
+          if (a.parentElement) document.body.removeChild(a);
+        }, 3000);
+        restoreBtn();
+        showToast('✓ 视频已开始下载，请到相册或下载文件夹查看');
+
+        // After 2.5 seconds, if user is still on the page, show long-press hint
+        // (download may have silently failed on some WebViews)
+        setTimeout(function() {
+          var overlay = document.getElementById('composite-player-overlay');
+          if (overlay && document.getElementById('comp-save-btn')) {
+            // Page is still showing - show a helpful hint
+            var hint = document.createElement('div');
+            hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#4ECDC4;padding:10px 20px;border-radius:8px;font-size:12px;z-index:10001;max-width:90%;text-align:center;';
+            hint.innerHTML = '如果下载未自动开始，请点击下方"长按保存"按钮';
+            hint.onclick = function() { this.remove(); };
+            document.body.appendChild(hint);
+            setTimeout(function() { if (hint.parentElement) hint.remove(); }, 5000);
+          }
+        }, 2500);
+      } catch(e) {
+        console.error('Mobile <a download> failed:', e);
+        // Fallback: show video for long-press save
+        showLongPressSave();
+      }
+    }, 100); // 100ms delay to allow memory cleanup
+  }
+
+  // === Step 3: Desktop path - can use navigator.share ===
+  function doDesktopSave() {
+    // Try navigator.share first (works well on desktop browsers)
+    if (navigator.share && navigator.canShare && savedBlob) {
+      try {
+        var file = new File([savedBlob], fileName, { type: (savedBlob.type || 'video/mp4') });
         if (navigator.canShare({ files: [file] })) {
-          // Add timeout: if share doesn't respond in 10s, fall back
-          var shareTimedOut = false;
-          var shareTimer = setTimeout(function() {
-            shareTimedOut = true;
-            console.warn('navigator.share timed out, falling back to download');
-            doAnchorDownload(blob);
-          }, 10000);
-          
           navigator.share({
             files: [file],
             title: title || '视频作品',
             text: title || '视频作品'
           }).then(function() {
-            if (shareTimedOut) return;
-            clearTimeout(shareTimer);
             restoreBtn();
             showToast('✓ 视频已保存');
           }).catch(function(e) {
-            if (shareTimedOut) return;
-            clearTimeout(shareTimer);
             if (e.name !== 'AbortError') {
-              console.warn('navigator.share failed, trying download:', e);
-              doAnchorDownload(blob);
+              doAnchorDownload();
             } else {
               restoreBtn();
             }
           });
           return;
         }
-      } catch(e) { console.warn('navigator.share setup failed:', e); }
+      } catch(e) { console.warn('navigator.share failed:', e); }
     }
-    // 不支持 share → 直接 <a download>
-    doAnchorDownload(blob);
+    // Fallback to <a download>
+    doAnchorDownload();
   }
 
-  // 方法2: <a download>（点击即下载）
-  function doAnchorDownload(blob) {
+  // === Common: <a download> using existing URL ===
+  function doAnchorDownload() {
     try {
-      var blobUrl = (blob instanceof Blob) ? URL.createObjectURL(blob) : url;
       var a = document.createElement('a');
-      a.href = blobUrl;
+      a.href = url;  // Use existing blob: URL directly
       a.download = fileName;
       a.style.display = 'none';
       document.body.appendChild(a);
@@ -6736,49 +6848,32 @@ function saveVideoToAlbum(url, title) {
       showToast('✓ 视频下载中，请到下载文件夹查看');
     } catch(e) {
       console.error('<a download> failed:', e);
-      doLocationRedirect(blob);
+      showLongPressSave();
     }
   }
 
-  // 方法3: location.href 跳转到 blob URL（触发 WebView 下载管理器）
-  function doLocationRedirect(blob) {
-    try {
-      var blobUrl = (blob instanceof Blob) ? URL.createObjectURL(blob) : url;
-      restoreBtn();
-      showToast('正在打开视频...');
-      window.location.href = blobUrl;
-    } catch(e) {
-      console.error('location.href failed:', e);
-      // 方法4: window.open 兜底
-      try {
-        window.open(url, '_blank');
-        restoreBtn();
-        showToast('已打开视频，长按画面选择保存');
-      } catch(e2) {
-        restoreBtn();
-        showToast('保存失败，请长按视频画面选择保存');
-      }
-    }
+  // === Last resort: show video in-page for long-press save ===
+  function showLongPressSave() {
+    restoreBtn();
+    // Create a simple overlay with just the video and instructions
+    var saveOverlay = document.createElement('div');
+    saveOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
+    saveOverlay.innerHTML = 
+      '<div style="color:white;font-size:16px;font-weight:600;margin-bottom:12px;">长按视频画面保存到相册</div>' +
+      '<video src="' + url + '" controls playsinline style="max-width:100%;max-height:60vh;border-radius:12px;"></video>' +
+      '<div style="color:#aaa;font-size:13px;margin-top:12px;text-align:center;">如果无法自动下载，请长按上方视频画面<br>选择"保存视频"或"保存到相册"</div>' +
+      '<button onclick="this.parentElement.remove()" style="margin-top:16px;padding:10px 30px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:14px;cursor:pointer;">关闭</button>';
+    document.body.appendChild(saveOverlay);
+    showToast('请长按视频画面选择保存');
   }
 
-  // 入口：有 blob 直接保存；没有 blob 先 fetch
-  if (savedBlob) {
-    doShare(savedBlob);
+  // === Entry point ===
+  if (isMobile) {
+    // Mobile: simplest path, no navigator.share, no new File objects
+    doMobileSave();
   } else {
-    showToast('正在准备视频...');
-    try {
-      fetch(url)
-        .then(function(r) { return r.blob(); })
-        .then(function(blob) {
-          lastRenderedBlob = blob;
-          doShare(blob);
-        })
-        .catch(function() {
-          doAnchorDownload(null);
-        });
-    } catch(e) {
-      doAnchorDownload(null);
-    }
+    // Desktop: can try navigator.share first
+    doDesktopSave();
   }
 }
 
