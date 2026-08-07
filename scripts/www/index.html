@@ -6770,80 +6770,36 @@ function saveVideoToAlbum(url, title) {
   var btn = document.getElementById('comp-save-btn');
   if (btn) { btn.textContent = '正在保存...'; btn.style.opacity = '0.7'; }
 
-  var isMobile = isMobileWebView();
+  // Get file extension based on blob type
+  var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
+  var blobType = savedBlob ? (savedBlob.type || '') : '';
+  var isWebm = blobType.indexOf('webm') >= 0;
+  var ext = isWebm ? '.webm' : '.mp4';
+  var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
 
   function restoreBtn() {
     if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
   }
 
-  // === MOBILE: Directly show long-press save overlay ===
-  // DO NOT use <a download>, navigator.share, location.href, or window.open
-  // All of these crash the PakePlus WebView when dealing with blob URLs
-  function doMobileSave() {
+  // Direct download using <a download> with existing blob URL
+  // No navigator.share (avoids new File([blob]) memory crash)
+  // No long-press overlay - just direct download
+  try {
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+      if (a.parentElement) document.body.removeChild(a);
+    }, 5000);
     restoreBtn();
-    showLongPressSaveGuide(url);
-  }
-
-  // === DESKTOP: Use <a download> or navigator.share ===
-  function doDesktopSave() {
-    var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
-    var blobType = savedBlob ? (savedBlob.type || '') : '';
-    var isWebm = blobType.indexOf('webm') >= 0;
-    var ext = isWebm ? '.webm' : '.mp4';
-    var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
-
-    // Try navigator.share with files (desktop has enough memory)
-    if (navigator.share && navigator.canShare && savedBlob) {
-      try {
-        var file = new File([savedBlob], fileName, { type: (savedBlob.type || 'video/mp4') });
-        if (navigator.canShare({ files: [file] })) {
-          navigator.share({
-            files: [file],
-            title: title || '视频作品',
-            text: title || '视频作品'
-          }).then(function() {
-            restoreBtn();
-            showToast('✓ 视频已保存');
-          }).catch(function(e) {
-            if (e.name !== 'AbortError') {
-              doAnchorDownload(url, fileName);
-            } else {
-              restoreBtn();
-            }
-          });
-          return;
-        }
-      } catch(e) { console.warn('navigator.share failed:', e); }
-    }
-    // Fallback to <a download>
-    doAnchorDownload(url, fileName);
-  }
-
-  function doAnchorDownload(url, fileName) {
-    try {
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function() {
-        if (a.parentElement) document.body.removeChild(a);
-      }, 5000);
-      restoreBtn();
-      showToast('✓ 视频下载中，请到下载文件夹查看');
-    } catch(e) {
-      console.error('<a download> failed:', e);
-      restoreBtn();
-      showLongPressSaveGuide(url);
-    }
-  }
-
-  // Entry point
-  if (isMobile) {
-    doMobileSave();
-  } else {
-    doDesktopSave();
+    showToast('✓ 视频已开始下载，请到相册或下载文件夹查看');
+  } catch(e) {
+    console.error('Download failed:', e);
+    restoreBtn();
+    showToast('保存失败，请重试');
   }
 }
 
