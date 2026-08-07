@@ -1143,7 +1143,16 @@ video[preload][muted][playsinline]::-webkit-media-controls-start-playback-button
           <svg class="chevron" id="subtitle-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.3s;"><path d="M9 18l6-6-6-6"></path></svg>
         </div>
         <div id="subtitle-inline" style="display:none;padding:0 0 8px 0;">
-          <div id="subtitle-grid-inline" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 4px;"></div>
+          <div style="display:flex;gap:0;margin-bottom:8px;padding:0 4px;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div id="subtitle-tab-style-inline" style="flex:1;padding:8px 0;text-align:center;font-size:13px;color:var(--editor-cyan);border-bottom:2px solid var(--editor-cyan);cursor:pointer;font-weight:600;" onclick="switchSubtitleTab('style','inline')">字幕样式</div>
+            <div id="subtitle-tab-font-inline" style="flex:1;padding:8px 0;text-align:center;font-size:13px;color:var(--text-medium-gray);border-bottom:2px solid transparent;cursor:pointer;" onclick="switchSubtitleTab('font','inline')">字幕字体</div>
+          </div>
+          <div id="subtitle-tab-style-content-inline" style="display:block;">
+            <div id="subtitle-grid-inline" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 4px;"></div>
+          </div>
+          <div id="subtitle-tab-font-content-inline" style="display:none;padding:0 4px;">
+            <div id="subtitle-font-list-inline" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;"></div>
+          </div>
         </div>
 
         <!-- AI提炼标题/选样式 按钮 -->
@@ -1355,17 +1364,17 @@ video[preload][muted][playsinline]::-webkit-media-controls-start-playback-button
       </div>
       <div class="spacer-8"></div>
       <div style="padding:0 16px;">
-        <div style="font-size:14px;color:var(--text-light-gray);margin-bottom:8px;">字体选择</div>
-        <select style="width:100%;background:var(--bg-card);color:var(--text-white);border:none;border-radius:10px;padding:12px;font-size:14px;outline:none;-webkit-appearance:none;" onchange="showToast('已选择: '+this.value)">
-          <option>鸿蒙黑体</option>
-          <option>思源黑体</option>
-          <option>站酷快乐体</option>
-          <option>阿里巴巴普惠体</option>
-        </select>
+        <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);">
+          <div id="subtitle-tab-style-screen" style="flex:1;padding:10px 0;text-align:center;font-size:14px;color:var(--editor-cyan);border-bottom:2px solid var(--editor-cyan);cursor:pointer;font-weight:600;" onclick="switchSubtitleTab('style','screen')">字幕样式</div>
+          <div id="subtitle-tab-font-screen" style="flex:1;padding:10px 0;text-align:center;font-size:14px;color:var(--text-medium-gray);border-bottom:2px solid transparent;cursor:pointer;" onclick="switchSubtitleTab('font','screen')">字幕字体</div>
+        </div>
+        <div id="subtitle-tab-style-content-screen" style="display:block;">
+          <div class="subtitle-grid" id="subtitle-grid"></div>
+        </div>
+        <div id="subtitle-tab-font-content-screen" style="display:none;">
+          <div id="subtitle-font-list-screen" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;"></div>
+        </div>
       </div>
-      <div class="spacer-16"></div>
-      <div class="section-title">选择样式</div>
-      <div class="subtitle-grid" id="subtitle-grid"></div>
       <div class="spacer-24"></div>
     </div>
 
@@ -2196,6 +2205,25 @@ var SUBTITLE_STYLES = [
   {id:22, name:'金字黑底', text:'#FFD700', stroke:'#000000', bg:'#000000'},
 ];
 
+var SUBTITLE_FONTS = [
+  {id:'default', name:'默认黑体', family:'"Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif'},
+  {id:'harmony', name:'鸿蒙黑体', family:'"HarmonyOS Sans SC", "HarmonyOS Sans", "Microsoft YaHei", "PingFang SC", sans-serif'},
+  {id:'yahei', name:'微软雅黑', family:'"Microsoft YaHei", "PingFang SC", sans-serif'},
+  {id:'pingfang', name:'苹方', family:'"PingFang SC", "Microsoft YaHei", sans-serif'},
+  {id:'heiti', name:'黑体', family:'SimHei, "Microsoft YaHei", sans-serif'},
+  {id:'songti', name:'宋体', family:'SimSun, "Songti SC", serif'},
+  {id:'kaiti', name:'楷体', family:'KaiTi, "Kaiti SC", serif'},
+  {id:'lishu', name:'隶书', family:'LiSu, "Baoli SC", serif'},
+  {id:'fangsong', name:'仿宋', family:'FangSong, "STFangsong", serif'},
+  {id:'source-han', name:'思源黑体', family:'"Source Han Sans SC", "Noto Sans CJK SC", sans-serif'},
+  {id:'source-serif', name:'思源宋体', family:'"Source Han Serif SC", "Noto Serif CJK SC", serif'},
+  {id:'yuanti', name:'圆体', family:'"Mplus Rounded 1c", "YouYuan", "Microsoft YaHei", sans-serif'},
+  {id:'wryh-bold', name:'雅黑粗体', family:'"Microsoft YaHei", "PingFang SC", sans-serif'},
+  {id:'zcool', name:'站酷快乐体', family:'"ZCOOL KuaiLe", "YouYuan", "Microsoft YaHei", cursive'},
+  {id:'alibaba', name:'阿里普惠体', family:'"Alibaba PuHuiTi", "Alibaba-PuHuiTi-Regular", "Microsoft YaHei", sans-serif'},
+  {id:'fangzheng', name:'方正楷体', family:'"FZKai-Z03", "STKaiti", "KaiTi", serif'},
+];
+
 var TITLE_STYLES = [
   {id:1, name:'保险避坑', main:'普通人买保险', sub:'必看避坑指南', desc:'红底白字', text:'#FFFFFF', accent:'#E60012'},
   {id:2, name:'顶级思维', main:'3个顶级思维', sub:'拉开人与人差距', desc:'金底黑字', text:'#111111', accent:'#FFD700'},
@@ -2222,6 +2250,7 @@ var selectedTemplate = null;
 var selectedVoice = null;
 var selectedBgm = null;
 var selectedSubtitle = null;
+var selectedSubtitleFont = null;
 var selectedTitle = null;
 var selectedMode = 'auto';
 var uploadedVideos = [];
@@ -2307,7 +2336,26 @@ function renderAIEnhanceTags() {
 function selectCamMove(id) { selectedCamMove = id; renderAIEnhanceTags(); showToast('运镜: ' + (AI_CAM_MOVES.find(function(c){return c.id===id;})||{}).name); }
 function selectEffect(id) { selectedEffect = id; renderAIEnhanceTags(); showToast('特效: ' + (AI_EFFECTS.find(function(c){return c.id===id;})||{}).name); }
 function selectSpeed(id) { selectedSpeed = id; renderAIEnhanceTags(); showToast('变速: ' + (AI_SPEEDS.find(function(c){return c.id===id;})||{}).name); }
-function selectQuality(id) { selectedQuality = id; renderAIEnhanceTags(); showToast('画质: ' + (QUALITY_OPTIONS.find(function(c){return c.id===id;})||{}).name); }
+function selectQuality(id) { 
+  selectedQuality = id; 
+  renderAIEnhanceTags(); 
+  var qName = (QUALITY_OPTIONS.find(function(c){return c.id===id;})||{}).name;
+  showToast('画质: ' + qName); 
+  // Warn user about 4K/8K stability
+  if (id === '4K') {
+    setTimeout(function() {
+      var devMem = navigator.deviceMemory || '?';
+      var cores = navigator.hardwareConcurrency || '?';
+      showToast('⚠️ 4K渲染将使用1440P画布+4K码率以确保稳定性（设备: ' + devMem + 'GB/' + cores + '核）', 4000);
+    }, 1500);
+  } else if (id === '8K') {
+    setTimeout(function() {
+      var devMem = navigator.deviceMemory || '?';
+      var cores = navigator.hardwareConcurrency || '?';
+      showToast('⚠️ 8K将自动优化为4K画布+8K码率，8K画布在WebView2中极易崩溃（设备: ' + devMem + 'GB/' + cores + '核）', 5000);
+    }, 1500);
+  }
+}
 function selectHsl(id) { selectedHsl = id; renderAIEnhanceTags(); showToast('HSL调色: ' + (AI_HSL_OPTIONS.find(function(h){return h.id===id;})||{}).name); }
 
 // AI智能分析视频场景，返回分析结果
@@ -2464,6 +2512,12 @@ function navigate(screenId, isTab) {
   // Initialize AI enhancement tags on editor screen
   if (screenId === 'screen-editor') {
     renderAIEnhanceTags();
+  }
+
+  // Render subtitle grid and font list when navigating to subtitle screen
+  if (screenId === 'screen-subtitle') {
+    renderSubtitleGrid();
+    renderSubtitleFontListScreen();
   }
 }
 
@@ -4826,6 +4880,7 @@ function doGenerate() {
         voiceObj: selectedVoice || VOICES[0],
         bgmId: selectedBgm ? selectedBgm.id : null,
         subtitleStyleObj: selectedSubtitle || SUBTITLE_STYLES[0],
+        subtitleFontFamily: selectedSubtitleFont ? selectedSubtitleFont.family : null,
         hslId: selectedHsl || 'auto',
         aiEnhance: {
           cam: (AI_CAM_MOVES.find(function(c){return c.id===selectedCamMove;})||{}).name || 'AI自动识别',
@@ -5083,7 +5138,7 @@ function drawSubtitleOnCanvas(ctx, text, w, h, styleObj) {
     if (styleObj.text) color = styleObj.text;
     if (styleObj.stroke) strokeColor = styleObj.stroke;
   }
-  ctx.font = 'bold ' + fontSize + 'px "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif';
+  ctx.font = 'bold ' + fontSize + 'px ' + getSubtitleFontFamily();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   // Word wrap
@@ -5122,6 +5177,97 @@ function drawSubtitleOnCanvas(ctx, text, w, h, styleObj) {
     ctx.fillStyle = color;
     ctx.fillText(line, w/2, y);
   });
+}
+
+// Estimate memory needed for canvas rendering (in MB)
+function estimateRenderMemory(w, h) {
+  // Canvas frame buffer: w * h * 4 bytes (RGBA)
+  // Double buffering + encoding buffer + video decode buffer ≈ 5x canvas
+  var canvasBytes = w * h * 4;
+  var totalBytes = canvasBytes * 5; // canvas + backbuffer + encoder + video decode + audio
+  return totalBytes / (1024 * 1024); // MB
+}
+
+// Check if device can handle the requested quality
+// Returns { safe: true/false, maxQuality: '1080p'|'4K'|'8K', reason: string }
+function checkRenderCapability(requestedQuality) {
+  var deviceMemory = navigator.deviceMemory || 4; // GB, default 4 if unknown
+  var cpuCores = navigator.hardwareConcurrency || 4;
+  
+  // Memory needed for each quality level (estimated)
+  // 1080p: 1080*1920*4*5 = ~40MB
+  // 4K: 2160*3840*4*5 = ~165MB  
+  // 8K: 3840*5760*4*5 = ~440MB
+  // WebView2 process typically has 2-4GB usable memory limit
+  // We need device RAM to be significantly higher than render memory
+  
+  var qualityMemMap = {
+    '1080p': 40,   // MB
+    '4K': 165,     // MB
+    '8K': 440      // MB
+  };
+  
+  var requestedMem = qualityMemMap[requestedQuality] || 40;
+  
+  // Conservative thresholds:
+  // 4K needs at least 8GB device RAM and 4 CPU cores
+  // 8K needs at least 16GB device RAM and 8 CPU cores
+  if (requestedQuality === '8K') {
+    if (deviceMemory < 16 || cpuCores < 8) {
+      return { safe: false, maxQuality: deviceMemory >= 8 ? '4K' : '1080p', 
+               reason: '8K渲染需要至少16GB内存和8核CPU，当前设备不满足要求' };
+    }
+    // Even with enough RAM, 8K canvas in WebView2 is extremely risky
+    // Force downgrade to 4K for safety
+    return { safe: false, maxQuality: '4K',
+             reason: '8K画布在WebView2中极易崩溃，已自动降级为4K高码率模式' };
+  }
+  
+  if (requestedQuality === '4K') {
+    if (deviceMemory < 8 || cpuCores < 4) {
+      return { safe: false, maxQuality: '1080p',
+               reason: '4K渲染需要至少8GB内存和4核CPU，已降级为1080p高码率模式' };
+    }
+    // 4K is borderline safe on desktop with enough RAM
+    // But we'll use a smaller canvas (1440p) with 4K bitrate for safety
+    return { safe: true, maxQuality: '4K', reason: '' };
+  }
+  
+  return { safe: true, maxQuality: '1080p', reason: '' };
+}
+
+// Get safe rendering dimensions based on quality selection
+// Uses smaller canvas with higher bitrate to prevent memory crashes
+function getSafeRenderDimensions(qualOption) {
+  var cap = checkRenderCapability(qualOption.id);
+  
+  if (!cap.safe) {
+    // Auto-downgrade: use lower quality option
+    var downgradedOption = QUALITY_OPTIONS.find(function(q) { return q.id === cap.maxQuality; });
+    if (downgradedOption) {
+      console.warn('画质降级: ' + qualOption.name + ' → ' + downgradedOption.name + ' (' + cap.reason + ')');
+      return { option: downgradedOption, warning: cap.reason, downgraded: true };
+    }
+  }
+  
+  // For 4K: use 1440p canvas with 4K bitrate (reduces memory by ~55%)
+  // For 8K: already downgraded above, but if somehow still 8K, use 2160p canvas
+  if (qualOption.id === '4K') {
+    return { 
+      option: { id: '4K', name: '4K超清', w: 1440, h: 2560, bitrate: qualOption.bitrate, fps: qualOption.fps },
+      warning: '', 
+      downgraded: false 
+    };
+  }
+  if (qualOption.id === '8K') {
+    return { 
+      option: { id: '8K', name: '8K极致', w: 2160, h: 3840, bitrate: qualOption.bitrate, fps: qualOption.fps },
+      warning: '8K已优化为4K画布+8K码率，确保稳定性', 
+      downgraded: true 
+    };
+  }
+  
+  return { option: qualOption, warning: '', downgraded: false };
 }
 
 function renderCompositeVideo(work, onComplete, onError) {
@@ -5166,26 +5312,55 @@ function renderCompositeVideo(work, onComplete, onError) {
   // Detect mobile for adaptive settings
   var isMobile = isMobileWebView();
 
-  // Get quality settings from user selection
-  var qualOption = QUALITY_OPTIONS.find(function(q) { return q.id === selectedQuality; }) || QUALITY_OPTIONS[1];
+  // Get quality settings from user selection with memory safety
+  var userQualOption = QUALITY_OPTIONS.find(function(q) { return q.id === selectedQuality; }) || QUALITY_OPTIONS[0];
+  
+  // Apply memory-safe rendering dimensions
+  var safeResult = getSafeRenderDimensions(userQualOption);
+  var qualOption = safeResult.option;
+  
+  // Show warning if quality was downgraded
+  if (safeResult.downgraded && safeResult.warning) {
+    console.warn('Render quality notice: ' + safeResult.warning);
+    showToast(safeResult.warning, 4000);
+  }
+  
   // On mobile, cap at 1080p for performance (4K/8K canvas rendering is too heavy for most phones)
   if (isMobile && qualOption.bitrate > 15000000) {
     qualOption = QUALITY_OPTIONS[0]; // 1080p
     console.log('Mobile detected, capping quality to 1080p for performance');
+    showToast('移动端已自动降级为1080P，确保稳定性', 3000);
   }
-  // Check device capability
+  // Check device capability (CPU cores)
   if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4 && qualOption.bitrate > 15000000) {
     qualOption = QUALITY_OPTIONS[0];
     console.log('Low CPU cores detected, capping quality to 1080p');
+    showToast('设备性能不足，已降级为1080P', 3000);
   }
 
   var targetW = qualOption.w;
   var targetH = qualOption.h;
   var targetBitrate = qualOption.bitrate;
+  
+  // Log final rendering parameters
+  var estMem = estimateRenderMemory(targetW, targetH);
+  console.log('Render config: ' + qualOption.name + ', canvas=' + targetW + 'x' + targetH + ', bitrate=' + (targetBitrate/1000000) + 'Mbps, est_memory=' + estMem.toFixed(0) + 'MB, deviceMemory=' + (navigator.deviceMemory||'?') + 'GB, cores=' + (navigator.hardwareConcurrency||'?'));
 
   var canvas = document.createElement('canvas');
   // Use desynchronized + alpha:false for better rendering performance
-  var ctx2d = canvas.getContext('2d', { desynchronized: true, alpha: false });
+  var ctx2d;
+  try {
+    ctx2d = canvas.getContext('2d', { desynchronized: true, alpha: false });
+  } catch(ctxErr) {
+    console.error('Canvas context creation failed:', ctxErr);
+    if (onError) onError(new Error('画布创建失败，请降低画质后重试'));
+    return;
+  }
+  if (!ctx2d) {
+    console.error('Canvas 2D context is null');
+    if (onError) onError(new Error('画布上下文不可用，请降低画质后重试'));
+    return;
+  }
   var video = null;
   var image = null;
   var recorder = null;
@@ -5525,7 +5700,14 @@ function renderCompositeVideo(work, onComplete, onError) {
 
     // Draw subtitle (must redraw every frame since video/image overwrites canvas)
     if (currentSubtitle) {
+      var _savedRenderFont = selectedSubtitleFont;
+      if (subtitleStyleObj && subtitleStyleObj.subtitleFontFamily) {
+        selectedSubtitleFont = {id:'render', name:'render', family: subtitleStyleObj.subtitleFontFamily};
+      } else if (work && work.subtitleFontFamily) {
+        selectedSubtitleFont = {id:'render', name:'render', family: work.subtitleFontFamily};
+      }
       drawSubtitleOnCanvas(ctx2d, currentSubtitle, canvas.width, canvas.height, subtitleStyleObj);
+      selectedSubtitleFont = _savedRenderFont;
     }
 
     // Use requestVideoFrameCallback for video (syncs with actual video frames, eliminates stuttering)
@@ -5673,11 +5855,21 @@ function renderCompositeVideo(work, onComplete, onError) {
       image = new Image();
       image.crossOrigin = 'anonymous';
       image.onload = function() {
-        // Set canvas to target resolution (upscale for 4K/8K output)
-        canvas.width = targetW;
-        canvas.height = targetH;
-        // Draw initial frame
-        ctx2d.drawImage(image, 0, 0, canvas.width, canvas.height);
+        // Set canvas to target resolution (safe dimensions already applied)
+        try {
+          canvas.width = targetW;
+          canvas.height = targetH;
+          // Test if canvas can handle this size by drawing a frame
+          ctx2d.drawImage(image, 0, 0, canvas.width, canvas.height);
+        } catch(allocErr) {
+          console.error('Canvas allocation failed at ' + targetW + 'x' + targetH + ', falling back to 1080p:', allocErr);
+          // Emergency fallback to 1080p
+          canvas.width = 1080;
+          canvas.height = 1920;
+          targetBitrate = 12000000;
+          showToast('内存不足，已紧急降级为1080P', 3000);
+          try { ctx2d.drawImage(image, 0, 0, canvas.width, canvas.height); } catch(e2) {}
+        }
         startRecording();
       };
       image.onerror = function() {
@@ -5695,10 +5887,21 @@ function renderCompositeVideo(work, onComplete, onError) {
       video.preload = 'auto'; // Preload video data to prevent buffering stutter
 
       video.onloadedmetadata = function() {
-        // Set canvas to target resolution (may upscale from source for 4K/8K)
-        canvas.width = targetW;
-        canvas.height = targetH;
-        console.log('Canvas set to ' + targetW + 'x' + targetH + ' (source video: ' + (video.videoWidth||'?') + 'x' + (video.videoHeight||'?') + ')');
+        // Set canvas to target resolution (safe dimensions already applied)
+        try {
+          canvas.width = targetW;
+          canvas.height = targetH;
+          // Test draw to verify canvas can handle this size
+          ctx2d.fillStyle = '#000';
+          ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+        } catch(allocErr) {
+          console.error('Canvas allocation failed at ' + targetW + 'x' + targetH + ', falling back to 1080p:', allocErr);
+          canvas.width = 1080;
+          canvas.height = 1920;
+          targetBitrate = 12000000;
+          showToast('内存不足，已紧急降级为1080P', 3000);
+        }
+        console.log('Canvas set to ' + canvas.width + 'x' + canvas.height + ' (source video: ' + (video.videoWidth||'?') + 'x' + (video.videoHeight||'?') + ', target: ' + targetW + 'x' + targetH + ')');
         startRecording();
         video.play().catch(function(e) { console.warn('Video play failed:', e); });
       };
@@ -5752,7 +5955,7 @@ function buildSubtitleStyle(sub) {
   if (sub.bg) {
     style += 'background:' + sub.bg + ';padding:4px 12px;border-radius:6px;';
   }
-  style += 'font-size:18px;font-weight:700;';
+  style += 'font-size:18px;font-weight:700;font-family:' + getSubtitleFontFamily() + ';';
   return style;
 }
 
@@ -5764,7 +5967,12 @@ function playCompositeVideo(work, options) {
   currentCompositeWork = work;
   var isComposited = work.isComposited || false;
   var subtitleLines = isComposited ? [] : (work.script ? splitSubtitleLines(work.script) : []);
+  var _savedFont = selectedSubtitleFont;
+  if (work.subtitleFontFamily) {
+    selectedSubtitleFont = {id:'work', name:'work', family: work.subtitleFontFamily};
+  }
   var subtitleStyle = work.subtitleStyleObj ? buildSubtitleStyle(work.subtitleStyleObj) : buildSubtitleStyle(null);
+  selectedSubtitleFont = _savedFont;
   var voiceObj = isComposited ? null : (work.voiceObj || null);
   var bgmId = isComposited ? null : (work.bgmId || null);
 
@@ -6457,41 +6665,77 @@ function saveVideoToAlbum(url, title) {
   }
   var btn = document.getElementById('comp-save-btn');
   if (btn) { btn.textContent = '正在保存...'; btn.style.opacity = '0.7'; }
-  
-  var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + '.mp4';
 
-  // 方法1: navigator.share with files (移动端最可靠) - use stored blob directly
+  var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + '.mp4';
   var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
-  function tryShareWithFiles(blobData) {
-    if (!navigator.share || !navigator.canShare) return false;
-    if (!blobData) return false;
+
+  // 检测移动端环境 (PakePlus/WebView/手机浏览器)
+  var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || ('ontouchstart' in window);
+  var isPakePlus = window.__pakeplus || (window.AndroidBridge && typeof window.AndroidBridge.saveVideo === 'function');
+
+  // 长按保存弹窗 (移动端最可靠的方式，不会闪退)
+  function showLongPressSave(saveUrl, saveTitle, blobData) {
+    var existing = document.getElementById('long-press-save-overlay');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'long-press-save-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:10001;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
+
+    // 如果有blob，创建blob URL用于显示（避免使用可能过期的URL）
+    var displayUrl = saveUrl;
     try {
-      var file = new File([blobData], fileName, { type: blobData.type || 'video/mp4' });
-      if (navigator.canShare({ files: [file] })) {
-        navigator.share({
-          files: [file],
-          title: title || '视频作品',
-          text: title || '视频作品'
-        }).then(function() {
-          if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-          showToast('✓ 视频已保存到相册');
-        }).catch(function(e) {
-          if (e.name !== 'AbortError') {
-            tryDownload(blobData);
-          } else {
-            if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-          }
-        });
-        return true;
-      } else {
-        return false;
+      if (blobData instanceof Blob) {
+        displayUrl = URL.createObjectURL(blobData);
       }
-    } catch(e) {
-      return false;
-    }
+    } catch(e) { /* use original url */ }
+
+    overlay.innerHTML = '<div style="color:white;font-size:18px;font-weight:700;margin-bottom:8px;">💾 保存视频到相册</div>' +
+      '<div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:12px;text-align:center;line-height:1.8;max-width:320px;background:rgba(78,205,196,0.1);padding:10px 16px;border-radius:10px;border:1px solid rgba(78,205,196,0.3);">' +
+        '📌 <b>长按下方视频画面</b><br>在弹出菜单中选择<br><b>"保存视频"或"下载视频"</b><br>即可保存到手机相册</div>' +
+      '<video src="' + displayUrl + '" controls playsinline preload="auto" style="max-width:90%;max-height:40vh;border-radius:12px;background:#000;"></video>' +
+      '<div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:8px;">' + (saveTitle || '视频作品') + '</div>' +
+      '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center;">' +
+        '<a href="' + displayUrl + '" download="' + fileName + '" style="padding:10px 24px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:var(--editor-cyan);font-size:13px;cursor:pointer;text-decoration:none;">📥 下载到设备</a>' +
+        '<button style="padding:10px 24px;border-radius:50px;border:none;background:var(--red-start);color:white;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'long-press-save-overlay\').remove()">关闭</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
   }
 
-  // 方法2: 直接下载 (创建<a>标签 with blob URL)
+  // 桌面端: 尝试 navigator.share 或直接下载
+  function tryDesktopSave(blobData) {
+    // 方法1: navigator.share (桌面浏览器可能支持)
+    if (navigator.share && navigator.canShare && blobData) {
+      try {
+        var file = new File([blobData], fileName, { type: blobData.type || 'video/mp4' });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({
+            files: [file],
+            title: title || '视频作品',
+            text: title || '视频作品'
+          }).then(function() {
+            if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+            showToast('✓ 视频已保存');
+          }).catch(function(e) {
+            if (e.name !== 'AbortError') {
+              tryDownload(blobData);
+            } else {
+              if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+            }
+          });
+          return true;
+        }
+      } catch(e) {
+        console.warn('navigator.share failed:', e);
+      }
+    }
+    // 方法2: 直接下载
+    tryDownload(blobData);
+    return false;
+  }
+
+  // 下载方法 (创建<a>标签)
   function tryDownload(blobData) {
     try {
       var blobUrl = (blobData instanceof Blob) ? URL.createObjectURL(blobData) : url;
@@ -6503,44 +6747,31 @@ function saveVideoToAlbum(url, title) {
       a.click();
       setTimeout(function() {
         if (a.parentElement) document.body.removeChild(a);
-      }, 3000);
+        if (blobData instanceof Blob && blobUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(blobUrl);
+        }
+      }, 5000);
+      if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+      showToast('✓ 视频下载中...');
     } catch(e) {
       console.error('Download failed:', e);
+      if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+      showLongPressSave(url, title, blobData);
     }
-    // 同时显示长按保存弹窗作为备选
-    showLongPressSave(url, title);
   }
 
-  // 方法3: 长按保存弹窗 (最后的兜底方案)
-  function showLongPressSave(saveUrl, saveTitle) {
-    var existing = document.getElementById('long-press-save-overlay');
-    if (existing) existing.remove();
-    var overlay = document.createElement('div');
-    overlay.id = 'long-press-save-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:10001;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
-    
-    overlay.innerHTML = '<div style="color:white;font-size:18px;font-weight:700;margin-bottom:8px;">💾 保存视频到相册</div>' +
-      '<div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:12px;text-align:center;line-height:1.8;max-width:320px;background:rgba(78,205,196,0.1);padding:10px 16px;border-radius:10px;border:1px solid rgba(78,205,196,0.3);">' +
-        '📌 <b>长按下方视频画面</b><br>在弹出菜单中选择<br><b>"保存视频"或"下载视频"</b><br>即可保存到手机相册</div>' +
-      '<video src="' + saveUrl + '" controls playsinline style="max-width:90%;max-height:40vh;border-radius:12px;background:#000;"></video>' +
-      '<div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:8px;">' + (saveTitle || '视频作品') + '</div>' +
-      '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center;">' +
-        '<a href="' + saveUrl + '" download="' + fileName + '" style="padding:10px 24px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:var(--editor-cyan);font-size:13px;cursor:pointer;text-decoration:none;">📥 下载到设备</a>' +
-        '<button style="padding:10px 24px;border-radius:50px;border:none;background:var(--red-start);color:white;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'long-press-save-overlay\').remove()">关闭</button>' +
-      '</div>';
-    document.body.appendChild(overlay);
-    
-    if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+  // 移动端: 直接显示长按保存弹窗 (避免 navigator.share 导致闪退)
+  if (isMobile) {
+    console.log('Mobile detected, using long-press save to avoid crash');
+    showLongPressSave(url, title, savedBlob);
+    return;
   }
 
-  // Try methods in order: share with blob > download with blob > long-press
+  // 桌面端: 尝试 share 或下载
   if (savedBlob) {
-    if (tryShareWithFiles(savedBlob)) return;
-    tryDownload(savedBlob);
+    tryDesktopSave(savedBlob);
   } else {
-    // Fallback: no blob available, try URL directly
-    if (tryShareWithFiles(url)) return;
-    tryDownload(url);
+    tryDesktopSave(null);
   }
 }
 
@@ -6586,62 +6817,22 @@ function uploadCurrentToWorkLib() {
       voiceObj: work.voiceObj || null,
       bgmId: work.bgmId || null,
       subtitleStyleObj: work.subtitleStyleObj || null,
+      subtitleFontFamily: work.subtitleFontFamily || null,
       aiEnhance: work.aiEnhance || null,
-      audioSync: work.audioSync || null
+      audioSync: work.audioSync || null,
+      _blob: uploadBlob || null
     };
     works.unshift(newWork);
     saveWorksToStorage();
     renderWorks();
     uploadedToWork = true;
   }
-  
-  // 上传到素材库
-  var uploadedToMaterial = false;
-  var existingMaterial = materialItems.find(function(m) { return m.url === work.url; });
-  if (!existingMaterial) {
-    var matId = 'mat_' + Date.now();
-    var matItem = {
-      id: matId,
-      name: (work.title || '视频作品').substring(0, 20),
-      type: work.type || 'video',
-      size: '渲染作品',
-      resolution: work.resolution || '高清',
-      url: work.url,
-      time: '刚刚'
-    };
-    materialItems.push(matItem);
-    // Save to IndexedDB using stored blob (avoids fetch on mobile)
-    try {
-      if (uploadBlob) {
-        var file = new File([uploadBlob], (work.title || '视频作品') + '.mp4', { type: uploadBlob.type || 'video/mp4' });
-        saveMaterialToDB(matItem, file);
-        console.log('Material saved to IndexedDB via stored blob');
-      } else {
-        // Fallback: try to fetch URL
-        fetch(work.url).then(function(res) { return res.blob(); }).then(function(blob) {
-          var file = new File([blob], (work.title || '视频作品') + '.mp4', { type: blob.type || 'video/mp4' });
-          saveMaterialToDB(matItem, file);
-        }).catch(function(e) {
-          console.warn('Could not persist uploaded material (fetch failed):', e);
-        });
-      }
-    } catch(e) {
-      console.warn('IndexedDB save error:', e);
-    }
-    renderMaterialList();
-    updateMaterialCount();
-    updateGenMaterialCount();
-    uploadedToMaterial = true;
-  }
+
   
   // 显示结果
   var msg;
-  if (uploadedToWork && uploadedToMaterial) {
-    msg = '✓ 已上传到作品库和素材库';
-  } else if (uploadedToWork) {
+  if (uploadedToWork) {
     msg = '✓ 已上传到作品库';
-  } else if (uploadedToMaterial) {
-    msg = '✓ 已上传到素材库';
   } else {
     msg = '✓ 视频已在作品库中';
   }
@@ -7243,6 +7434,8 @@ function saveWorksToStorage() {
         resolution: w.resolution,
         voiceObj: w.voiceObj ? { name: w.voiceObj.name, id: w.voiceObj.id } : null,
         bgmId: w.bgmId,
+        subtitleStyleObj: w.subtitleStyleObj || null,
+        subtitleFontFamily: w.subtitleFontFamily || null,
         aiEnhance: w.aiEnhance,
         audioSync: w.audioSync
       };
@@ -7270,6 +7463,8 @@ function loadWorksFromStorage() {
           resolution: m.resolution || '高清',
           voiceObj: m.voiceObj || null,
           bgmId: m.bgmId || null,
+          subtitleStyleObj: m.subtitleStyleObj || null,
+          subtitleFontFamily: m.subtitleFontFamily || null,
           aiEnhance: m.aiEnhance || null,
           audioSync: m.audioSync || null,
           url: null, // No URL after page reload
@@ -8016,6 +8211,25 @@ function waStopAll() {
   waCurrentBeat = 0;
 }
 
+// --- Subtitle Tab Switching ---
+function switchSubtitleTab(tab, context) {
+  var styleTab = document.getElementById('subtitle-tab-style-' + context);
+  var fontTab = document.getElementById('subtitle-tab-font-' + context);
+  var styleContent = document.getElementById('subtitle-tab-style-content-' + context);
+  var fontContent = document.getElementById('subtitle-tab-font-content-' + context);
+  if (tab === 'style') {
+    if (styleTab) { styleTab.style.color = 'var(--editor-cyan)'; styleTab.style.borderBottom = '2px solid var(--editor-cyan)'; styleTab.style.fontWeight = '600'; }
+    if (fontTab) { fontTab.style.color = 'var(--text-medium-gray)'; fontTab.style.borderBottom = '2px solid transparent'; fontTab.style.fontWeight = 'normal'; }
+    if (styleContent) styleContent.style.display = 'block';
+    if (fontContent) fontContent.style.display = 'none';
+  } else {
+    if (styleTab) { styleTab.style.color = 'var(--text-medium-gray)'; styleTab.style.borderBottom = '2px solid transparent'; styleTab.style.fontWeight = 'normal'; }
+    if (fontTab) { fontTab.style.color = 'var(--editor-cyan)'; fontTab.style.borderBottom = '2px solid var(--editor-cyan)'; fontTab.style.fontWeight = '600'; }
+    if (styleContent) styleContent.style.display = 'none';
+    if (fontContent) fontContent.style.display = 'block';
+  }
+}
+
 // --- Inline Section Toggle ---
 function toggleInlineSection(id) {
   var section = document.getElementById(id);
@@ -8033,7 +8247,10 @@ function toggleInlineSection(id) {
   } else if (id === 'subtitle-inline') {
     var chev2 = document.getElementById('subtitle-chevron');
     if (chev2) chev2.style.transform = isShown ? 'rotate(0deg)' : 'rotate(90deg)';
-    if (!isShown) renderSubtitleGridInline();
+    if (!isShown) {
+      renderSubtitleGridInline();
+      renderSubtitleFontList();
+    }
   }
 }
 
@@ -8507,6 +8724,7 @@ function renderSubtitleGrid() {
   var el = document.getElementById('subtitle-grid');
   if (el) el.innerHTML = html;
   renderSubtitleGridInline();
+  renderSubtitleFontListScreen();
 }
 
 function renderSubtitleGridInline() {
@@ -8521,6 +8739,7 @@ function renderSubtitleGridInline() {
   });
   var el = document.getElementById('subtitle-grid-inline');
   if (el) el.innerHTML = html;
+  renderSubtitleFontList();
 }
 
 function selectSubtitle(id) {
@@ -8529,6 +8748,51 @@ function selectSubtitle(id) {
   var el = document.getElementById('subtitle-selected-name');
   if (el) el.textContent = selectedSubtitle.name;
   showToast('已选择: ' + selectedSubtitle.name);
+}
+
+function getSubtitleFontFamily() {
+  if (selectedSubtitleFont) return selectedSubtitleFont.family;
+  return '"Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif';
+}
+
+function renderSubtitleFontList() {
+  var html = '';
+  SUBTITLE_FONTS.forEach(function(f) {
+    var sel = selectedSubtitleFont && selectedSubtitleFont.id === f.id;
+    var borderStyle = sel ? 'border:2px solid var(--editor-cyan);background:rgba(78,205,196,0.12);' : 'border:2px solid rgba(255,255,255,0.1);background:var(--bg-card);';
+    html += '<div style="flex-shrink:0;padding:8px 14px;border-radius:8px;text-align:center;cursor:pointer;' + borderStyle + '" onclick="selectSubtitleFont(\'' + f.id + '\')">' +
+            '<div style="font-size:14px;color:var(--text-white);font-family:' + f.family + ';white-space:nowrap;">' + f.name + '</div>' +
+            '<div style="font-size:11px;color:var(--text-medium-gray);margin-top:2px;font-family:' + f.family + ';white-space:nowrap;">字幕预览ABC</div>' +
+            '</div>';
+  });
+  var el = document.getElementById('subtitle-font-list-inline');
+  if (el) el.innerHTML = html;
+}
+
+function selectSubtitleFont(id) {
+  selectedSubtitleFont = SUBTITLE_FONTS.find(function(f){ return f.id === id; });
+  renderSubtitleFontList();
+  renderSubtitleFontListScreen();
+  // Update inline subtitle name display
+  var nameEl = document.getElementById('subtitle-selected-name');
+  if (nameEl && selectedSubtitle) {
+    nameEl.textContent = selectedSubtitle.name;
+  }
+  showToast('已选择字体: ' + selectedSubtitleFont.name);
+}
+
+function renderSubtitleFontListScreen() {
+  var html = '';
+  SUBTITLE_FONTS.forEach(function(f) {
+    var sel = selectedSubtitleFont && selectedSubtitleFont.id === f.id;
+    var borderStyle = sel ? 'border:2px solid var(--editor-cyan);background:rgba(78,205,196,0.12);' : 'border:2px solid rgba(255,255,255,0.1);background:var(--bg-card);';
+    html += '<div style="padding:14px 12px;border-radius:10px;text-align:center;cursor:pointer;' + borderStyle + '" onclick="selectSubtitleFont(\'' + f.id + '\')">' +
+            '<div style="font-size:15px;color:var(--text-white);font-family:' + f.family + ';">' + f.name + '</div>' +
+            '<div style="font-size:12px;color:var(--text-medium-gray);margin-top:4px;font-family:' + f.family + ';">字幕预览ABC</div>' +
+            '</div>';
+  });
+  var el = document.getElementById('subtitle-font-list-screen');
+  if (el) el.innerHTML = html;
 }
 
 // ========== Title Styles ==========
@@ -9084,6 +9348,7 @@ function startGeneration() {
         voiceObj: selectedVoice || VOICES[0],
         bgmId: selectedBgm ? selectedBgm.id : null,
         subtitleStyleObj: selectedSubtitle || SUBTITLE_STYLES[0],
+        subtitleFontFamily: selectedSubtitleFont ? selectedSubtitleFont.family : null,
         hslId: selectedHsl || 'auto',
         aiEnhance: {
           cam: (AI_CAM_MOVES.find(function(c){return c.id===selectedCamMove;})||{}).name || 'AI自动识别',
