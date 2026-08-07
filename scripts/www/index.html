@@ -5299,9 +5299,12 @@ function renderCompositeVideo(work, onComplete, onError) {
 
   // Create audio recording destination - all audio through waMasterGain will be captured
   var audioDest = audioCtx.createMediaStreamDestination();
+  // Ensure waMasterGain has non-zero gain (it might have been set to 0 by stopBgmAudioEl)
+  try { waMasterGain.gain.value = 0.6; } catch(e) {}
   try { waMasterGain.connect(audioDest); } catch(e) { console.warn('connect audioDest failed:', e); }
   // Also connect to speakers for monitoring - helps keep audio graph active on mobile WebView
   try { waMasterGain.connect(audioCtx.destination); } catch(e) { console.warn('connect destination failed:', e); }
+  console.log('BGM: waMasterGain gain set to', waMasterGain.gain.value, 'connected to audioDest + speakers');
 
   var subtitleLines = work.script ? splitSubtitleLines(work.script) : [];
   var voiceObj = work.voiceObj || VOICES[0];
@@ -5479,6 +5482,12 @@ function renderCompositeVideo(work, onComplete, onError) {
   // BGM:  BufferSource -> Gain -> waMasterGain -> audioDest (recording)
   // If TTS is recorded, BGM MUST also be recorded.
   function startBgmBufferPlayback(buffer, callback) {
+    if (!buffer) {
+      console.error('BGM: ❌ startBgmBufferPlayback called with null buffer!');
+      if (callback) callback();
+      return;
+    }
+
     bgmSourceNode = audioCtx.createBufferSource();
     bgmSourceNode.buffer = buffer;
     bgmSourceNode.loop = true;
@@ -5486,11 +5495,12 @@ function renderCompositeVideo(work, onComplete, onError) {
     bgmGainNode.gain.value = 0.5; // BGM volume (will be attenuated by waMasterGain's 0.6)
 
     // Connect through waMasterGain - SAME PATH AS TTS
-    // waMasterGain is already connected to both audioDest and audioCtx.destination
-    // (set up at top of renderCompositeVideo: waMasterGain.connect(audioDest) + waMasterGain.connect(audioCtx.destination))
     bgmSourceNode.connect(bgmGainNode);
     bgmGainNode.connect(waMasterGain);
-    // Do NOT connect directly to audioDest - go through waMasterGain like TTS does
+
+    // CRITICAL: Also connect directly to audioDest as backup
+    // This ensures BGM is captured even if waMasterGain connection fails
+    try { bgmGainNode.connect(audioDest); } catch(e) { console.warn('BGM: direct audioDest connect failed:', e); }
 
     try { bgmSourceNode.start(0); } catch(e) {
       console.warn('BGM: start() failed:', e);
@@ -5500,12 +5510,15 @@ function renderCompositeVideo(work, onComplete, onError) {
 
     // Verify the connection
     console.log('BGM: ✅ AudioBufferSourceNode started');
-    console.log('BGM:    Path: BufferSource -> bgmGainNode(0.5) -> waMasterGain(0.6) -> audioDest + speakers');
-    console.log('BGM:    TTS path: BufferSource -> ttsGain(1.0) -> waMasterGain(0.6) -> audioDest + speakers');
+    console.log('BGM:    Path: BufferSource -> bgmGainNode(0.5) -> waMasterGain(0.6) + audioDest');
     console.log('BGM:    Buffer duration:', buffer.duration.toFixed(2) + 's, channels:', buffer.numberOfChannels);
     console.log('BGM:    AudioContext state:', audioCtx.state);
     console.log('BGM:    bgmSourceNode:', bgmSourceNode ? 'EXISTS' : 'NULL');
     console.log('BGM:    bgmGainNode:', bgmGainNode ? 'EXISTS' : 'NULL');
+
+    // Verify audioDest has audio tracks
+    var tracks = audioDest.stream.getAudioTracks();
+    console.log('BGM:    audioDest audio tracks:', tracks.length);
 
     if (callback) callback();
   }
@@ -5520,8 +5533,16 @@ function renderCompositeVideo(work, onComplete, onError) {
       // BGM callback: BGM is now playing (or failed). Proceed with recording.
       console.log('BGM: Callback fired. bgmSourceNode:', bgmSourceNode ? 'EXISTS ✅' : 'NULL ❌', 'AudioContext:', audioCtx.state);
 
-      // Small delay to ensure audio data is flowing through the audio graph
-      var flowDelay = isMobile ? 300 : 100;
+      // If BGM source exists, verify it's actually playing
+      if (bgmSourceNode) {
+        console.log('BGM: ✅ BGM source is active, playback state should be running');
+      } else if (bgmId) {
+        console.warn('BGM: ⚠️ bgmId was set (' + bgmId + ') but bgmSourceNode is NULL! BGM will NOT be in recording!');
+      }
+
+      // Larger delay to ensure audio data is flowing through the audio graph
+      // This is critical for mobile WebView where AudioContext may be slow to start
+      var flowDelay = isMobile ? 500 : 150;
       console.log('BGM: Waiting ' + flowDelay + 'ms for audio to flow through audioDest...');
 
       setTimeout(function() {
@@ -6031,7 +6052,7 @@ function playCompositeVideo(work, options) {
       '<button style="padding:10px 20px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:13px;cursor:pointer;" onclick="stopCompositePlayback()">关闭</button>' +
       '<button id="comp-replay-btn" style="display:none;padding:10px 20px;border-radius:50px;border:1px solid rgba(255,215,0,0.5);background:rgba(255,215,0,0.1);color:#FFD700;font-size:13px;cursor:pointer;font-weight:600;" onclick="replayCompositeVideo()">🔄 重新播放</button>' +
       '<button id="comp-save-btn" style="padding:10px 20px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:var(--editor-cyan);font-size:13px;cursor:pointer;font-weight:600;" onclick="saveVideoToAlbum(\'' + (work.url || '') + '\', \'' + (work.title || '视频作品').replace(/'/g, "\\'") + '\')">💾 保存到相册</button>' +
-      '<button id="comp-longpress-btn" style="padding:10px 20px;border-radius:50px;border:1px solid rgba(255,215,0,0.5);background:rgba(255,215,0,0.1);color:#FFD700;font-size:13px;cursor:pointer;font-weight:600;" onclick="showLongPressSaveGuide(\'' + (work.url || '') + '\')">📱 长按保存</button>' +
+      '<button id="comp-longpress-btn" style="padding:10px 20px;border-radius:50px;border:1px solid rgba(255,215,0,0.5);background:rgba(255,215,0,0.1);color:#FFD700;font-size:13px;cursor:pointer;font-weight:600;" onclick="showLongPressSaveGuide(\'' + (work.url || '') + '\')">📱 长按保存到相册</button>' +
       '<button id="comp-upload-btn" style="padding:10px 20px;border-radius:50px;border:none;background:linear-gradient(90deg, #4CAF50, #45a049);color:white;font-size:13px;cursor:pointer;font-weight:600;" onclick="uploadCurrentToWorkLib()">📤 上传到作品库</button>' +
       (options.showViewWorks !== false ? '<button style="padding:10px 20px;border-radius:50px;border:none;background:linear-gradient(90deg, var(--gen-purple-start), var(--gen-purple-end));color:white;font-size:13px;cursor:pointer;font-weight:600;" onclick="stopCompositePlayback();navigate(\'screen-works\', true)">查看作品库</button>' : '') +
     '</div>' +
@@ -6693,42 +6714,51 @@ function freeOverlayVideoMemory() {
 }
 
 function showLongPressSaveGuide(url) {
-  // Show a full-screen overlay with the video for long-press saving
-  // This is the most reliable save method on mobile WebView
-  var saveOverlay = document.createElement('div');
-  saveOverlay.id = 'longpress-save-overlay';
-  saveOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.97);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
-
-  // Determine if mobile
-  var isMob = isMobileWebView();
-
-  saveOverlay.innerHTML =
-    '<div style="color:#4ECDC4;font-size:18px;font-weight:700;margin-bottom:8px;">📱 长按视频保存到相册</div>' +
-    '<div style="color:#aaa;font-size:13px;margin-bottom:16px;text-align:center;max-width:320px;">' +
-    (isMob ? '长按下方视频画面，在弹出菜单中选择<br>"保存视频"或"保存到相册"' : '点击下方视频画面右下角下载按钮') +
-    '</div>' +
-    '<div style="position:relative;display:inline-block;max-width:100%;">' +
-      '<video src="' + url + '" controls playsinline' + (isMob ? '' : ' autoplay') + ' style="max-width:100%;max-height:55vh;border-radius:12px;box-shadow:0 8px 32px rgba(78,205,196,0.3);"></video>' +
-    '</div>' +
-    '<div style="margin-top:16px;display:flex;gap:12px;">' +
-      '<button onclick="document.getElementById(\'longpress-save-overlay\').remove()" style="padding:10px 30px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:14px;cursor:pointer;">关闭</button>' +
-    '</div>';
+  if (!url) {
+    showToast('无法获取视频地址');
+    return;
+  }
 
   // Remove existing overlay if any
   var existing = document.getElementById('longpress-save-overlay');
   if (existing) existing.remove();
 
+  // Free the overlay video memory first (pause the playing video)
+  var oldVideo = document.getElementById('comp-video');
+  if (oldVideo) {
+    try { oldVideo.pause(); } catch(e) {}
+  }
+
+  var isMob = isMobileWebView();
+  var saveOverlay = document.createElement('div');
+  saveOverlay.id = 'longpress-save-overlay';
+  saveOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.98);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
+
+  saveOverlay.innerHTML =
+    '<div style="color:#4ECDC4;font-size:20px;font-weight:700;margin-bottom:6px;">📱 保存视频到相册</div>' +
+    '<div style="color:#ccc;font-size:14px;margin-bottom:16px;text-align:center;max-width:340px;line-height:1.6;">' +
+      (isMob
+        ? '<span style="color:#FFD700;">长按下方视频画面</span><br>在弹出菜单中选择"保存视频"或"保存到相册"'
+        : '点击下方视频画面右下角下载按钮') +
+    '</div>' +
+    '<div style="position:relative;display:inline-block;max-width:100%;">' +
+      '<video src="' + url + '" controls playsinline' + (isMob ? '' : ' autoplay') + ' style="max-width:100%;max-height:50vh;border-radius:12px;box-shadow:0 8px 32px rgba(78,205,196,0.4);"></video>' +
+    '</div>' +
+    '<div style="margin-top:20px;display:flex;gap:12px;">' +
+      '<button onclick="document.getElementById(\'longpress-save-overlay\').remove()" style="padding:10px 30px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:14px;cursor:pointer;">关闭</button>' +
+    '</div>';
+
   document.body.appendChild(saveOverlay);
 
-  // Try to play the video on mobile (needs user gesture)
-  if (isMob) {
-    var v = saveOverlay.querySelector('video');
-    if (v) {
-      v.play().catch(function(e) {
-        console.warn('Auto-play prevented in long-press overlay:', e);
-      });
-    }
+  // Try to play the video (needs user gesture on mobile)
+  var v = saveOverlay.querySelector('video');
+  if (v) {
+    v.play().catch(function(e) {
+      console.warn('Auto-play prevented in long-press overlay:', e);
+    });
   }
+
+  showToast('请长按视频画面选择保存', 3000);
 }
 
 function saveVideoToAlbum(url, title) {
@@ -6740,72 +6770,29 @@ function saveVideoToAlbum(url, title) {
   var btn = document.getElementById('comp-save-btn');
   if (btn) { btn.textContent = '正在保存...'; btn.style.opacity = '0.7'; }
 
-  // Determine file extension based on blob type
-  var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
-  var blobType = savedBlob ? (savedBlob.type || '') : '';
-  var isWebm = blobType.indexOf('webm') >= 0;
-  var ext = isWebm ? '.webm' : '.mp4';
-  var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
-
-  // Check if running in mobile WebView
   var isMobile = isMobileWebView();
 
   function restoreBtn() {
     if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
   }
 
-  // === Step 1: Free memory before saving ===
-  // Pause and release video decoder memory (critical for mobile)
-  freeOverlayVideoMemory();
-
-  // === Step 2: Mobile path - SIMPLEST possible approach ===
-  // On mobile WebView, navigator.share with files creates new File([blob]) which
-  // DUPLICATES the entire video data in memory, causing OOM crash.
-  // Solution: use the EXISTING blob URL directly with <a download>, no new objects.
-  // Also defer the click to next event loop to allow memory cleanup to complete.
+  // === MOBILE: Directly show long-press save overlay ===
+  // DO NOT use <a download>, navigator.share, location.href, or window.open
+  // All of these crash the PakePlus WebView when dealing with blob URLs
   function doMobileSave() {
-    // Use setTimeout to defer the download trigger, allowing GC to run first
-    setTimeout(function() {
-      try {
-        // Use the existing URL directly - do NOT create new blob URLs
-        var a = document.createElement('a');
-        a.href = url;  // Use existing blob: URL directly
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        // Clean up the anchor after a delay
-        setTimeout(function() {
-          if (a.parentElement) document.body.removeChild(a);
-        }, 3000);
-        restoreBtn();
-        showToast('✓ 视频已开始下载，请到相册或下载文件夹查看');
-
-        // After 2.5 seconds, if user is still on the page, show long-press hint
-        // (download may have silently failed on some WebViews)
-        setTimeout(function() {
-          var overlay = document.getElementById('composite-player-overlay');
-          if (overlay && document.getElementById('comp-save-btn')) {
-            // Page is still showing - show a helpful hint
-            var hint = document.createElement('div');
-            hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#4ECDC4;padding:10px 20px;border-radius:8px;font-size:12px;z-index:10001;max-width:90%;text-align:center;';
-            hint.innerHTML = '如果下载未自动开始，请点击下方"长按保存"按钮';
-            hint.onclick = function() { this.remove(); };
-            document.body.appendChild(hint);
-            setTimeout(function() { if (hint.parentElement) hint.remove(); }, 5000);
-          }
-        }, 2500);
-      } catch(e) {
-        console.error('Mobile <a download> failed:', e);
-        // Fallback: show video for long-press save
-        showLongPressSave();
-      }
-    }, 100); // 100ms delay to allow memory cleanup
+    restoreBtn();
+    showLongPressSaveGuide(url);
   }
 
-  // === Step 3: Desktop path - can use navigator.share ===
+  // === DESKTOP: Use <a download> or navigator.share ===
   function doDesktopSave() {
-    // Try navigator.share first (works well on desktop browsers)
+    var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
+    var blobType = savedBlob ? (savedBlob.type || '') : '';
+    var isWebm = blobType.indexOf('webm') >= 0;
+    var ext = isWebm ? '.webm' : '.mp4';
+    var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
+
+    // Try navigator.share with files (desktop has enough memory)
     if (navigator.share && navigator.canShare && savedBlob) {
       try {
         var file = new File([savedBlob], fileName, { type: (savedBlob.type || 'video/mp4') });
@@ -6819,7 +6806,7 @@ function saveVideoToAlbum(url, title) {
             showToast('✓ 视频已保存');
           }).catch(function(e) {
             if (e.name !== 'AbortError') {
-              doAnchorDownload();
+              doAnchorDownload(url, fileName);
             } else {
               restoreBtn();
             }
@@ -6829,14 +6816,13 @@ function saveVideoToAlbum(url, title) {
       } catch(e) { console.warn('navigator.share failed:', e); }
     }
     // Fallback to <a download>
-    doAnchorDownload();
+    doAnchorDownload(url, fileName);
   }
 
-  // === Common: <a download> using existing URL ===
-  function doAnchorDownload() {
+  function doAnchorDownload(url, fileName) {
     try {
       var a = document.createElement('a');
-      a.href = url;  // Use existing blob: URL directly
+      a.href = url;
       a.download = fileName;
       a.style.display = 'none';
       document.body.appendChild(a);
@@ -6848,31 +6834,15 @@ function saveVideoToAlbum(url, title) {
       showToast('✓ 视频下载中，请到下载文件夹查看');
     } catch(e) {
       console.error('<a download> failed:', e);
-      showLongPressSave();
+      restoreBtn();
+      showLongPressSaveGuide(url);
     }
   }
 
-  // === Last resort: show video in-page for long-press save ===
-  function showLongPressSave() {
-    restoreBtn();
-    // Create a simple overlay with just the video and instructions
-    var saveOverlay = document.createElement('div');
-    saveOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
-    saveOverlay.innerHTML = 
-      '<div style="color:white;font-size:16px;font-weight:600;margin-bottom:12px;">长按视频画面保存到相册</div>' +
-      '<video src="' + url + '" controls playsinline style="max-width:100%;max-height:60vh;border-radius:12px;"></video>' +
-      '<div style="color:#aaa;font-size:13px;margin-top:12px;text-align:center;">如果无法自动下载，请长按上方视频画面<br>选择"保存视频"或"保存到相册"</div>' +
-      '<button onclick="this.parentElement.remove()" style="margin-top:16px;padding:10px 30px;border-radius:50px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:white;font-size:14px;cursor:pointer;">关闭</button>';
-    document.body.appendChild(saveOverlay);
-    showToast('请长按视频画面选择保存');
-  }
-
-  // === Entry point ===
+  // Entry point
   if (isMobile) {
-    // Mobile: simplest path, no navigator.share, no new File objects
     doMobileSave();
   } else {
-    // Desktop: can try navigator.share first
     doDesktopSave();
   }
 }
