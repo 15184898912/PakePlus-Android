@@ -6690,19 +6690,45 @@ function blobToDataURL(blob, callback) {
 }
 
 function freeOverlayVideoMemory() {
-  // Free the video element in the composite player overlay to release decoder memory
-  // This is critical before saving on mobile to prevent OOM crash
+  // 保存前彻底释放内存，防止 OOM 闪退
+  console.log('Memory: Freeing overlay video memory...');
+
+  // 1. 暂停并释放视频元素
   var vEl = document.getElementById('comp-video');
   if (vEl && vEl.tagName === 'VIDEO') {
     try {
       vEl.pause();
-      // Don't remove src completely - we need it for replay
-      // But we can pause and reduce memory by seeking to 0
       try { vEl.currentTime = 0; } catch(e) {}
+      // 移除 src 释放解码器内存（保存时不需要播放）
+      // 保存后会重新设置 src 用于重播
     } catch(e) {}
   }
-  // Force garbage collection hint (if available)
+
+  // 2. 释放 TTS 音频缓冲区引用
+  if (typeof ttsBuffers !== 'undefined') {
+    ttsBuffers = [];
+  }
+
+  // 3. 释放 Web Audio API 资源
+  if (typeof waMasterGain !== 'undefined' && waMasterGain) {
+    try { waMasterGain.gain.value = 0; } catch(e) {}
+  }
+
+  // 4. 缩小 Canvas 释放显存（不影响已生成的 blob）
+  try {
+    var canvases = document.querySelectorAll('canvas');
+    canvases.forEach(function(c) {
+      if (c.id !== 'comp-video' && c.width > 100) {
+        c.width = 1;
+        c.height = 1;
+      }
+    });
+  } catch(e) {}
+
+  // 5. 触发垃圾回收（如果引擎支持）
   if (window.gc) { try { window.gc(); } catch(e) {} }
+
+  console.log('Memory: Overlay video memory freed');
 }
 
 function showLongPressSaveGuide(url) {
@@ -6753,92 +6779,234 @@ function showLongPressSaveGuide(url) {
   showToast('请长按视频画面选择保存', 3000);
 }
 
-function saveVideoToAlbum(url, title) {
+async function saveVideoToAlbum(url, title) {
   if (!url) {
     showToast('无法获取视频地址');
     return;
   }
 
-  // 获取blob对象 - 多重fallback确保拿到真实数据
-  var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
+  // ====== 防重复点击 ======
+  if (window._saveInProgress) {
+    console.log('Save: Already in progress, ignoring duplicate click');
+    return;
+  }
+  window._saveInProgress = true;
 
-  // 检查blob是否有数据
+  // ====== 获取 blob 数据 ======
+  var savedBlob = lastRenderedBlob || (currentCompositeWork && currentCompositeWork._blob) || null;
   if (!savedBlob || savedBlob.size === 0) {
     showToast('视频数据为空，请重新渲染');
+    window._saveInProgress = false;
     return;
   }
 
-  console.log('Save: blob size = ' + (savedBlob.size / 1024 / 1024).toFixed(1) + 'MB');
+  var videoSizeMB = savedBlob.size / 1024 / 1024;
+  console.log('Save: blob size = ' + videoSizeMB.toFixed(1) + 'MB');
 
+  // ====== 禁用按钮，显示进度 ======
   var btn = document.getElementById('comp-save-btn');
-  if (btn) { btn.textContent = '正在保存...'; btn.style.opacity = '0.7'; }
+  if (btn) {
+    btn.textContent = '正在保存...';
+    btn.style.opacity = '0.5';
+    btn.style.pointerEvents = 'none';
+  }
+
+  // 创建进度提示
+  var progressEl = document.createElement('div');
+  progressEl.id = 'save-progress';
+  progressEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.9);color:white;padding:24px 32px;border-radius:16px;z-index:99999;text-align:center;min-width:200px;';
+  progressEl.innerHTML = '<div style="font-size:14px;margin-bottom:12px;">正在保存视频...</div>' +
+    '<div style="width:200px;height:6px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;">' +
+    '<div id="save-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#4CAF50,#45a049);border-radius:3px;transition:width 0.3s;"></div>' +
+    '</div>' +
+    '<div id="save-progress-text" style="font-size:12px;color:#aaa;margin-top:8px;">准备中...</div>';
+  document.body.appendChild(progressEl);
+
+  function updateProgress(pct, msg) {
+    var bar = document.getElementById('save-progress-bar');
+    var txt = document.getElementById('save-progress-text');
+    if (bar) bar.style.width = pct + '%';
+    if (txt) txt.textContent = msg;
+  }
+
+  function removeProgress() {
+    var el = document.getElementById('save-progress');
+    if (el) el.remove();
+  }
+
+  function restoreBtn() {
+    if (btn) {
+      btn.textContent = '💾 保存到相册';
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    }
+    window._saveInProgress = false;
+    removeProgress();
+  }
 
   var blobType = savedBlob.type || '';
   var isWebm = blobType.indexOf('webm') >= 0;
   var ext = isWebm ? '.webm' : '.mp4';
   var fileName = (title || '视频作品').replace(/[\\/:*?"<>|]/g, '_') + ext;
 
-  function restoreBtn() {
-    if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-  }
-
-  function saveSuccess() {
-    restoreBtn();
-    showToast('✓ 视频已保存，请到相册或下载文件夹查看');
-  }
-
-  function saveFail(err) {
-    console.error('Save failed:', err);
-    restoreBtn();
-    showToast('保存失败，请尝试长按视频保存');
-  }
-
-  // 方法1: 使用新的blob URL（确保URL有效）
   try {
-    var freshUrl = URL.createObjectURL(savedBlob);
-    var a = document.createElement('a');
-    a.href = freshUrl;
-    a.download = fileName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
+    // ====== 第一步：释放内存（防止 OOM） ======
+    updateProgress(10, '释放内存中...');
+    freeOverlayVideoMemory();
 
-    // 模拟点击
-    var clickEvent = document.createEvent('MouseEvents');
-    clickEvent.initEvent('click', true, true);
-    a.dispatchEvent(clickEvent);
+    // ====== 第二步：等待 GC（200ms） ======
+    updateProgress(15, '准备数据中...');
+    await new Promise(function(resolve) { setTimeout(resolve, 200); });
 
-    // 1秒后检查是否成功，尝试备用方法
-    setTimeout(function() {
-      try { if (a.parentElement) document.body.removeChild(a); } catch(e) {}
-      // 不要立即revoke URL，给下载留时间
-      setTimeout(function() {
-        try { URL.revokeObjectURL(freshUrl); } catch(e) {}
-      }, 10000);
-    }, 1000);
-
-    restoreBtn();
-    showToast('✓ 视频已开始下载，请到相册或下载文件夹查看');
-    console.log('Save: download triggered via <a download>');
-  } catch(e1) {
-    console.warn('Save method 1 failed:', e1);
-    // 方法2: window.location.href
-    try {
-      window.location.href = url;
-      restoreBtn();
-      showToast('✓ 视频已开始下载');
-      console.log('Save: download triggered via location.href');
-    } catch(e2) {
-      console.warn('Save method 2 failed:', e2);
-      // 方法3: 打开新窗口
+    // ==========================================
+    // 方法1: Tauri2 原生 FS API (PakePlus 环境)
+    // 异步写入，不阻塞 UI，不经过 WebView 下载
+    // ==========================================
+    if (window.__TAURI__ && window.__TAURI__.fs) {
       try {
-        window.open(url, '_blank');
+        console.log('Save: Using Tauri FS API');
+        console.log('Save: TAURI.fs keys =', Object.keys(window.__TAURI__.fs));
+
+        updateProgress(30, '转换视频数据...');
+
+        // 将 Blob 转为 ArrayBuffer（异步，不阻塞）
+        var arrayBuffer = await savedBlob.arrayBuffer();
+        var uint8array = new Uint8Array(arrayBuffer);
+
+        // 释放原始 blob 引用（如果 Tauri 写入成功就不需要了）
+        // 但不释放 lastRenderedBlob，因为重播还需要
+
+        updateProgress(50, '写入文件中...');
+
+        // 获取 BaseDirectory 枚举
+        var BD = window.__TAURI__.fs.BaseDirectory;
+        var downloadDir = BD ? (BD.Download || 7) : 7;
+        var videoDir = BD ? (BD.Video || 12) : 12;
+
+        var saved = false;
+
+        // 尝试 writeFile (Tauri2 新API)
+        if (!saved && typeof window.__TAURI__.fs.writeFile === 'function') {
+          try {
+            console.log('Save: writeFile to Download dir');
+            await window.__TAURI__.fs.writeFile(fileName, uint8array, { baseDir: downloadDir });
+            saved = true;
+            console.log('Save: writeFile to Download succeeded');
+          } catch(e1) {
+            console.log('Save: Download dir failed, trying Video dir:', e1);
+            try {
+              await window.__TAURI__.fs.writeFile(fileName, uint8array, { baseDir: videoDir });
+              saved = true;
+              console.log('Save: writeFile to Video dir succeeded');
+            } catch(e2) {
+              console.log('Save: Video dir also failed:', e2);
+            }
+          }
+        }
+
+        // 尝试 writeBinaryFile (旧API)
+        if (!saved && typeof window.__TAURI__.fs.writeBinaryFile === 'function') {
+          try {
+            console.log('Save: writeBinaryFile (object style)');
+            await window.__TAURI__.fs.writeBinaryFile({
+              path: fileName,
+              contents: uint8array
+            }, { dir: downloadDir });
+            saved = true;
+          } catch(e3) {
+            console.log('Save: writeBinaryFile object style failed, trying separate args');
+            await window.__TAURI__.fs.writeBinaryFile(fileName, uint8array, { baseDir: downloadDir });
+            saved = true;
+          }
+        }
+
+        // 尝试 writeTextFile (base64 编码)
+        if (!saved && typeof window.__TAURI__.fs.writeTextFile === 'function') {
+          console.log('Save: writeTextFile with base64');
+          updateProgress(60, '编码视频数据...');
+          var reader = new FileReader();
+          var b64Promise = new Promise(function(resolve, reject) {
+            reader.onload = function() { resolve(reader.result); };
+            reader.onerror = function() { reject(reader.error); };
+          });
+          reader.readAsDataURL(savedBlob);
+          var b64Data = await b64Promise;
+          var b64Content = b64Data.split(',')[1];
+          updateProgress(80, '写入文件中...');
+          await window.__TAURI__.fs.writeTextFile({
+            path: fileName,
+            contents: b64Content
+          }, { dir: downloadDir });
+          saved = true;
+        }
+
+        if (saved) {
+          updateProgress(100, '保存成功！');
+          await new Promise(function(resolve) { setTimeout(resolve, 500); });
+          restoreBtn();
+          showToast('✓ 视频已保存到下载文件夹');
+          return;
+        }
+
+        console.warn('Save: No suitable Tauri FS method found');
+      } catch(e) {
+        console.error('Save: Tauri FS failed:', e);
+        // 继续尝试浏览器下载
+      }
+    } else {
+      console.log('Save: window.__TAURI__ not available');
+    }
+
+    // ==========================================
+    // 方法2: 浏览器 <a download> (桌面环境)
+    // ==========================================
+    if (!window.__TAURI__) {
+      updateProgress(70, '下载中...');
+      try {
+        var freshUrl = URL.createObjectURL(savedBlob);
+        var a = document.createElement('a');
+        a.href = freshUrl;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+
+        var clickEvent = document.createEvent('MouseEvents');
+        clickEvent.initEvent('click', true, true);
+        a.dispatchEvent(clickEvent);
+
+        updateProgress(100, '下载已启动');
+        await new Promise(function(resolve) { setTimeout(resolve, 800); });
+
+        setTimeout(function() {
+          try { if (a.parentElement) document.body.removeChild(a); } catch(e) {}
+          setTimeout(function() { try { URL.revokeObjectURL(freshUrl); } catch(e) {} }, 10000);
+        }, 1000);
+
         restoreBtn();
-        showToast('✓ 已在新窗口打开，请长按保存');
-        console.log('Save: download triggered via window.open');
-      } catch(e3) {
-        saveFail(e3);
+        showToast('✓ 视频已开始下载，请到相册或下载文件夹查看');
+        return;
+      } catch(e) {
+        console.error('Save: <a download> failed:', e);
       }
     }
+
+    // ==========================================
+    // 方法3: 长按保存提示（最后手段）
+    // ==========================================
+    updateProgress(100, '请长按保存');
+    await new Promise(function(resolve) { setTimeout(resolve, 500); });
+    restoreBtn();
+
+    if (typeof showLongPressSaveGuide === 'function') {
+      showLongPressSaveGuide(url);
+    } else {
+      showToast('自动保存失败，请长按视频画面选择保存到相册');
+    }
+
+  } catch(err) {
+    console.error('Save: Unexpected error:', err);
+    restoreBtn();
+    showToast('保存失败: ' + (err.message || err));
   }
 }
 
