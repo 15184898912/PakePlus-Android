@@ -5614,22 +5614,23 @@ function renderCompositeVideo(work, onComplete, onError) {
       var lineDuration = item.duration;
       var gap = 0.12; // 120ms gap between lines for natural pacing
 
-      // Schedule subtitle display to match audio timing
-      (function(idx, displayTime, hideTime) {
-        var showDelay = Math.max(0, (displayTime - audioCtx.currentTime) * 1000);
-        var hideDelay = Math.max(0, (hideTime - audioCtx.currentTime) * 1000);
-        var showTimer = setTimeout(function() {
-          currentSubtitle = subtitleLines[idx] || '';
-        }, showDelay);
-        var hideTimer = setTimeout(function() {
-          if (currentSubtitle === (subtitleLines[idx] || '')) {
-            currentSubtitle = '';
-          }
-        }, hideDelay);
-        scheduledTimers.push(showTimer, hideTimer);
-      })(lineIdx, currentTime, currentTime + lineDuration);
-
+      // Only schedule subtitle AND audio when buffer exists (prevents "subtitle without audio")
       if (item.buffer) {
+        // Schedule subtitle display to match audio timing
+        (function(idx, displayTime, hideTime) {
+          var showDelay = Math.max(0, (displayTime - audioCtx.currentTime) * 1000);
+          var hideDelay = Math.max(0, (hideTime - audioCtx.currentTime) * 1000);
+          var showTimer = setTimeout(function() {
+            currentSubtitle = subtitleLines[idx] || '';
+          }, showDelay);
+          var hideTimer = setTimeout(function() {
+            if (currentSubtitle === (subtitleLines[idx] || '')) {
+              currentSubtitle = '';
+            }
+          }, hideDelay);
+          scheduledTimers.push(showTimer, hideTimer);
+        })(lineIdx, currentTime, currentTime + lineDuration);
+
         // Schedule audio buffer playback at precise time
         var src = audioCtx.createBufferSource();
         src.buffer = item.buffer;
@@ -5639,6 +5640,8 @@ function renderCompositeVideo(work, onComplete, onError) {
         gain.connect(waMasterGain);
         src.start(currentTime);
         scheduledTtsSources.push(src);
+      } else {
+        console.warn('TTS line ' + (i+1) + ' no audio buffer, skipping subtitle too: "' + (subtitleLines[i]||'').substring(0,30) + '..."');
       }
 
       currentTime += lineDuration + gap;
@@ -6689,16 +6692,58 @@ function saveVideoToAlbum(url, title) {
       }
     } catch(e) { /* use original url */ }
 
-    overlay.innerHTML = '<div style="color:white;font-size:18px;font-weight:700;margin-bottom:8px;">💾 保存视频到相册</div>' +
-      '<div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:12px;text-align:center;line-height:1.8;max-width:320px;background:rgba(78,205,196,0.1);padding:10px 16px;border-radius:10px;border:1px solid rgba(78,205,196,0.3);">' +
-        '📌 <b>长按下方视频画面</b><br>在弹出菜单中选择<br><b>"保存视频"或"下载视频"</b><br>即可保存到手机相册</div>' +
-      '<video src="' + displayUrl + '" controls playsinline preload="auto" style="max-width:90%;max-height:40vh;border-radius:12px;background:#000;"></video>' +
-      '<div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:8px;">' + (saveTitle || '视频作品') + '</div>' +
-      '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center;">' +
-        '<a href="' + displayUrl + '" download="' + fileName + '" style="padding:10px 24px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:var(--editor-cyan);font-size:13px;cursor:pointer;text-decoration:none;">📥 下载到设备</a>' +
-        '<button style="padding:10px 24px;border-radius:50px;border:none;background:var(--red-start);color:white;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'long-press-save-overlay\').remove()">关闭</button>' +
+    // 轻量级UI：不使用<video>元素和<a download>，防止WebView内存崩溃
+    overlay.innerHTML = '<div style="color:white;font-size:20px;font-weight:700;margin-bottom:16px;">💾 保存视频到相册</div>' +
+      '<div style="color:rgba(255,255,255,0.9);font-size:14px;margin-bottom:20px;text-align:center;line-height:2;max-width:340px;background:rgba(78,205,196,0.08);padding:16px 20px;border-radius:12px;border:1px solid rgba(78,205,196,0.25);">' +
+        '<div style="font-size:16px;margin-bottom:8px;">📱 <b>方法一：点击下载</b></div>' +
+        '<div style="font-size:13px;color:rgba(255,255,255,0.7);">点击下方"下载视频"按钮<br>视频将保存到手机下载文件夹</div>' +
+        '<div style="font-size:16px;margin:12px 0 8px;">🔗 <b>方法二：新窗口打开</b></div>' +
+        '<div style="font-size:13px;color:rgba(255,255,255,0.7);">点击"新窗口打开"按钮<br>在新页面长按视频选择"保存视频"</div>' +
+      '</div>' +
+      '<div style="color:rgba(255,255,255,0.4);font-size:12px;margin-bottom:16px;">' + (saveTitle || '视频作品') + '</div>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">' +
+        '<button id="mobile-download-btn" style="padding:12px 28px;border-radius:50px;border:none;background:linear-gradient(135deg, #4EC9C6, #2196F3);color:white;font-size:14px;cursor:pointer;font-weight:600;">📥 下载视频</button>' +
+        '<button id="mobile-open-btn" style="padding:12px 28px;border-radius:50px;border:1px solid rgba(78,205,196,0.5);background:rgba(78,205,196,0.1);color:#4EC9C6;font-size:14px;cursor:pointer;">🔗 新窗口打开</button>' +
+        '<button style="padding:12px 28px;border-radius:50px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:14px;cursor:pointer;" onclick="document.getElementById(\'long-press-save-overlay\').remove()">关闭</button>' +
       '</div>';
     document.body.appendChild(overlay);
+
+    // 下载按钮：使用隐藏iframe下载（比<a download>更稳定，不会闪退）
+    var dlBtn = document.getElementById('mobile-download-btn');
+    if (dlBtn) {
+      dlBtn.onclick = function() {
+        try {
+          var iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = displayUrl;
+          document.body.appendChild(iframe);
+          setTimeout(function() {
+            if (iframe.parentElement) document.body.removeChild(iframe);
+          }, 30000);
+          showToast('✓ 视频下载中，请查看下载文件夹');
+        } catch(dlErr) {
+          console.error('Download via iframe failed:', dlErr);
+          try {
+            window.open(displayUrl, '_blank');
+            showToast('请在打开的页面中长按保存视频');
+          } catch(openErr) {
+            showToast('下载失败，请尝试新窗口打开');
+          }
+        }
+      };
+    }
+
+    // 新窗口打开按钮
+    var openBtn = document.getElementById('mobile-open-btn');
+    if (openBtn) {
+      openBtn.onclick = function() {
+        try {
+          window.open(displayUrl, '_blank');
+        } catch(e) {
+          try { window.location.href = displayUrl; } catch(e2) { showToast('无法打开新窗口'); }
+        }
+      };
+    }
 
     if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
   }
@@ -6735,28 +6780,42 @@ function saveVideoToAlbum(url, title) {
     return false;
   }
 
-  // 下载方法 (创建<a>标签)
+  // 下载方法 (优先使用iframe，避免<a download>在WebView中闪退)
   function tryDownload(blobData) {
     try {
       var blobUrl = (blobData instanceof Blob) ? URL.createObjectURL(blobData) : url;
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = fileName;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = blobUrl;
+      document.body.appendChild(iframe);
       setTimeout(function() {
-        if (a.parentElement) document.body.removeChild(a);
+        if (iframe.parentElement) document.body.removeChild(iframe);
         if (blobData instanceof Blob && blobUrl.startsWith('blob:')) {
           URL.revokeObjectURL(blobUrl);
         }
-      }, 5000);
+      }, 30000);
       if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
       showToast('✓ 视频下载中...');
     } catch(e) {
-      console.error('Download failed:', e);
-      if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
-      showLongPressSave(url, title, blobData);
+      console.error('iframe download failed, trying <a> tag:', e);
+      try {
+        var blobUrl2 = (blobData instanceof Blob) ? URL.createObjectURL(blobData) : url;
+        var a = document.createElement('a');
+        a.href = blobUrl2;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          if (a.parentElement) document.body.removeChild(a);
+        }, 5000);
+        if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+        showToast('✓ 视频下载中...');
+      } catch(e2) {
+        console.error('All download methods failed:', e2);
+        if (btn) { btn.textContent = '💾 保存到相册'; btn.style.opacity = '1'; }
+        showLongPressSave(url, title, blobData);
+      }
     }
   }
 
