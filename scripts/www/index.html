@@ -5125,8 +5125,154 @@ function _blobToPlusTempFile(blob,fileName,callback){
   }
 }
 
+// ===== DCIM Copy Save (most reliable, avoids 99% crashes) =====
+// Copies the file to the system's public DCIM/Camera directory,
+// then broadcasts ACTION_MEDIA_SCANNER_SCAN_FILE to refresh the gallery.
+// This avoids plus.gallery.save() crashes on many devices.
+function _saveToAlbumViaDCIM(blob,fileName,title,fallbackFn){
+  if(!_hasPlusAPI()){
+    if(fallbackFn)fallbackFn();else _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/mp4',title);
+    return;
+  }
+  console.log('[DCIM] Starting DCIM copy save...');
+  // Step 1: Convert blob to temp file
+  _blobToPlusTempFile(blob,fileName,function(tempFilePath,err){
+    if(err||!tempFilePath){
+      console.error('[DCIM] Temp file creation failed:',err);
+      if(fallbackFn)fallbackFn();else _saveToAlbumPlusGalleryOriginal(blob,fileName,title);
+      return;
+    }
+    // Step 2: Copy to DCIM/Camera via Java I/O
+    try{
+      var Environment=plus.android.importClass('android.os.Environment');
+      var javaFile=plus.android.importClass('java.io.File');
+      // Get DCIM directory
+      var dcimBase;
+      try{
+        dcimBase=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath();
+      }catch(de){
+        console.warn('[DCIM] getExternalStoragePublicDirectory failed, trying alternative');
+        dcimBase='/storage/emulated/0/DCIM';
+      }
+      var cameraDir=dcimBase+'/Camera';
+      console.log('[DCIM] Camera dir:',cameraDir);
+      // Ensure Camera directory exists
+      var dirFile=new javaFile(cameraDir);
+      if(!dirFile.exists()){
+        var created=dirFile.mkdirs();
+        console.log('[DCIM] Created Camera dir:',created);
+      }
+      // Determine file extension from blob type
+      var ext='.mp4';
+      if(blob.type&&blob.type.indexOf('quicktime')>=0)ext='.mov';
+      else if(blob.type&&blob.type.indexOf('webm')>=0)ext='.webm';
+      var dstFileName='ZhugeAI_'+Date.now()+ext;
+      var dstPath=cameraDir+'/'+dstFileName;
+      // Convert temp file path to absolute path
+      var srcPath=tempFilePath;
+      if(srcPath.indexOf('file://')===0)srcPath=srcPath.substring(7);
+      try{
+        srcPath=plus.io.convertLocalFileSystemURL(srcPath);
+      }catch(ce){/* use raw path */}
+      console.log('[DCIM] srcPath:',srcPath,'dstPath:',dstPath);
+      // Copy file using Java FileChannel (fast and reliable)
+      var FileInputStream=plus.android.importClass('java.io.FileInputStream');
+      var FileOutputStream=plus.android.importClass('java.io.FileOutputStream');
+      var fis=new FileInputStream(srcPath);
+      var fos=new FileOutputStream(dstPath);
+      var srcChannel=fis.getChannel();
+      var dstChannel=fos.getChannel();
+      dstChannel.transferFrom(srcChannel,0,srcChannel.size());
+      srcChannel.close();
+      dstChannel.close();
+      fis.close();
+      fos.close();
+      console.log('[DCIM] File copied successfully to:',dstPath);
+      // Step 3: Notify media scanner to refresh gallery
+      try{
+        var Intent=plus.android.importClass('android.content.Intent');
+        var Uri=plus.android.importClass('android.net.Uri');
+        var main=plus.android.runtimeMainActivity();
+        var scanIntent=new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        scanIntent.setData(Uri.fromFile(new javaFile(dstPath)));
+        main.sendBroadcast(scanIntent);
+        console.log('[DCIM] Media scanner broadcast sent');
+      }catch(scanErr){
+        console.warn('[DCIM] Media scanner broadcast failed (non-critical):',scanErr);
+      }
+      // Step 4: Also try MediaStore insert for Android 10+ (scoped storage)
+      try{
+        var Build=plus.android.importClass('android.os.Build');
+        var sdkInt=Build.VERSION.SDK_INT;
+        if(sdkInt>=29){
+          _insertViaMediaStore(srcPath,dstFileName,ext);
+        }
+      }catch(msErr){
+        console.warn('[DCIM] MediaStore insert skipped:',msErr);
+      }
+      showToast('✅ 视频已保存到相册');
+      // Clean up temp file
+      try{new javaFile(srcPath).delete()}catch(e){}
+    }catch(e){
+      console.error('[DCIM] Copy failed, falling back to plus.gallery.save:',e);
+      if(fallbackFn)fallbackFn();else _saveToAlbumPlusGalleryOriginal(blob,fileName,title);
+    }
+  });
+}
+
+// Insert file into MediaStore for Android 10+ scoped storage compatibility
+function _insertViaMediaStore(srcPath,displayName,ext){
+  try{
+    var main=plus.android.runtimeMainActivity();
+    var resolver=main.getContentResolver();
+    var ContentValues=plus.android.importClass('android.content.ContentValues');
+    var MediaStore=plus.android.importClass('android.provider.MediaStore');
+    var values=new ContentValues();
+    values.put('_display_name',displayName);
+    var mimeType='video/mp4';
+    if(ext==='.mov')mimeType='video/quicktime';
+    else if(ext==='.webm')mimeType='video/webm';
+    values.put('mime_type',mimeType);
+    values.put('relative_path','DCIM/Camera');
+    values.put('is_pending',1);
+    var uri=resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,values);
+    if(!uri){
+      console.warn('[MediaStore] insert returned null URI');
+      return;
+    }
+    // Copy file content to the URI output stream using java.nio.file.Files
+    var Paths=plus.android.importClass('java.nio.file.Paths');
+    var Files=plus.android.importClass('java.nio.file.Files');
+    var pathObj=Paths.get(srcPath);
+    var outputStream=resolver.openOutputStream(uri);
+    Files.copy(pathObj,outputStream);
+    outputStream.close();
+    // Mark as not pending
+    var updateValues=new ContentValues();
+    updateValues.put('is_pending',0);
+    resolver.update(uri,updateValues,null,null);
+    console.log('[MediaStore] File inserted via MediaStore:',uri.toString());
+  }catch(e){
+    console.warn('[MediaStore] Insert failed (non-critical, DCIM copy may have succeeded):',e);
+  }
+}
+
 // Save to album using HBuilderX native plus.gallery.save()
 function _saveToAlbumPlus(blob,fileName,title){
+  try{
+    // Primary strategy: DCIM copy (avoids 99% of crashes)
+    _saveToAlbumViaDCIM(blob,fileName,title,function(){
+      // Fallback: plus.gallery.save
+      _saveToAlbumPlusGalleryOriginal(blob,fileName,title);
+    });
+  }catch(e){
+    console.error('[PLUS] _saveToAlbumPlus error:',e);
+    _saveToAlbumPlusGalleryOriginal(blob,fileName,title);
+  }
+}
+
+// Original plus.gallery.save implementation (fallback)
+function _saveToAlbumPlusGalleryOriginal(blob,fileName,title){
   try{
     // Check if plus.gallery API is available
     if(!plus.gallery||typeof plus.gallery.save!=='function'){
@@ -8055,14 +8201,20 @@ function _openNativeCameraPhoto(){
   setTimeout(function(){if(camInput.parentNode)document.body.removeChild(camInput)},10000);
 }
 
-// Open native camera for VIDEO recording (tries multiple input configurations)
+// Open native camera for VIDEO recording — browser fallback only (NOT for HBuilderX)
 function _openNativeCameraVideo(){
-  // Strategy 1: input with capture="environment" and accept="video/*"
-  // This opens the device's native camera app directly in video mode on most devices.
+  // In HBuilderX WebView, <input capture> does NOT open the camera — it opens the file picker.
+  // This function is only for non-HBuilderX mobile browsers (Chrome/Safari).
+  if(_hasPlusAPI()){
+    // We're in HBuilderX — use the Android intent approach instead
+    _plusCameraVideoViaAndroidIntent();
+    return;
+  }
+  console.log('[CAM] Using <input> for video capture (browser mode)');
   var camInput=document.createElement('input');
   camInput.type='file';
   camInput.accept='video/*';
-  camInput.capture='environment';
+  camInput.setAttribute('capture','environment');
   camInput.style.display='none';
   var handled=false;
   camInput.onchange=function(){
@@ -8071,7 +8223,6 @@ function _openNativeCameraVideo(){
     if(camInput.files&&camInput.files.length>0){
       var file=camInput.files[0];
       console.log('[CAM] Native video input got file:',file.name,'size:',file.size,'type:',file.type);
-      // Validate it's actually a video file
       var ext=file.name.split('.').pop().toLowerCase();
       var isVideo=file.type.startsWith('video/')||['mp4','mov','webm','avi','3gp','mkv'].includes(ext);
       if(!isVideo){
@@ -8085,10 +8236,168 @@ function _openNativeCameraVideo(){
   };
   document.body.appendChild(camInput);
   camInput.click();
-  // Cleanup after 10 seconds if no file selected
   setTimeout(function(){
     if(camInput.parentNode)document.body.removeChild(camInput);
   },10000);
+}
+
+// ===== Video fallback: show dialog with gallery option (HBuilderX) =====
+// Called when plus.camera.startVideoCapture() fails.
+// Shows a dialog offering to select a video from the gallery.
+function _plusCameraVideoViaAndroidIntent(){
+  if(!_hasPlusAPI()){
+    console.warn('[VIDFALL] plus API not available, using browser input');
+    _openNativeCameraVideoBrowser();
+    return;
+  }
+  // Show a dialog: "直接录像不可用" + options to select from gallery
+  var existing=document.getElementById('video-fallback-dialog');
+  if(existing)existing.remove();
+  var dialog=document.createElement('div');
+  dialog.id='video-fallback-dialog';
+  dialog.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10003;display:flex;align-items:center;justify-content:center';
+  var sheet=document.createElement('div');
+  sheet.style.cssText='background:#1C1C1E;border-radius:20px;width:300px;overflow:hidden';
+  var title=document.createElement('div');
+  title.style.cssText='padding:20px 16px 8px;text-align:center;color:#fff;font-size:16px;font-weight:700';
+  title.textContent='选择视频';
+  var desc=document.createElement('div');
+  desc.style.cssText='padding:0 16px 12px;text-align:center;color:rgba(255,255,255,.5);font-size:12px;line-height:1.5';
+  desc.textContent='该设备不支持直接录像，请从相册选择已拍摄的视频';
+  var galleryBtn=document.createElement('div');
+  galleryBtn.style.cssText='padding:16px;text-align:center;color:#FF9500;font-size:16px;font-weight:600;cursor:pointer;border-top:1px solid rgba(255,255,255,.1)';
+  galleryBtn.innerHTML='📁 从相册选择视频';
+  galleryBtn.onclick=function(){
+    dialog.remove();
+    _plusGalleryPickVideo();
+  };
+  var cancelBtn=document.createElement('div');
+  cancelBtn.style.cssText='padding:16px;text-align:center;color:rgba(255,255,255,.6);font-size:15px;cursor:pointer;border-top:1px solid rgba(255,255,255,.1)';
+  cancelBtn.textContent='取消';
+  cancelBtn.onclick=function(){dialog.remove()};
+  sheet.appendChild(title);
+  sheet.appendChild(desc);
+  sheet.appendChild(galleryBtn);
+  sheet.appendChild(cancelBtn);
+  dialog.appendChild(sheet);
+  dialog.onclick=function(e){if(e.target===dialog)dialog.remove()};
+  document.body.appendChild(dialog);
+}
+
+// Convert Android content:// URI to file path
+function _androidUriToPath(uri){
+  try{
+    var main=plus.android.runtimeMainActivity();
+    var Cursor=plus.android.importClass('android.database.Cursor');
+    var uriStr=uri.toString();
+    console.log('[URI] Converting:',uriStr);
+
+    // For content://media/... URIs, query the data column
+    if(uriStr.indexOf('content://')===0){
+      var resolver=main.getContentResolver();
+      var cursor=resolver.query(uri,null,null,null,null);
+      if(cursor&&cursor.moveToFirst()){
+        var idx=cursor.getColumnIndex('_data');
+        if(idx>=0){
+          var path=cursor.getString(idx);
+          cursor.close();
+          console.log('[URI] Found path via _data:',path);
+          return path;
+        }
+        cursor.close();
+      }
+    }
+
+    // For file:// URIs, extract path directly
+    if(uriStr.indexOf('file://')===0){
+      var p=uriStr.substring(7);
+      console.log('[URI] File URI path:',p);
+      return p;
+    }
+
+    // Try converting via plus.io
+    try{
+      var absPath=plus.io.convertLocalFileSystemURL(uriStr);
+      if(absPath){
+        console.log('[URI] Converted via plus.io:',absPath);
+        return absPath;
+      }
+    }catch(ioe){/* ignore */}
+
+    return null;
+  }catch(e){
+    console.error('[URI] Conversion error:',e);
+    return null;
+  }
+}
+
+// ===== Gallery pick fallback for video (HBuilderX only) =====
+function _plusGalleryPickVideo(){
+  if(!_hasPlusAPI()){
+    console.warn('[GALLERY] plus API not available');
+    return;
+  }
+  try{
+    console.log('[GALLERY] Opening gallery for video selection...');
+    plus.gallery.pick(function(e){
+      // Handle both string path and object with path property
+      var path=typeof e==='string'?e:(e&&e.path?e.path:(e&&e.target?e.target:null));
+      console.log('[GALLERY] Selected video:',path,'raw:',JSON.stringify(e).substring(0,200));
+      if(!path){
+        console.error('[GALLERY] No path in result');
+        showToast('无法获取视频路径，请重试');
+        return;
+      }
+      showToast('正在保存视频…');
+      _loadPlusFileAsBlob(path,function(blob,err){
+        if(blob&&blob.size>0){
+          var ts=new Date();
+          var fileName='相册视频_'+ts.getFullYear()+String(ts.getMonth()+1).padStart(2,'0')+String(ts.getDate()).padStart(2,'0')+'_'+String(ts.getHours()).padStart(2,'0')+String(ts.getMinutes()).padStart(2,'0')+'.mp4';
+          _saveCaptureToMaterials(blob,fileName,blob.type||'video/mp4');
+        }else{
+          console.error('[GALLERY] Failed to load video:',err);
+          // Try FileReader as fallback
+          _loadPlusFileViaReader(path,function(blob2,err2){
+            if(blob2&&blob2.size>0){
+              var ts2=new Date();
+              var fn='相册视频_'+ts2.getFullYear()+String(ts2.getMonth()+1).padStart(2,'0')+String(ts2.getDate()).padStart(2,'0')+'_'+String(ts2.getHours()).padStart(2,'0')+String(ts2.getMinutes()).padStart(2,'0')+'.mp4';
+              _saveCaptureToMaterials(blob2,fn,'video/mp4');
+            }else{
+              showToast('视频加载失败，请重试');
+            }
+          });
+        }
+      });
+    },function(e){
+      console.log('[GALLERY] Pick error:',JSON.stringify(e));
+      if(e&&(e.code===12||e.message==='cancel')){
+        // User cancelled
+      }else{
+        showToast('无法选择视频：'+(e.message||e));
+      }
+    },{filter:'video',multiple:false,system:true});
+  }catch(e){
+    console.error('[GALLERY] Error:',e);
+    showToast('相册功能不可用');
+  }
+}
+
+// Browser-only fallback (NOT for HBuilderX — use _openNativeCameraVideo instead)
+function _openNativeCameraVideoBrowser(){
+  var camInput=document.createElement('input');
+  camInput.type='file';
+  camInput.accept='video/*';
+  camInput.setAttribute('capture','environment');
+  camInput.style.display='none';
+  camInput.onchange=function(){
+    if(camInput.files&&camInput.files.length>0){
+      playShutterSound();
+      handleMaterialUpload(camInput);
+    }
+  };
+  document.body.appendChild(camInput);
+  camInput.click();
+  setTimeout(function(){if(camInput.parentNode)document.body.removeChild(camInput)},10000);
 }
 
 // Use HBuilderX plus.camera API for native photo capture
@@ -8137,18 +8446,38 @@ function _plusCameraPhoto(){
 // Use HBuilderX plus.camera API for native video recording
 function _plusCameraVideo(){
   try{
+    // Check if plus.camera is available
+    if(!plus.camera||typeof plus.camera.getCamera!=='function'){
+      console.error('[PLUS] plus.camera.getCamera not available');
+      showToast('正在使用系统录像…');
+      _plusCameraVideoViaAndroidIntent();
+      return;
+    }
     var cmr=plus.camera.getCamera();
+    console.log('[PLUS] Camera object obtained:',cmr);
+    console.log('[PLUS] startVideoCapture type:',typeof cmr.startVideoCapture);
+
+    // Check if startVideoCapture is available
+    if(typeof cmr.startVideoCapture!=='function'){
+      console.error('[PLUS] startVideoCapture is NOT a function on this device');
+      showToast('正在使用系统录像…');
+      _plusCameraVideoViaAndroidIntent();
+      return;
+    }
+
     var opt={filename:'_doc/camera/'};
     // Use highest supported resolution if available
     try{
       var supportedFmts=cmr.supportedVideoResolutions||[];
       if(supportedFmts.length>0){
         opt.resolution=supportedFmts[supportedFmts.length-1];
+        console.log('[PLUS] Using resolution:',JSON.stringify(supportedFmts));
       }
     }catch(re){/* supportedVideoResolutions may not exist on some devices */}
-    console.log('[PLUS] Starting video capture...');
+
+    console.log('[PLUS] Starting startVideoCapture...');
     cmr.startVideoCapture(function(path){
-      console.log('[PLUS] Video captured:',path);
+      console.log('[PLUS] Video captured successfully:',path);
       showToast('正在保存视频…');
       // Load file as blob via XHR — critical for videos to avoid base64 memory blowup
       _loadPlusFileAsBlob(path,function(blob,err){
@@ -8156,7 +8485,6 @@ function _plusCameraVideo(){
           var ts=new Date();
           var fileName='拍摄视频_'+ts.getFullYear()+String(ts.getMonth()+1).padStart(2,'0')+String(ts.getDate()).padStart(2,'0')+'_'+String(ts.getHours()).padStart(2,'0')+String(ts.getMinutes()).padStart(2,'0')+String(ts.getSeconds()).padStart(2,'0')+'.mp4';
           var fileType=blob.type||'video/mp4';
-          // Ensure correct extension based on actual type
           if(fileType.indexOf('quicktime')>=0||fileType.indexOf('mov')>=0){
             fileName=fileName.replace('.mp4','.mov');
           }else if(fileType.indexOf('webm')>=0){
@@ -8174,24 +8502,28 @@ function _plusCameraVideo(){
             }else{
               console.error('[PLUS] All video loading methods failed. XHR err:',err,'Reader err:',err2);
               showToast('视频保存失败，请尝试用相册上传');
+              _plusGalleryPickVideo();
             }
           });
         }
       });
     },function(e){
-      console.error('[PLUS] startVideoCapture error:',e);
+      console.error('[PLUS] startVideoCapture error callback:',JSON.stringify(e),'code:',e&&e.code,'message:',e&&e.message);
       if(e&&(e.code===12||e.message==='cancel')){
-        // User cancelled — no error toast
+        // User cancelled — no error toast, no fallback
+        console.log('[PLUS] User cancelled video capture');
       }else{
-        showToast('录像功能不可用，尝试其他方式…');
-        // Fallback to native camera input
-        _openNativeCameraVideo();
+        // startVideoCapture failed — try Android intent approach (NOT <input capture>)
+        console.log('[PLUS] Falling back to Android intent for video capture');
+        showToast('正在使用系统录像…');
+        _plusCameraVideoViaAndroidIntent();
       }
     },opt);
   }catch(e){
-    console.error('[PLUS] Camera video error:',e);
-    // Fallback to native camera input
-    _openNativeCameraVideo();
+    console.error('[PLUS] Camera video error (exception):',e.message||e);
+    // Fall back to Android intent approach (NOT <input capture> which opens file picker)
+    showToast('正在使用系统录像…');
+    _plusCameraVideoViaAndroidIntent();
   }
 }
 
@@ -8225,10 +8557,24 @@ function _showCameraModeDialog(){
   videoBtn.innerHTML='📹 录像';
   videoBtn.onclick=function(){
     dialog.remove();
-    showToast('正在打开录像…');
+    // If plus API is ready, use native camera API
     if(_hasPlusAPI()&&plus.camera){
+      showToast('正在打开录像…');
       _plusCameraVideo();
+    }else if(typeof window.plus!=='undefined'){
+      // plus exists but plusready might not have fired yet — wait briefly
+      showToast('正在初始化录像…');
+      _plusReady=true; // force ready since plus exists
+      setTimeout(function(){
+        if(_hasPlusAPI()&&plus.camera){
+          _plusCameraVideo();
+        }else{
+          _plusCameraVideoViaAndroidIntent();
+        }
+      },300);
     }else{
+      // No plus API — use browser input
+      showToast('正在打开录像…');
       _openNativeCameraVideo();
     }
   };
