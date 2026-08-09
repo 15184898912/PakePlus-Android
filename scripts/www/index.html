@@ -7938,26 +7938,337 @@ function _openNativeCamera(acceptType){
   setTimeout(function(){if(camInput.parentNode)document.body.removeChild(camInput)},10000);
 }
 
-async function openCamera(){
-  // ===== MOBILE: Use native camera app directly (most reliable in WebView) =====
-  if(_isMobileDevice()){
-    // On mobile, directly open native camera via file input with capture attribute
-    // This is more reliable than getUserMedia in WebView environments
+// ===== Shared helper: save a Blob to materials IndexedDB =====
+function _saveCaptureToMaterials(blob,fileName,fileType){
+  var item={name:fileName,blob:blob,size:blob.size,type:fileType,createdAt:Date.now()};
+  return dbAdd('materials',item).then(function(){
+    showToast('已保存到素材库');
+    renderMaterials();
+  }).catch(function(e){
+    console.error('Save capture error:',e);
+    showToast('保存失败: '+(e.message||e));
+  });
+}
+
+// ===== Shared helper: load a plus.io file path as Blob via XMLHttpRequest =====
+// This avoids the memory blowup of base64-encoding large videos with plus.io.FileReader.
+function _loadPlusFileAsBlob(path,callback){
+  var absPath=plus.io.convertLocalFileSystemURL(path);
+  console.log('[PLUS] Loading file as blob:',absPath);
+  // Method 1: XMLHttpRequest with responseType='blob' (most reliable for local files)
+  try{
+    var xhr=new XMLHttpRequest();
+    xhr.open('GET',absPath,true);
+    xhr.responseType='blob';
+    xhr.timeout=30000;
+    xhr.onload=function(){
+      if((xhr.status===200||xhr.status===0)&&xhr.response){
+        console.log('[PLUS] XHR blob loaded, size:',xhr.response.size);
+        callback(xhr.response,null);
+      }else{
+        console.error('[PLUS] XHR bad status:',xhr.status);
+        callback(null,'HTTP '+xhr.status);
+      }
+    };
+    xhr.onerror=function(){
+      console.error('[PLUS] XHR error, trying fetch...');
+      // Method 2: fetch API
+      try{
+        fetch(absPath).then(function(res){
+          if(!res.ok)throw new Error('fetch status '+res.status);
+          return res.blob();
+        }).then(function(blob){
+          console.log('[PLUS] fetch blob loaded, size:',blob.size);
+          callback(blob,null);
+        }).catch(function(fetchErr){
+          console.error('[PLUS] fetch failed:',fetchErr);
+          callback(null,fetchErr.message||'fetch failed');
+        });
+      }catch(fe){
+        callback(null,'fetch not available');
+      }
+    };
+    xhr.ontimeout=function(){
+      console.error('[PLUS] XHR timeout');
+      callback(null,'timeout');
+    };
+    xhr.send();
+  }catch(e){
+    console.error('[PLUS] XHR setup error:',e);
+    callback(null,e.message||'xhr error');
+  }
+}
+
+// ===== Shared helper: load plus.io file as Blob via plus.io.FileReader (last resort) =====
+// Uses base64 encoding — only suitable for small files (photos, short clips).
+function _loadPlusFileViaReader(path,callback){
+  plus.io.resolveLocalFileSystemURL(path,function(entry){
+    entry.file(function(file){
+      var reader=new plus.io.FileReader();
+      reader.onloadend=function(e){
+        try{
+          var base64Data=e.target.result;
+          if(!base64Data||base64Data.indexOf(',')<0){
+            callback(null,'invalid data URL');
+            return;
+          }
+          var byteString=atob(base64Data.split(',')[1]);
+          var arrayBuffer=new ArrayBuffer(byteString.length);
+          var uint8Array=new Uint8Array(arrayBuffer);
+          for(var i=0;i<byteString.length;i++){
+            uint8Array[i]=byteString.charCodeAt(i);
+          }
+          var mime=file.type||'application/octet-stream';
+          var blob=new Blob([uint8Array],{type:mime});
+          callback(blob,null);
+        }catch(err){
+          callback(null,err.message||'reader parse error');
+        }
+      };
+      reader.onerror=function(e){
+        callback(null,'FileReader error');
+      };
+      reader.readAsDataURL(file);
+    },function(e){
+      callback(null,'entry.file error: '+(e.message||e.code));
+    });
+  },function(e){
+    callback(null,'resolveLocalFileSystemURL error: '+(e.message||e.code));
+  });
+}
+
+// Open native camera for PHOTO only (opens camera in photo mode)
+function _openNativeCameraPhoto(){
+  var camInput=document.createElement('input');
+  camInput.type='file';
+  camInput.accept='image/*';
+  camInput.capture='environment';
+  camInput.style.display='none';
+  camInput.onchange=function(){
+    if(camInput.files&&camInput.files.length>0){
+      playShutterSound();
+      handleMaterialUpload(camInput);
+    }
+  };
+  document.body.appendChild(camInput);
+  camInput.click();
+  setTimeout(function(){if(camInput.parentNode)document.body.removeChild(camInput)},10000);
+}
+
+// Open native camera for VIDEO recording (tries multiple input configurations)
+function _openNativeCameraVideo(){
+  // Strategy 1: input with capture="environment" and accept="video/*"
+  // This opens the device's native camera app directly in video mode on most devices.
+  var camInput=document.createElement('input');
+  camInput.type='file';
+  camInput.accept='video/*';
+  camInput.capture='environment';
+  camInput.style.display='none';
+  var handled=false;
+  camInput.onchange=function(){
+    if(handled)return;
+    handled=true;
+    if(camInput.files&&camInput.files.length>0){
+      var file=camInput.files[0];
+      console.log('[CAM] Native video input got file:',file.name,'size:',file.size,'type:',file.type);
+      // Validate it's actually a video file
+      var ext=file.name.split('.').pop().toLowerCase();
+      var isVideo=file.type.startsWith('video/')||['mp4','mov','webm','avi','3gp','mkv'].includes(ext);
+      if(!isVideo){
+        console.warn('[CAM] File is not video, got:',file.type,ext);
+        showToast('请录制视频文件');
+        return;
+      }
+      playShutterSound();
+      handleMaterialUpload(camInput);
+    }
+  };
+  document.body.appendChild(camInput);
+  camInput.click();
+  // Cleanup after 10 seconds if no file selected
+  setTimeout(function(){
+    if(camInput.parentNode)document.body.removeChild(camInput);
+  },10000);
+}
+
+// Use HBuilderX plus.camera API for native photo capture
+function _plusCameraPhoto(){
+  try{
+    var cmr=plus.camera.getCamera();
+    cmr.captureImage(function(path){
+      console.log('[PLUS] Photo captured:',path);
+      showToast('正在保存照片…');
+      // Load file as blob via XHR (avoids base64 memory issues)
+      _loadPlusFileAsBlob(path,function(blob,err){
+        if(blob){
+          var ts=new Date();
+          var fileName='拍摄照片_'+ts.getFullYear()+String(ts.getMonth()+1).padStart(2,'0')+String(ts.getDate()).padStart(2,'0')+'_'+String(ts.getHours()).padStart(2,'0')+String(ts.getMinutes()).padStart(2,'0')+String(ts.getSeconds()).padStart(2,'0')+'.jpg';
+          _saveCaptureToMaterials(blob,fileName,'image/jpeg');
+        }else{
+          // Fallback: try plus.io.FileReader (base64) for small photos
+          console.warn('[PLUS] XHR failed for photo, trying FileReader:',err);
+          _loadPlusFileViaReader(path,function(blob2,err2){
+            if(blob2){
+              var ts2=new Date();
+              var fn='拍摄照片_'+ts2.getFullYear()+String(ts2.getMonth()+1).padStart(2,'0')+String(ts2.getDate()).padStart(2,'0')+'_'+String(ts2.getHours()).padStart(2,'0')+String(ts2.getMinutes()).padStart(2,'0')+String(ts2.getSeconds()).padStart(2,'0')+'.jpg';
+              _saveCaptureToMaterials(blob2,fn,'image/jpeg');
+            }else{
+              console.error('[PLUS] All photo loading methods failed:',err2);
+              showToast('照片保存失败，请重试');
+            }
+          });
+        }
+      });
+    },function(e){
+      console.error('[PLUS] captureImage error:',e);
+      if(e&&(e.code===12||e.message==='cancel')){
+        // User cancelled — no error toast
+      }else{
+        showToast('拍照失败，请重试');
+        _openNativeCameraPhoto();
+      }
+    },{filename:'_doc/camera/'});
+  }catch(e){
+    console.error('[PLUS] Camera photo error:',e);
+    _openNativeCameraPhoto();
+  }
+}
+
+// Use HBuilderX plus.camera API for native video recording
+function _plusCameraVideo(){
+  try{
+    var cmr=plus.camera.getCamera();
+    var opt={filename:'_doc/camera/'};
+    // Use highest supported resolution if available
+    try{
+      var supportedFmts=cmr.supportedVideoResolutions||[];
+      if(supportedFmts.length>0){
+        opt.resolution=supportedFmts[supportedFmts.length-1];
+      }
+    }catch(re){/* supportedVideoResolutions may not exist on some devices */}
+    console.log('[PLUS] Starting video capture...');
+    cmr.startVideoCapture(function(path){
+      console.log('[PLUS] Video captured:',path);
+      showToast('正在保存视频…');
+      // Load file as blob via XHR — critical for videos to avoid base64 memory blowup
+      _loadPlusFileAsBlob(path,function(blob,err){
+        if(blob&&blob.size>0){
+          var ts=new Date();
+          var fileName='拍摄视频_'+ts.getFullYear()+String(ts.getMonth()+1).padStart(2,'0')+String(ts.getDate()).padStart(2,'0')+'_'+String(ts.getHours()).padStart(2,'0')+String(ts.getMinutes()).padStart(2,'0')+String(ts.getSeconds()).padStart(2,'0')+'.mp4';
+          var fileType=blob.type||'video/mp4';
+          // Ensure correct extension based on actual type
+          if(fileType.indexOf('quicktime')>=0||fileType.indexOf('mov')>=0){
+            fileName=fileName.replace('.mp4','.mov');
+          }else if(fileType.indexOf('webm')>=0){
+            fileName=fileName.replace('.mp4','.webm');
+          }
+          _saveCaptureToMaterials(blob,fileName,fileType);
+        }else{
+          // Fallback: try plus.io.FileReader (base64) — may work for short clips
+          console.warn('[PLUS] XHR failed for video, trying FileReader:',err);
+          _loadPlusFileViaReader(path,function(blob2,err2){
+            if(blob2&&blob2.size>0){
+              var ts2=new Date();
+              var fn='拍摄视频_'+ts2.getFullYear()+String(ts2.getMonth()+1).padStart(2,'0')+String(ts2.getDate()).padStart(2,'0')+'_'+String(ts2.getHours()).padStart(2,'0')+String(ts2.getMinutes()).padStart(2,'0')+String(ts2.getSeconds()).padStart(2,'0')+'.mp4';
+              _saveCaptureToMaterials(blob2,fn,'video/mp4');
+            }else{
+              console.error('[PLUS] All video loading methods failed. XHR err:',err,'Reader err:',err2);
+              showToast('视频保存失败，请尝试用相册上传');
+            }
+          });
+        }
+      });
+    },function(e){
+      console.error('[PLUS] startVideoCapture error:',e);
+      if(e&&(e.code===12||e.message==='cancel')){
+        // User cancelled — no error toast
+      }else{
+        showToast('录像功能不可用，尝试其他方式…');
+        // Fallback to native camera input
+        _openNativeCameraVideo();
+      }
+    },opt);
+  }catch(e){
+    console.error('[PLUS] Camera video error:',e);
+    // Fallback to native camera input
+    _openNativeCameraVideo();
+  }
+}
+
+// Show camera mode selection dialog (mobile)
+function _showCameraModeDialog(){
+  // Remove existing dialog if any
+  var existing=document.getElementById('camera-mode-dialog');
+  if(existing)existing.remove();
+  var dialog=document.createElement('div');
+  dialog.id='camera-mode-dialog';
+  dialog.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10002;display:flex;align-items:center;justify-content:center';
+  var sheet=document.createElement('div');
+  sheet.style.cssText='background:#1C1C1E;border-radius:20px;width:280px;overflow:hidden';
+  var title=document.createElement('div');
+  title.style.cssText='padding:20px 16px 12px;text-align:center;color:#fff;font-size:16px;font-weight:700';
+  title.textContent='请选择拍摄模式';
+  var photoBtn=document.createElement('div');
+  photoBtn.style.cssText='padding:16px;text-align:center;color:#30D158;font-size:16px;font-weight:600;cursor:pointer;border-top:1px solid rgba(255,255,255,.1)';
+  photoBtn.innerHTML='📷 拍照';
+  photoBtn.onclick=function(){
+    dialog.remove();
     showToast('正在打开相机…');
-    _openNativeCamera('image/*,video/*');
+    if(_hasPlusAPI()&&plus.camera){
+      _plusCameraPhoto();
+    }else{
+      _openNativeCameraPhoto();
+    }
+  };
+  var videoBtn=document.createElement('div');
+  videoBtn.style.cssText='padding:16px;text-align:center;color:#FF9500;font-size:16px;font-weight:600;cursor:pointer;border-top:1px solid rgba(255,255,255,.1)';
+  videoBtn.innerHTML='📹 录像';
+  videoBtn.onclick=function(){
+    dialog.remove();
+    showToast('正在打开录像…');
+    if(_hasPlusAPI()&&plus.camera){
+      _plusCameraVideo();
+    }else{
+      _openNativeCameraVideo();
+    }
+  };
+  var cancelBtn=document.createElement('div');
+  cancelBtn.style.cssText='padding:16px;text-align:center;color:rgba(255,255,255,.6);font-size:15px;cursor:pointer;border-top:1px solid rgba(255,255,255,.1)';
+  cancelBtn.textContent='取消';
+  cancelBtn.onclick=function(){dialog.remove()};
+  sheet.appendChild(title);
+  sheet.appendChild(photoBtn);
+  sheet.appendChild(videoBtn);
+  sheet.appendChild(cancelBtn);
+  dialog.appendChild(sheet);
+  // Close on backdrop click
+  dialog.onclick=function(e){
+    if(e.target===dialog)dialog.remove();
+  };
+  document.body.appendChild(dialog);
+}
+
+async function openCamera(){
+  // ===== MOBILE: Show camera mode selection dialog =====
+  // On mobile, getUserMedia/MediaRecorder may not work reliably in WebView.
+  // Instead, we show a dialog to let user choose photo or video mode,
+  // then use the native camera app (via file input with specific accept type)
+  // or HBuilderX plus.camera API for native capture.
+  if(_isMobileDevice()){
+    _showCameraModeDialog();
     return;
   }
   // ===== DESKTOP: Use getUserMedia camera overlay =====
   // Check for secure context (getUserMedia requires HTTPS or localhost)
   if(!window.isSecureContext&&location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){
     showToast('请通过localhost或HTTPS访问以使用摄像头');
-    _openNativeCamera('image/*,video/*');
+    _showCameraModeDialog();
     return;
   }
   // Check if getUserMedia is available
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     showToast('当前环境不支持摄像头，请使用相册上传');
-    _openNativeCamera('image/*,video/*');
+    _showCameraModeDialog();
     return;
   }
   var overlay=document.getElementById('camera-overlay');
@@ -7983,9 +8294,9 @@ async function openCamera(){
     }catch(e2){
       console.error('Camera fallback error:',e2);
       closeCamera();
-      // Fallback to native camera file input
-      showToast('无法访问摄像头，正在打开系统相机…');
-      _openNativeCamera('image/*,video/*');
+      // Fallback to camera mode selection dialog
+      showToast('无法访问摄像头，请选择拍摄模式');
+      _showCameraModeDialog();
     }
   }
 }
