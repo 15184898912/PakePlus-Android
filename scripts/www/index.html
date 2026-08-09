@@ -2477,6 +2477,9 @@ const VOICES=[
 ];
 let selectedVoice=1;
 
+// 欢迎语：嵌入到每个配音试听中，不单独触发（避免浪费API积分）
+var PREVIEW_TEXT='欢迎来到正商诸葛AI，让我们一起打造爆款视频';
+
 const BGM_TRACKS=[
   {id:0,name:'✦ 智能推荐',meta:'',recommend:true},
   {id:1,name:'喜庆迎宾曲',realName:'喜庆迎宾曲 · Happy Fun',meta:'MP3 · 欢快/趣味 · 人设类',file:'bgm/喜庆迎宾曲.mp3',duration:97},
@@ -2796,13 +2799,13 @@ var _previewToken=0;
 var _activePreviewAudios=[];
 // Track all parallel speakText Audio elements (for stopAllAudio)
 var _speakTextAudios=[];
-// Global welcome audio reference (assigned by DOMContentLoaded callback)
+// Global welcome audio reference (legacy, kept for stopAllAudio safety)
 var _welcomeAudio=null;
 // TTS Preview Cache: stores blob URLs by voice ID for instant playback on repeat clicks
 var _ttsPreviewCache={};
 
 // ===== GLOBAL: Stop ALL audio sources (prevents any overlap) =====
-// Call this before playing any new audio (speakText, previewVoice, playWelcome).
+// Call this before playing any new audio (speakText, previewVoice).
 // Incrementing tokens invalidates ALL pending async fallbacks from previous calls,
 // preventing the "src=''" error event from triggering unwanted Baidu fallbacks.
 function stopAllAudio(){
@@ -2933,7 +2936,7 @@ var _prewarmAborted=false;
     if(!v||!v.sample)return;
     var cacheKey='v1';
     if(_ttsPreviewCache[cacheKey])return;
-    var encodedText=encodeURIComponent(v.sample);
+    var encodedText=encodeURIComponent(PREVIEW_TEXT);
     if(serverOk){
       var localUrl='/api/tts?text='+encodedText+'&voice=1&rate=100&pitch='+(v.pitch||1.0);
       fetch(localUrl).then(function(r){return r.blob()}).then(function(b){
@@ -3064,7 +3067,7 @@ function _previewVoiceFast(id,v,myToken){
   var speedMul=(voiceSpeed/100)*0.6+0.7;
   var spd=Math.max(1,Math.min(9,Math.round(3+(v.rate||1.0)*speedMul*3)));
   var pit=Math.max(1,Math.min(9,Math.round(3+(v.pitch||1.0)*3)));
-  var encodedText=encodeURIComponent(v.sample);
+  var encodedText=encodeURIComponent(PREVIEW_TEXT);
   // Multiple TTS URL formats — different endpoints/domains for maximum reliability
   var baiduUrl1='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&ctp=1&text='+encodedText;
   var baiduUrl2='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&text='+encodedText;
@@ -3167,7 +3170,7 @@ function _previewVoiceFast(id,v,myToken){
   // ===== DECIDE PATH based on server availability =====
   if(_serverAvailable===true){
     // Desktop: local server (fastest), Baidu backup after 1s
-    var previewUrl='/api/tts?text='+encodeURIComponent(v.sample)+'&voice='+id+'&rate='+voiceSpeed+'&pitch='+(v.pitch||1.0);
+    var previewUrl='/api/tts?text='+encodeURIComponent(PREVIEW_TEXT)+'&voice='+id+'&rate='+voiceSpeed+'&pitch='+(v.pitch||1.0);
     showToast('正在加载 '+v.name+' 试听...');
     tryAudio(previewUrl,'local',2500);
     // If local server hasn't responded in 1s, try Baidu in parallel
@@ -3213,7 +3216,7 @@ function _previewVoiceSS(id,v){
   // Use the current preview token to prevent overlapping speechSynthesis
   var ssToken=++_previewToken;
   if(!voicesLoaded){loadVoices()}
-  var u=new SpeechSynthesisUtterance(v.sample);
+  var u=new SpeechSynthesisUtterance(PREVIEW_TEXT);
   u.lang=v.lang||'zh-CN';
   var speedMul=(voiceSpeed/100)*0.6+0.7;
   u.rate=Math.max(0.7,Math.min(1.3,(v.rate||1.0)*speedMul));
@@ -3252,7 +3255,7 @@ function _previewVoiceSS(id,v){
     }
     setTimeout(function(){
       if(ssToken!==_previewToken)return;
-      var u2=new SpeechSynthesisUtterance(v.sample);
+      var u2=new SpeechSynthesisUtterance(PREVIEW_TEXT);
       u2.lang=v.lang||'zh-CN';
       u2.rate=1.0;
       u2.pitch=1.0;
@@ -8397,35 +8400,6 @@ document.addEventListener('DOMContentLoaded',function(){
     });
   }catch(e){
     console.error('[INIT] sync error:',e);
-  }
-  // ===== WELCOME VOICE: 欢迎来到正商诸葛AI，让我们一起打造爆款视频 =====
-  // Strategy: Desktop → auto play after 1.5s; Mobile → play on first user interaction.
-  // Uses speakText() which handles both local server (desktop) and Baidu TTS (mobile).
-  var _welcomePlayed=false;
-  function playWelcome(){
-    if(_welcomePlayed)return;
-    _welcomePlayed=true;
-    // Remove interaction listeners if they were set
-    document.removeEventListener('touchend',_onFirstInteraction,true);
-    document.removeEventListener('click',_onFirstInteraction,true);
-    console.log('[WELCOME] Playing welcome voice');
-    // speakText handles server availability check and mobile fallback automatically
-    speakText('欢迎来到正商诸葛AI，让我们一起打造爆款视频');
-  }
-  // First-interaction handler (for mobile autoplay restriction)
-  function _onFirstInteraction(e){
-    playWelcome();
-  }
-  // Detect touch device (mobile) — these require user gesture for audio
-  var _isTouchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0;
-  if(_isTouchDevice){
-    // Mobile: wait for first user interaction
-    console.log('[WELCOME] Touch device detected, waiting for first interaction');
-    document.addEventListener('touchend',_onFirstInteraction,true);
-    document.addEventListener('click',_onFirstInteraction,true);
-  }else{
-    // Desktop: try autoplay after 1.5s delay
-    setTimeout(function(){playWelcome()},1500);
   }
 });
 </script>
