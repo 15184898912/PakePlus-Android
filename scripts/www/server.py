@@ -96,7 +96,8 @@ async def generate_tts_edge(text, voice_id, rate_pct, pitch_val):
             chunk_text, voice_name, rate=rate_str, pitch=pitch_str
         )
         async for chunk in communicate.stream():
-            if chunk["type"] == edge_tts.CommunicateType.Audio:
+            # edge-tts 7.x: chunk["type"] is a string ("audio" or "SentenceBoundary")
+            if chunk.get("type") == "audio":
                 all_audio.write(chunk["data"])
 
     return all_audio.getvalue()
@@ -195,15 +196,10 @@ class TTSRequestHandler(http.server.SimpleHTTPRequestHandler):
         print(f"[TTS] edge-tts request: voice={voice_id}, rate={rate_pct}, pitch={pitch_val}, text={text[:50]}...")
 
         try:
-            # 在新的事件循环中运行异步TTS
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                audio_data = loop.run_until_complete(
-                    generate_tts_edge(text, voice_id, rate_pct, pitch_val)
-                )
-            finally:
-                loop.close()
+            # 使用 asyncio.run 自动管理事件循环生命周期（含清理）
+            audio_data = asyncio.run(
+                generate_tts_edge(text, voice_id, rate_pct, pitch_val)
+            )
 
             if audio_data and len(audio_data) > 100:
                 self.send_response(200)
