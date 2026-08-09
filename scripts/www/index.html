@@ -3430,38 +3430,47 @@ function selectTemplate(i){
 }
 function filterTemplates(){renderTemplates()}
 
+var _speakTextToken=0; // Token to prevent overlapping audio from stale fallbacks
 function speakText(text,opts){
   opts=opts||{};
   if(!text||text.length<2)return;
+  // ===== STOP ALL PREVIOUS AUDIO =====
+  // 1. Stop previous TTS Audio element
+  if(_speakTtsAudio){try{_speakTtsAudio.pause();_speakTtsAudio.src='';}catch(e){}}
+  // 2. Cancel speechSynthesis (prevents overlap with fallback path)
+  if(typeof speechSynthesis!=='undefined'){try{speechSynthesis.cancel()}catch(e){}}
+  // 3. Increment token: all stale fallback fetches will be invalidated
+  var myToken=++_speakTextToken;
   // KEY FIX: Use TTS Audio element directly instead of speechSynthesis
   // speechSynthesis is often broken on mobile browsers (API exists but produces no sound)
   // Audio element with /api/tts URL works reliably on both desktop and mobile
-  if(_speakTtsAudio){try{_speakTtsAudio.pause();_speakTtsAudio.src='';}catch(e){}}
   var ttsUrl='/api/tts?text='+encodeURIComponent(text)+'&voice=1&rate=100&pitch=1.0';
   _speakTtsAudio=new Audio(ttsUrl);
   _speakTtsAudio.volume=0.8;
   var ssFallback=false;
   _speakTtsAudio.addEventListener('error',function(){
-    if(ssFallback)return;
+    if(ssFallback||myToken!==_speakTextToken)return;
     ssFallback=true;
     console.log('[speakText] TTS Audio error, trying fallback');
-    _speakTextFallback(text,opts);
+    _speakTextFallback(text,opts,myToken);
   },{once:true});
   _speakTtsAudio.play().then(function(){
+    if(myToken!==_speakTextToken){try{_speakTtsAudio.pause()}catch(e){}return}
     console.log('[speakText] TTS audio playing');
   }).catch(function(e){
-    if(ssFallback)return;
+    if(ssFallback||myToken!==_speakTextToken)return;
     ssFallback=true;
     console.log('[speakText] TTS Audio play failed, trying fallback:',e.message||e);
-    _speakTextFallback(text,opts);
+    _speakTextFallback(text,opts,myToken);
   });
 }
 
 // speechSynthesis / external TTS fallback (used when /api/tts Audio fails)
-function _speakTextFallback(text,opts){
+function _speakTextFallback(text,opts,token){
   opts=opts||{};
+  if(token!==undefined&&token!==_speakTextToken){return} // Stale call, abort
   if(typeof speechSynthesis==='undefined'){
-    _speakTextViaTTS(text);
+    _speakTextViaTTS(text,token);
     return;
   }
   speechSynthesis.cancel();
@@ -3475,6 +3484,7 @@ function _speakTextFallback(text,opts){
   if(zhVoice){u.voice=zhVoice}
   u.onerror=function(){};
   setTimeout(function(){
+    if(token!==undefined&&token!==_speakTextToken){return} // Stale call, abort
     try{speechSynthesis.speak(u)}catch(e){}
   },50);
 }
@@ -3482,7 +3492,7 @@ function _speakTextFallback(text,opts){
 // TTS audio fallback for speakText (used on mobile where speechSynthesis is unavailable)
 // Uses same CORS proxy + blob URL approach that works for video rendering
 var _speakTtsAudio=null;
-function _speakTextViaTTS(text){
+function _speakTextViaTTS(text,token){
   if(!text||text.length<2)return;
   console.log('[speakText] Using Baidu TTS audio fallback for:',text.slice(0,30));
   // Stop previous TTS audio
@@ -3501,8 +3511,14 @@ function _speakTextViaTTS(text){
   ];
   var proxyIdx=0;
   function tryProxy(){
+    // ===== TOKEN CHECK: abort if a newer speakText call has been made =====
+    if(token!==undefined&&token!==_speakTextToken){
+      console.log('[speakText] Stale fallback aborted (token mismatch)');
+      return;
+    }
     if(proxyIdx>=proxyUrls.length){
       // Last resort: direct Audio element (may work on some mobile browsers)
+      if(token!==undefined&&token!==_speakTextToken){return}
       console.log('[speakText] All proxies failed, trying direct Audio');
       _speakTtsAudio=new Audio(ttsUrl);
       _speakTtsAudio.volume=0.8;
@@ -3518,19 +3534,27 @@ function _speakTextViaTTS(text){
         return resp.blob();
       })
       .then(function(blob){
+        // ===== TOKEN CHECK before playing: abort if stale =====
+        if(token!==undefined&&token!==_speakTextToken){
+          console.log('[speakText] Stale fallback result discarded (token mismatch)');
+          return;
+        }
         if(blob.size<200)throw new Error('blob too small');
         var blobUrl=URL.createObjectURL(blob);
         _speakTtsAudio=new Audio(blobUrl);
         _speakTtsAudio.volume=0.8;
         _speakTtsAudio.play().then(function(){
+          if(token!==undefined&&token!==_speakTextToken){try{_speakTtsAudio.pause()}catch(e){}return}
           console.log('[speakText] TTS audio playing from proxy',proxyIdx);
         }).catch(function(e){
+          if(token!==undefined&&token!==_speakTextToken){return}
           console.log('[speakText] Play failed from proxy',proxyIdx,':',e.message||e);
           proxyIdx++;
           tryProxy();
         });
       })
       .catch(function(e){
+        if(token!==undefined&&token!==_speakTextToken){return}
         console.log('[speakText] Proxy',proxyIdx,'failed:',e.message||e);
         proxyIdx++;
         tryProxy();
@@ -4970,9 +4994,13 @@ async function generateTTSAudio(audioCtx,text,voiceId){
             return localAudioBuf;
           }else{console.log('[TTS] Local server response too small:',localBuf.byteLength)}
         }else{console.log('[TTS] Local server returned non-audio content-type:',lct)}
-      }else{console.log('[TTS] Local server HTTP error:',localResp.status)}
+      }else{
+          console.log('[TTS] Local server HTTP error:',localResp.status,'- marking server as unavailable');
+          _serverAvailable=false; // Prevent future requests from hitting a broken/wrong server
+        }
     }catch(localErr){
       console.log('[TTS] Local server not available:',localErr.message||localErr,'(will try external APIs as fallback)');
+      _serverAvailable=false; // Network error: mark server as unavailable for future calls
     }
   }else{
     console.log('[TTS] Local server not available (mobile mode), skipping to external TTS APIs');
@@ -8178,6 +8206,59 @@ document.addEventListener('DOMContentLoaded',function(){
     });
   }catch(e){
     console.error('[INIT] sync error:',e);
+  }
+  // ===== WELCOME VOICE: 欢迎来到正商诸葛AI，让我们一起打造爆款视频 =====
+  // Strategy: Desktop → auto play after 1.5s; Mobile → play on first user interaction.
+  // Uses a dedicated Audio element (not speakText) to avoid fallback chain interference.
+  var _welcomePlayed=false;
+  var _welcomeAudio=null;
+  function playWelcome(){
+    if(_welcomePlayed)return;
+    _welcomePlayed=true;
+    // Remove interaction listeners if they were set
+    document.removeEventListener('touchend',_onFirstInteraction,true);
+    document.removeEventListener('click',_onFirstInteraction,true);
+    try{
+      var welcomeText='欢迎来到正商诸葛AI，让我们一起打造爆款视频';
+      var ttsUrl='/api/tts?text='+encodeURIComponent(welcomeText)+'&voice=1&rate=100&pitch=1.0';
+      _welcomeAudio=new Audio(ttsUrl);
+      _welcomeAudio.volume=0.9;
+      _welcomeAudio.play().then(function(){
+        console.log('[WELCOME] Welcome voice playing');
+      }).catch(function(e){
+        console.log('[WELCOME] Direct play failed, trying speechSynthesis fallback:',e.message||e);
+        // Fallback: speechSynthesis
+        if(typeof speechSynthesis!=='undefined'){
+          try{
+            speechSynthesis.cancel();
+            var u=new SpeechSynthesisUtterance(welcomeText);
+            u.lang='zh-CN';
+            u.rate=1.0;
+            u.pitch=1.0;
+            u.volume=1.0;
+            var zhV=findZhVoice('zh-CN');
+            if(zhV){u.voice=zhV}
+            speechSynthesis.speak(u);
+            console.log('[WELCOME] speechSynthesis fallback started');
+          }catch(ssErr){console.log('[WELCOME] speechSynthesis also failed:',ssErr)}
+        }
+      });
+    }catch(e){console.log('[WELCOME] Error:',e)}
+  }
+  // First-interaction handler (for mobile autoplay restriction)
+  function _onFirstInteraction(e){
+    playWelcome();
+  }
+  // Detect touch device (mobile) — these require user gesture for audio
+  var _isTouchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+  if(_isTouchDevice){
+    // Mobile: wait for first user interaction
+    console.log('[WELCOME] Touch device detected, waiting for first interaction');
+    document.addEventListener('touchend',_onFirstInteraction,true);
+    document.addEventListener('click',_onFirstInteraction,true);
+  }else{
+    // Desktop: try autoplay after 1.5s delay
+    setTimeout(function(){playWelcome()},1500);
   }
 });
 </script>
