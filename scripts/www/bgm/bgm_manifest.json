@@ -1,0 +1,20 @@
+{
+  "description": "14首喜庆风格背景音乐 - Mixkit免费商用",
+  "updated": "2026-08-08",
+  "tracks": [
+    {"id": 1, "filename": "喜庆迎宾曲.mp3", "title": "Happy Fun - Michael Ramir C.", "category": "人设类", "mood": "欢快/趣味", "duration": 97},
+    {"id": 2, "filename": "欢乐庆典.mp3", "title": "Tears of Joy - Michael Ramir C.", "category": "人设类", "mood": "流行/振奋", "duration": 140},
+    {"id": 3, "filename": "阳光好心情.mp3", "title": "Smile - Michael Ramir C.", "category": "人设类", "mood": "童趣/欢乐", "duration": 97},
+    {"id": 4, "filename": "幸福时光.mp3", "title": "Feeling Happy - Ahjay Stelino", "category": "人设类", "mood": "轻松/愉快", "duration": 148},
+    {"id": 5, "filename": "温馨家园.mp3", "title": "Happy Home - Michael Ramir C.", "category": "人设类", "mood": "温馨/浪漫", "duration": 110},
+    {"id": 6, "filename": "盛夏欢歌.mp3", "title": "Summer's Here - Ahjay Stelino", "category": "人设类", "mood": "夏日/活泼", "duration": 96},
+    {"id": 7, "filename": "快乐旋律.mp3", "title": "Owies Ukulele - Michael Ramir C.", "category": "人设类", "mood": "尤克里里/励志", "duration": 160},
+    {"id": 8, "filename": "欢快舞步.mp3", "title": "Dance with Me - Ahjay Stelino", "category": "人设类", "mood": "舞曲/友好", "duration": 142},
+    {"id": 9, "filename": "喜气盈门.mp3", "title": "It's April - Michael Ramir C.", "category": "带货类", "mood": "乡村/积极", "duration": 92},
+    {"id": 10, "filename": "欢天喜地.mp3", "title": "Banjo Man in Africa - Michael Ramir C.", "category": "带货类", "mood": "班卓琴/幽默", "duration": 90},
+    {"id": 11, "filename": "热闹派对.mp3", "title": "BRIDGE N° 98 - Eugenio Mininni", "category": "带货类", "mood": "企业/友好", "duration": 146},
+    {"id": 12, "filename": "田园之乐.mp3", "title": "Fun at the Farm - Michael Ramir C.", "category": "带货类", "mood": "乡村/欢快", "duration": 106},
+    {"id": 13, "filename": "喜悦丰收.mp3", "title": "At the Playhouse - Michael Ramir C.", "category": "带货类", "mood": "童趣/无忧", "duration": 91},
+    {"id": 14, "filename": "欢歌笑语.mp3", "title": "Indiana - Mixkit", "category": "带货类", "mood": "欢快/旅程", "duration": 120}
+  ]
+}
