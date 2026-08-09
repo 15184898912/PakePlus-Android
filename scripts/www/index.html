@@ -2453,7 +2453,7 @@ a{color:inherit;text-decoration:none}
     <div id="render-no-video" style="display:none;margin-top:16px;padding:12px;background:rgba(255,200,0,.1);border-radius:10px;text-align:center;font-size:13px;color:rgba(255,200,0,.8)">⚠️ 未找到视频素材，请先在视频素材库上传视频</div>
     <div style="display:flex;gap:12px;margin-top:20px">
       <button id="render-replay-btn" class="render-done-btn" style="flex:1;background:rgba(255,255,255,.1);color:#fff" onclick="replayRenderVideo()">↻ 重新播放</button>
-      <button id="render-save-btn" class="render-done-btn" style="flex:1;background:rgba(48,209,88,.2);color:#30D158" onclick="saveRenderToAlbum()">📥 保存到相册</button>
+      <button id="render-save-btn" class="render-done-btn" style="flex:1;background:rgba(48,209,88,.2);color:#30D158" onclick="_safeCall(saveRenderToAlbum)">📥 保存到相册</button>
       <button class="render-done-btn" id="render-done-btn" style="flex:1" onclick="finishRender()">✦ 查看作品</button>
     </div>
   </div>
@@ -5035,74 +5035,418 @@ function saveRenderToAlbum(){
     showToast('暂无可保存的视频');
     return;
   }
-  var now=new Date();
-  var resTag=RESOLUTION_CONFIG[selectedResolution]?RESOLUTION_CONFIG[selectedResolution].label:'1080P';
-  var fileName='AI智能成片_'+resTag+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+String(now.getSeconds()).padStart(2,'0')+'.webm';
   try{
-    // Method 1: Web Share API first (mobile devices - saves to album/gallery)
-    if(navigator.share&&navigator.canShare){
-      var file=new File([_lastRenderedBlob],fileName,{type:'video/webm'});
-      if(navigator.canShare({files:[file]})){
-        navigator.share({
-          files:[file],
-          title:'AI智能成片',
-          text:'正商诸葛AI·爆款云剪智能体生成的视频'
-        }).then(function(){
-          showToast('视频已保存到相册');
-        }).catch(function(e){
-          if(e.name!=='AbortError'){
-            console.log('Share failed, falling back to download:',e);
-            downloadVideoBlob(_lastRenderedBlob,fileName);
-          }
-        });
-        return;
-      }
-    }
-    // Method 2: File System Access API (Chrome desktop)
-    if(window.showSaveFilePicker){
-      window.showSaveFilePicker({
-        suggestedName:fileName,
-        types:[{
-          description:'视频文件',
-          accept:{'video/webm':['.webm'],'video/mp4':['.mp4']}
-        }]
-      }).then(function(handle){
-        return handle.createWritable().then(function(writable){
-          return writable.write(_lastRenderedBlob).then(function(){
-            return writable.close();
-          });
-        });
-      }).then(function(){
-        showToast('视频已保存');
-      }).catch(function(e){
-        if(e.name!=='AbortError'){
-          console.log('File System Access API failed:',e);
-          downloadVideoBlob(_lastRenderedBlob,fileName);
-        }
-      });
-      return;
-    }
-    // Method 3: Fallback to download
-    downloadVideoBlob(_lastRenderedBlob,fileName);
+    var now=new Date();
+    var resTag=RESOLUTION_CONFIG[selectedResolution]?RESOLUTION_CONFIG[selectedResolution].label:'1080P';
+    var ext=_lastRenderedBlob.type&&_lastRenderedBlob.type.indexOf('mp4')>=0?'mp4':'webm';
+    var fileName='AI智能成片_'+resTag+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+String(now.getSeconds()).padStart(2,'0')+'.'+ext;
+    var blobType=_lastRenderedBlob.type||'video/webm';
+    _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
   }catch(e){
-    console.error('Save to album error:',e);
+    console.error('saveRenderToAlbum error:',e);
     showToast('保存失败，请重试');
   }
 }
 
+// ===== Safe async call wrapper (prevents uncaught promise rejections from crashing) =====
+// Usage: _safeCall(fn, arg1, arg2, ...) — wraps any function call in try-catch
+// If the function returns a Promise, .catch() is attached to handle rejection
+function _safeCall(fn){
+  try{
+    var args=Array.prototype.slice.call(arguments,1);
+    var result=fn.apply(null,args);
+    if(result&&typeof result.then==='function'){
+      result.catch(function(e){
+        console.error('[safeCall] async error:',e);
+        showToast('操作失败，请重试');
+      });
+    }
+    return result;
+  }catch(e){
+    console.error('[safeCall] sync error:',e);
+    showToast('操作失败，请重试');
+  }
+}
+
+// ===== HBuilderX Plus API Support =====
+// Detect if running inside HBuilderX 5+ runtime (native Android/iOS container)
+var _plusReady=false;
+function _hasPlusAPI(){
+  return _plusReady&&typeof window.plus!=='undefined'&&window.plus!==null;
+}
+// Listen for plusReady event (fires when HBuilderX native bridge is ready)
+if(typeof document!=='undefined'){
+  document.addEventListener('plusready',function(){
+    _plusReady=true;
+    console.log('[PLUS] HBuilderX plus API ready');
+  },false);
+}
+
+// Convert Blob to a temp file path via plus.io (HBuilderX only)
+// callback(filePath, error)
+function _blobToPlusTempFile(blob,fileName,callback){
+  try{
+    if(!_hasPlusAPI()){callback(null,'plus not available');return}
+    // Determine file extension from blob type
+    var ext='.webm';
+    if(blob.type&&blob.type.indexOf('mp4')>=0)ext='.mp4';
+    else if(blob.type&&blob.type.indexOf('quicktime')>=0)ext='.mov';
+    var safeName='zhuge_'+Date.now()+ext;
+    // Request PRIVATE_DOC filesystem
+    plus.io.requestFileSystem(plus.io.PRIVATE_DOC,function(fs){
+      fs.root.getFile(safeName,{create:true,exclusive:false},function(fileEntry){
+        fileEntry.createWriter(function(writer){
+          writer.onwrite=function(){
+            var filePath=fileEntry.toLocalURL();
+            console.log('[PLUS] Blob saved to:',filePath);
+            callback(filePath,null);
+          };
+          writer.onerror=function(e){
+            console.error('[PLUS] FileWriter error:',e);
+            callback(null,e);
+          };
+          // Write blob directly (FileWriter accepts Blob)
+          writer.write(blob);
+        },function(e){
+          console.error('[PLUS] createWriter failed:',e);
+          callback(null,e);
+        });
+      },function(e){
+        console.error('[PLUS] getFile failed:',e);
+        callback(null,e);
+      });
+    },function(e){
+      console.error('[PLUS] requestFileSystem failed:',e);
+      callback(null,e);
+    });
+  }catch(e){
+    console.error('[PLUS] _blobToPlusTempFile error:',e);
+    callback(null,e);
+  }
+}
+
+// Save to album using HBuilderX native plus.gallery.save()
+function _saveToAlbumPlus(blob,fileName,title){
+  try{
+    // Check if plus.gallery API is available
+    if(!plus.gallery||typeof plus.gallery.save!=='function'){
+      console.log('[PLUS] plus.gallery.save not available, fallback to web');
+      _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+      return;
+    }
+    showToast('正在保存到相册…');
+    _blobToPlusTempFile(blob,fileName,function(filePath,err){
+      if(err||!filePath){
+        console.error('[PLUS] Save temp file failed, fallback to web:',err);
+        _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+        return;
+      }
+      // Use plus.gallery.save to save file to system gallery
+      plus.gallery.save(filePath,function(){
+        showToast('✅ 视频已保存到相册');
+        console.log('[PLUS] Gallery save success');
+        // Clean up temp file
+        try{
+          plus.io.resolveLocalFileSystemURL(filePath,function(entry){
+            entry.remove(function(){},function(){});
+          },function(){});
+        }catch(e){}
+      },function(e){
+        console.error('[PLUS] Gallery save failed:',JSON.stringify(e));
+        // Try opening file with system app as fallback
+        try{
+          if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+            plus.runtime.openFile(filePath,{},function(){
+              console.log('[PLUS] openFile also failed, trying web fallback');
+              _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+            });
+            showToast('已保存，请在打开的页面中选择保存');
+          }else{
+            _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+          }
+        }catch(openErr){
+          console.error('[PLUS] openFile error:',openErr);
+          _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+        }
+      });
+    });
+  }catch(e){
+    console.error('[PLUS] _saveToAlbumPlus error:',e);
+    _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+  }
+}
+
+// Share file using HBuilderX native plus.share.sendWithSystem()
+function _sharePlus(blob,fileName,title,textContent){
+  try{
+    _blobToPlusTempFile(blob,fileName,function(filePath,err){
+      if(err||!filePath){
+        console.error('[PLUS] Share temp file failed, fallback to web:',err);
+        _shareTextOnlyWeb(title);
+        return;
+      }
+      // Try system share with file
+      var msg={type:'video'};
+      if(title)msg.title=title;
+      if(textContent)msg.content=textContent;
+      msg.pictures=[filePath];
+      // Try plus.share.sendWithSystem if available
+      if(plus.share&&typeof plus.share.sendWithSystem==='function'){
+        try{
+          plus.share.sendWithSystem(msg,function(){
+            console.log('[PLUS] Share success');
+            showToast('分享成功');
+          },function(e){
+            console.error('[PLUS] Share failed:',JSON.stringify(e));
+            // Try opening file directly
+            try{
+              if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+                plus.runtime.openFile(filePath,{},function(){
+                  _shareTextOnlyWeb(title);
+                });
+                showToast('请在打开的页面中分享');
+              }else{
+                _shareTextOnlyWeb(title);
+              }
+            }catch(openErr){
+              _shareTextOnlyWeb(title);
+            }
+          });
+        }catch(shareErr){
+          console.error('[PLUS] sendWithSystem crash:',shareErr);
+          try{
+            if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+              plus.runtime.openFile(filePath,{},function(){
+                _shareTextOnlyWeb(title);
+              });
+              showToast('请在打开的页面中分享');
+            }else{
+              _shareTextOnlyWeb(title);
+            }
+          }catch(e2){
+            _shareTextOnlyWeb(title);
+          }
+        }
+      }else{
+        // No plus.share API, try plus.runtime.openFile
+        console.log('[PLUS] plus.share not available, trying openFile');
+        try{
+          if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+            plus.runtime.openFile(filePath,{},function(){
+              _shareTextOnlyWeb(title);
+            });
+            showToast('请在打开的页面中分享');
+          }else{
+            _shareTextOnlyWeb(title);
+          }
+        }catch(e3){
+          _shareTextOnlyWeb(title);
+        }
+      }
+    });
+  }catch(e){
+    console.error('[PLUS] _sharePlus error:',e);
+    _shareTextOnlyWeb(title);
+  }
+}
+
+// ===== UNIFIED SAVE/SHARE FUNCTION (crash-proof) =====
+// Strategy:
+// - Mobile + HBuilderX: use plus.gallery.save() (native, never crashes WebView)
+// - Mobile without plus: use <a download> + video overlay fallback
+// - Desktop: use File System Access API or <a download>
+// - NEVER use navigator.share with files (crashes WebView)
+// - NEVER use window.open() (crashes WebView)
+function _saveBlobToAlbum(blob,fileName,blobType,title){
+  try{
+    // ===== Method 0: HBuilderX plus API (mobile native, most reliable) =====
+    if(_hasPlusAPI()){
+      _saveToAlbumPlus(blob,fileName,title);
+      return;
+    }
+    // ===== Web fallback =====
+    _saveBlobToAlbumWeb(blob,fileName,blobType,title);
+  }catch(e){
+    console.error('Save to album error:',e);
+    _saveBlobToAlbumWeb(blob,fileName,blobType,title);
+  }
+}
+
+// Web-only save (no plus API) - desktop browser or non-HBuilderX WebView
+function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
+  try{
+    blobType=blobType||blob.type||'video/webm';
+    // ===== Method 1: File System Access API (desktop Chrome) =====
+    if(window.showSaveFilePicker&&!_isMobileDevice()){
+      try{
+        window.showSaveFilePicker({
+          suggestedName:fileName,
+          types:[{
+            description:'视频文件',
+            accept:{'video/webm':['.webm'],'video/mp4':['.mp4'],'video/quicktime':['.mov']}
+          }]
+        }).then(function(handle){
+          return handle.createWritable().then(function(writable){
+            return writable.write(blob).then(function(){
+              return writable.close();
+            });
+          });
+        }).then(function(){
+          showToast('视频已保存');
+        }).catch(function(e){
+          if(e.name!=='AbortError'){
+            console.log('File System Access API failed:',e);
+            _downloadBlob(blob,fileName);
+          }
+        });
+        return;
+      }catch(fsErr){
+        console.log('File System Access API error:',fsErr);
+      }
+    }
+    // ===== Method 2: <a download> (works in most browsers) =====
+    _downloadBlob(blob,fileName);
+  }catch(e){
+    console.error('Web save error:',e);
+    _downloadBlob(blob,fileName);
+  }
+}
+
+// Crash-proof download: append <a> to DOM, use try-catch, never use window.open
+function _downloadBlob(blob,fileName){
+  try{
+    // HBuilderX plus API: save to file and open
+    if(_hasPlusAPI()){
+      _blobToPlusTempFile(blob,fileName,function(filePath,err){
+        if(err||!filePath){
+          _downloadBlobWeb(blob,fileName);
+          return;
+        }
+        try{
+          plus.runtime.openFile(filePath,{},function(){
+            console.log('[PLUS] openFile failed, trying web download');
+            _downloadBlobWeb(blob,fileName);
+          });
+          showToast('已保存到本地，请在打开的页面中查看');
+        }catch(e){
+          _downloadBlobWeb(blob,fileName);
+        }
+      });
+      return;
+    }
+    _downloadBlobWeb(blob,fileName);
+  }catch(e){
+    console.error('Download error:',e);
+    _downloadBlobWeb(blob,fileName);
+  }
+}
+
+// Web-only download (no plus API)
+function _downloadBlobWeb(blob,fileName){
+  try{
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName;
+    a.style.display='none';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    // Use setTimeout to ensure DOM is updated before click
+    setTimeout(function(){
+      try{
+        a.click();
+      }catch(clickErr){
+        console.error('Download click error:',clickErr);
+      }
+      // Clean up after 3 seconds
+      setTimeout(function(){
+        try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
+        try{URL.revokeObjectURL(url)}catch(e){}
+      },3000);
+    },50);
+    showToast('视频已开始下载，请在下载管理中查看');
+  }catch(e){
+    console.error('Web download error:',e);
+    _showVideoSaveOverlay(blob);
+  }
+}
+
+// Last resort: show video in overlay with long-press save instructions
+function _showVideoSaveOverlay(blob){
+  try{
+    var url=URL.createObjectURL(blob);
+    var overlay=document.createElement('div');
+    overlay.id='video-save-overlay';
+    overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
+    var titleDiv=document.createElement('div');
+    titleDiv.style.cssText='color:#fff;font-size:16px;font-weight:700;margin-bottom:12px';
+    titleDiv.textContent='长按视频可保存到相册';
+    var videoEl=document.createElement('video');
+    videoEl.src=url;
+    videoEl.controls=true;
+    videoEl.playsInline=true;
+    videoEl.style.cssText='max-width:100%;max-height:70vh;border-radius:12px;background:#000';
+    var tipDiv=document.createElement('div');
+    tipDiv.style.cssText='color:rgba(255,255,255,.6);font-size:13px;margin-top:16px;text-align:center';
+    tipDiv.textContent='如果无法自动下载，请长按视频画面选择"保存视频"或"保存到相册"';
+    var closeBtn=document.createElement('button');
+    closeBtn.style.cssText='margin-top:20px;padding:10px 32px;background:#F4DCAC;color:#1a1a2e;border:none;border-radius:24px;font-size:15px;font-weight:700;cursor:pointer';
+    closeBtn.textContent='关闭';
+    closeBtn.onclick=function(){
+      overlay.remove();
+      try{URL.revokeObjectURL(url)}catch(e){}
+    };
+    overlay.appendChild(titleDiv);
+    overlay.appendChild(videoEl);
+    overlay.appendChild(tipDiv);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+    showToast('请长按视频画面保存');
+  }catch(e){
+    console.error('Video overlay error:',e);
+    showToast('保存失败，视频已保存在作品库中');
+  }
+}
+
+// Text-only share web fallback (no plus API)
+// On mobile WebView, navigator.share can crash even for text - skip it
+function _shareTextOnlyWeb(title){
+  try{
+    var shareText='我用正商诸葛AI生成了一个视频，快来看看吧！\n正商诸葛AI - 生意人的专属AI';
+    // Skip navigator.share on mobile (crashes WebView)
+    if(navigator.share&&!_isMobileDevice()){
+      navigator.share({
+        title:title||'AI智能成片',
+        text:shareText
+      }).then(function(){
+        showToast('分享成功');
+      }).catch(function(e){
+        if(e.name!=='AbortError'){
+          console.log('Text share failed:',e);
+          showToast('分享已取消');
+        }
+      });
+    }else{
+      // Copy to clipboard or show toast
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(shareText).then(function(){
+          showToast('内容已复制到剪贴板，可粘贴分享');
+        }).catch(function(){
+          showToast('请保存视频后手动分享');
+        });
+      }else{
+        showToast('请保存视频后手动分享');
+      }
+    }
+  }catch(e){
+    console.error('Text share error:',e);
+    showToast('分享失败');
+  }
+}
+
+// Keep downloadVideoBlob as alias for backward compatibility
 function downloadVideoBlob(blob,fileName){
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download=fileName;
-  a.style.display='none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function(){
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  },1000);
-  showToast('视频已下载到本地');
+  _downloadBlob(blob,fileName);
 }
 
 
@@ -5749,7 +6093,15 @@ async function processVideoWithEffects(videoBlob){
   if(canvasVideoTrack){try{canvasVideoTrack.contentHint='detail';}catch(e){}}
   
   var recorder=null;
-  var mimeType='video/webm;codecs=vp9,opus';
+  // Try MP4 first (better mobile compatibility for sharing/saving), then WebM
+  var mimeType='video/mp4;codecs=h264,aac';
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/mp4;codecs=avc1,mp4a';
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/mp4';
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm;codecs=h264,opus';
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm;codecs=vp9,opus';
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm;codecs=vp8,opus';
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm';
+  console.log('[RENDER] Selected MIME type (multi-format):',mimeType);
   var chunks=[];
   
   if(useWebCodecs){
@@ -5897,9 +6249,8 @@ async function processVideoWithEffects(videoBlob){
   
   if(!useWebCodecs){
     // ===== MEDIARECORDER PATH (captures both video AND audio in real-time) =====
+    // mimeType already set above with multi-format support (MP4 first, WebM fallback)
     if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm;codecs=vp8,opus';
-    if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm;codecs=h264,opus';
-    if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/mp4';
     if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm';
     // ===== AUDIO TRACK VERIFICATION =====
     console.log('[AUDIO-CHECK] dest.stream audio tracks:',dest.stream.getAudioTracks().length);
@@ -7304,9 +7655,9 @@ async function renderWorks(){
       +'<div class="work-date">'+dateStr+(sizeStr?' · '+sizeStr:'')+(w.qty?' · '+w.qty+'条':'')+'</div>'
       +'</div>'
       +'<div class="work-actions">'+
-        (hasBlob?'<div class="work-action save" onclick="event.stopPropagation();saveWorkToAlbum('+w.id+')">保存</div>':'')+
-        (hasBlob?'<div class="work-action share" onclick="event.stopPropagation();shareWork('+w.id+')">分享</div>':'')+
-        '<div class="work-action delete" onclick="event.stopPropagation();deleteWork('+w.id+')">删除</div>'+
+        (hasBlob?'<div class="work-action save" onclick="event.stopPropagation();_safeCall(saveWorkToAlbum,'+w.id+')">保存</div>':'')+
+        (hasBlob?'<div class="work-action share" onclick="event.stopPropagation();_safeCall(shareWork,'+w.id+')">分享</div>':'')+
+        '<div class="work-action delete" onclick="event.stopPropagation();_safeCall(deleteWork,'+w.id+')">删除</div>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -7366,10 +7717,10 @@ async function playWorkById(id){
         '<video src="'+url+'" controls autoplay playsinline style="width:100%;max-height:100%;object-fit:contain;background:#000"></video>'+
       '</div>'+
       '<div class="video-player-footer">'+
-        '<button class="vp-btn save" onclick="saveWorkToAlbum('+id+')">📥 保存到相册</button>'+
-        '<button class="vp-btn share" onclick="shareWork('+id+')">📤 分享</button>'+
-        '<button class="vp-btn download" onclick="downloadWork('+id+')">⬇ 下载</button>'+
-        '<button class="vp-btn delete" onclick="deleteWorkFromPlayer('+id+')">🗑 删除</button>'+
+        '<button class="vp-btn save" onclick="_safeCall(saveWorkToAlbum,'+id+')">📥 保存到相册</button>'+
+        '<button class="vp-btn share" onclick="_safeCall(shareWork,'+id+')">📤 分享</button>'+
+        '<button class="vp-btn download" onclick="_safeCall(downloadWork,'+id+')">⬇ 下载</button>'+
+        '<button class="vp-btn delete" onclick="_safeCall(deleteWorkFromPlayer,'+id+')">🗑 删除</button>'+
       '</div>';
     document.body.appendChild(overlay);
     _currentPlayerOverlay=overlay;
@@ -7462,15 +7813,13 @@ async function downloadWork(id){
     var w=works.find(function(x){return x.id===id});
     if(!w)return;
     if(!(w.blob instanceof Blob)){showToast('该作品暂无视频文件');return}
-    var url=URL.createObjectURL(w.blob);
-    var a=document.createElement('a');
-    a.href=url;
-    var ext=w.type&&w.type.indexOf('webm')>=0?'.webm':'.mp4';
-    a.download=(w.name||'作品')+ext;
-    a.click();
-    setTimeout(function(){URL.revokeObjectURL(url)},1000);
-    showToast('开始下载');
-  }catch(e){showToast('下载失败')}
+    var ext=w.type&&w.type.indexOf('mp4')>=0?'.mp4':'.webm';
+    var fileName=(w.name||'作品')+ext;
+    _downloadBlob(w.blob,fileName);
+  }catch(e){
+    console.error('downloadWork error:',e);
+    showToast('下载失败，请重试');
+  }
 }
 
 // Save work to device photo album (from works library)
@@ -7482,58 +7831,17 @@ async function saveWorkToAlbum(id){
     if(!(w.blob instanceof Blob)){showToast('该作品暂无视频文件');return}
     var blob=w.blob;
     var now=new Date();
-    var fileName=(w.name||'AI智能成片')+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.webm';
-    // Method 1: Web Share API with files (best for mobile - saves to album/gallery)
-    if(navigator.share&&navigator.canShare){
-      var file=new File([blob],fileName,{type:blob.type||'video/webm'});
-      if(navigator.canShare({files:[file]})){
-        navigator.share({
-          files:[file],
-          title:w.name||'AI智能成片',
-          text:'正商诸葛AI·爆款云剪智能体生成的视频'
-        }).then(function(){
-          showToast('视频已保存到相册');
-        }).catch(function(e){
-          if(e.name!=='AbortError'){
-            console.log('Share failed, falling back to download:',e);
-            downloadVideoBlob(blob,fileName);
-          }
-        });
-        return;
-      }
-    }
-    // Method 2: Try to use the File System Access API for saving (Chrome desktop)
-    if(window.showSaveFilePicker){
-      try{
-        var handle=await window.showSaveFilePicker({
-          suggestedName:fileName,
-          types:[{
-            description:'视频文件',
-            accept:{'video/webm':['.webm'],'video/mp4':['.mp4']}
-          }]
-        });
-        var writable=await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        showToast('视频已保存');
-        return;
-      }catch(e){
-        if(e.name!=='AbortError'){
-          console.log('File System Access API failed:',e);
-        }else{
-          return; // User cancelled
-        }
-      }
-    }
-    // Method 3: Fallback to download
-    downloadVideoBlob(blob,fileName);
+    var ext=blob.type&&blob.type.indexOf('mp4')>=0?'mp4':'webm';
+    var fileName=(w.name||'AI智能成片')+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.'+ext;
+    var blobType=blob.type||'video/webm';
+    _saveBlobToAlbum(blob,fileName,blobType,w.name||'AI智能成片');
   }catch(e){
     console.error('saveWorkToAlbum error:',e);
     showToast('保存失败，请重试');
   }
 }
 
-// Share a work via Web Share API or copy link
+// Share a work (crash-proof: uses plus API on mobile, web API on desktop)
 async function shareWork(id){
   try{
     var works=await dbGetAll('works');
@@ -7541,44 +7849,40 @@ async function shareWork(id){
     if(!w){showToast('作品不存在');return}
     if(!(w.blob instanceof Blob)){showToast('该作品暂无视频文件');return}
     var blob=w.blob;
-    var fileName=(w.name||'AI智能成片')+'.webm';
-    // Try Web Share API with files
-    if(navigator.share&&navigator.canShare){
-      var file=new File([blob],fileName,{type:blob.type||'video/webm'});
-      if(navigator.canShare({files:[file]})){
-        navigator.share({
-          files:[file],
-          title:w.name||'AI智能成片',
-          text:'正商诸葛AI·爆款云剪智能体生成的视频'
-        }).then(function(){
-          showToast('分享成功');
-        }).catch(function(e){
-          if(e.name!=='AbortError'){
-            console.log('Share failed:',e);
-            showToast('分享失败，已切换为下载');
-            downloadVideoBlob(blob,fileName);
-          }
-        });
-        return;
-      }
-      // Try text-only share
-      if(navigator.share){
-        navigator.share({
-          title:w.name||'AI智能成片',
-          text:'我用正商诸葛AI生成了一个视频，快来看看吧！'
-        }).catch(function(e){
-          if(e.name!=='AbortError'){showToast('分享取消')}
-        });
-        return;
-      }
+    var ext=blob.type&&blob.type.indexOf('mp4')>=0?'mp4':'webm';
+    var fileName=(w.name||'AI智能成片')+'.'+ext;
+    var title=w.name||'AI智能成片';
+    var textContent='我用正商诸葛AI生成了一个视频，快来看看吧！\n正商诸葛AI - 生意人的专属AI';
+    // ===== Method 0: HBuilderX plus API (native, most reliable on mobile) =====
+    if(_hasPlusAPI()){
+      _sharePlus(blob,fileName,title,textContent);
+      return;
     }
-    // Fallback: download
-    showToast('当前环境不支持分享，已切换为下载');
-    downloadVideoBlob(blob,fileName);
+    // ===== Method 1: Desktop File System Access API =====
+    if(!_isMobileDevice()&&window.showSaveFilePicker){
+      // On desktop, use save dialog instead of share
+      _saveBlobToAlbumWeb(blob,fileName,blob.type||'video/webm',title);
+      return;
+    }
+    // ===== Method 2: Web Share API (text only - file sharing crashes WebView) =====
+    _shareTextOnlyWeb(title);
   }catch(e){
     console.error('shareWork error:',e);
-    showToast('分享失败');
+    showToast('分享失败，已切换为下载');
+    try{
+      var works2=await dbGetAll('works');
+      var w2=works2.find(function(x){return x.id===id});
+      if(w2&&w2.blob instanceof Blob){
+        var ext2=w2.blob.type&&w2.blob.type.indexOf('mp4')>=0?'.mp4':'.webm';
+        _downloadBlob(w2.blob,(w2.name||'作品')+ext2);
+      }
+    }catch(dlErr){console.error('Share fallback download error:',dlErr)}
   }
+}
+
+// Alias for backward compatibility
+function _shareTextOnly(title){
+  _shareTextOnlyWeb(title);
 }
 
 // ===== CAMERA CAPTURE =====
@@ -7592,32 +7896,68 @@ let camRecTimer=null;
 let camRecStart=0;
 let camCapturedBlob=null;
 let camCapturedType='';
+// Shutter sound using Web Audio API (no external file needed)
+function playShutterSound(){
+  try{
+    var ctx=new (window.AudioContext||window.webkitAudioContext)();
+    var osc=ctx.createOscillator();
+    var gain=ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(1200,ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600,ctx.currentTime+0.08);
+    gain.gain.setValueAtTime(0.3,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.15);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+0.15);
+    // Vibrate on mobile
+    if(navigator.vibrate)navigator.vibrate(50);
+  }catch(e){console.log('Shutter sound error:',e)}
+}
+
+// Detect mobile device
+function _isMobileDevice(){
+  return (typeof window.ontouchstart!=='undefined')||(navigator.maxTouchPoints>0)||(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||''));
+}
+
+// Open native camera via file input (most reliable on mobile WebView)
+function _openNativeCamera(acceptType){
+  var camInput=document.createElement('input');
+  camInput.type='file';
+  camInput.accept=acceptType||'image/*,video/*';
+  camInput.capture='environment';
+  camInput.style.display='none';
+  camInput.onchange=function(){
+    if(camInput.files&&camInput.files.length>0){
+      playShutterSound();
+      handleMaterialUpload(camInput);
+    }
+  };
+  document.body.appendChild(camInput);
+  camInput.click();
+  setTimeout(function(){if(camInput.parentNode)document.body.removeChild(camInput)},10000);
+}
 
 async function openCamera(){
+  // ===== MOBILE: Use native camera app directly (most reliable in WebView) =====
+  if(_isMobileDevice()){
+    // On mobile, directly open native camera via file input with capture attribute
+    // This is more reliable than getUserMedia in WebView environments
+    showToast('正在打开相机…');
+    _openNativeCamera('image/*,video/*');
+    return;
+  }
+  // ===== DESKTOP: Use getUserMedia camera overlay =====
   // Check for secure context (getUserMedia requires HTTPS or localhost)
   if(!window.isSecureContext&&location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){
     showToast('请通过localhost或HTTPS访问以使用摄像头');
-    // Fallback to file input with capture
-    var fbInput=document.createElement('input');
-    fbInput.type='file';fbInput.accept='image/*,video/*';fbInput.capture='environment';fbInput.style.display='none';
-    fbInput.onchange=function(){handleMaterialUpload(fbInput)};
-    document.body.appendChild(fbInput);fbInput.click();
-    setTimeout(function(){document.body.removeChild(fbInput)},5000);
+    _openNativeCamera('image/*,video/*');
     return;
   }
   // Check if getUserMedia is available
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     showToast('当前环境不支持摄像头，请使用相册上传');
-    // Fallback to file input with capture
-    var fallbackInput=document.createElement('input');
-    fallbackInput.type='file';
-    fallbackInput.accept='image/*,video/*';
-    fallbackInput.capture='environment';
-    fallbackInput.style.display='none';
-    fallbackInput.onchange=function(){handleMaterialUpload(fallbackInput)};
-    document.body.appendChild(fallbackInput);
-    fallbackInput.click();
-    setTimeout(function(){document.body.removeChild(fallbackInput)},5000);
+    _openNativeCamera('image/*,video/*');
     return;
   }
   var overlay=document.getElementById('camera-overlay');
@@ -7642,25 +7982,10 @@ async function openCamera(){
       video2.srcObject=camStream;
     }catch(e2){
       console.error('Camera fallback error:',e2);
-      var errMsg=e2.message||e2.name||'未知错误';
       closeCamera();
-      // Fallback to file input with capture attribute
-      if(errMsg.indexOf('not found')>=0||errMsg.indexOf('NotFound')>=0||errMsg.indexOf('device')>=0){
-        showToast('未检测到摄像头，正在打开文件选择…');
-      }else{
-        showToast('无法访问摄像头：'+errMsg+'，正在打开文件选择…');
-      }
-      setTimeout(function(){
-        var fallbackInput=document.createElement('input');
-        fallbackInput.type='file';
-        fallbackInput.accept='image/*,video/*';
-        fallbackInput.capture='environment';
-        fallbackInput.style.display='none';
-        fallbackInput.onchange=function(){handleMaterialUpload(fallbackInput)};
-        document.body.appendChild(fallbackInput);
-        fallbackInput.click();
-        setTimeout(function(){document.body.removeChild(fallbackInput)},5000);
-      },800);
+      // Fallback to native camera file input
+      showToast('无法访问摄像头，正在打开系统相机…');
+      _openNativeCamera('image/*,video/*');
     }
   }
 }
@@ -7777,6 +8102,8 @@ function capturePhoto(){
     showToast('摄像头未就绪');
     return;
   }
+  // Play shutter sound
+  playShutterSound();
   var canvas=document.createElement('canvas');
   canvas.width=video.videoWidth;
   canvas.height=video.videoHeight;
