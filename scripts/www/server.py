@@ -156,6 +156,82 @@ class TTSRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
+    def do_POST(self):
+        """处理POST请求（视频上传）"""
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        if path == "/api/upload_render":
+            self._handle_upload_render()
+            return
+
+        self.send_error(404, "Not Found")
+
+    def _handle_upload_render(self):
+        """接收前端渲染完成的视频文件，保存到 renders/ 目录并返回直链URL"""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length == 0:
+                self.send_error(400, "Empty body")
+                return
+
+            # 从查询参数获取文件名和类型
+            parsed = urllib.parse.urlparse(self.path)
+            params = urllib.parse.parse_qs(parsed.query)
+            file_name = params.get("name", ["render_" + str(int(__import__("time").time())) + ".webm"])[0]
+            content_type = params.get("type", ["video/webm"])[0]
+
+            # 确定 expands
+            ext = ".webm"
+            if "mp4" in content_type:
+                ext = ".mp4"
+            elif "quicktime" in content_type:
+                ext = ".mov"
+            if not file_name.endswith(ext):
+                file_name = file_name.rsplit(".", 1)[0] + ext
+
+            # 创建 renders 目录
+            renders_dir = os.path.join(DIRECTORY, "renders")
+            os.makedirs(renders_dir, exist_ok=True)
+
+            # 保存文件
+            file_path = os.path.join(renders_dir, file_name)
+            with open(file_path, "wb") as f:
+                # 分块读取，避免内存溢出（最大 500MB）
+                remaining = content_length
+                while remaining > 0:
+                    chunk_size = min(remaining, 8192 * 1024)  # 8MB chunks
+                    chunk = self.rfile.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    remaining -= len(chunk)
+
+            # 返回直链URL
+            response = json.dumps({
+                "success": True,
+                "url": f"/renders/{urllib.parse.quote(file_name)}",
+                "name": file_name,
+                "size": content_length,
+            }, ensure_ascii=False).encode("utf-8")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(response)
+            print(f"[Upload] Saved render: {file_name} ({content_length} bytes)")
+
+        except Exception as e:
+            print(f"[Upload] Error: {e}")
+            error = json.dumps({"success": False, "error": str(e)}, ensure_ascii=False).encode("utf-8")
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(error)))
+            self.end_headers()
+            self.wfile.write(error)
+
     def do_GET(self):
         """处理GET请求"""
         parsed = urllib.parse.urlparse(self.path)
