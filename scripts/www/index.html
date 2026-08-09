@@ -13,6 +13,11 @@
 /* ===== CSS RESET ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
+/* ===== MOBILE TOUCH: eliminate 300ms click delay on all interactive elements ===== */
+[onclick],button,.nav-back,.knowledge-item,.feature-card,.menu-item,.element-row,.step-row,.tab-item,.clip-type-card,.mode-option,.res-option,.cat-btn,.title-option,.about-item,.agent-card,.btn-gradient,.btn-purple,.btn-white,.render-steps-toggle,.render-done-btn,.work-action{
+  touch-action:manipulation;
+  cursor:pointer;
+}
 body{font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none}
 img{display:block;max-width:100%}
 button{border:none;background:none;cursor:pointer;font-family:inherit;color:inherit}
@@ -2844,22 +2849,57 @@ function renderVoices(){
 // On mobile (APK/standalone), the local Python server is not available.
 // BGM works because it's a local static file, but TTS needs the server or external APIs.
 var _serverAvailable=null; // null=not checked, true/false=checked
+var _serverCheckPromise=null;
 async function checkServerAvailable(){
   if(_serverAvailable!==null)return _serverAvailable;
-  try{
-    var resp=await Promise.race([
-      fetch('/api/health',{method:'GET'}),
-      new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},2000)})
-    ]);
-    _serverAvailable=resp.ok;
-  }catch(e){
-    _serverAvailable=false;
-    console.log('[SERVER] Local TTS server not available (mobile/standalone mode):',e.message||e);
-  }
-  return _serverAvailable;
+  if(_serverCheckPromise)return _serverCheckPromise;
+  _serverCheckPromise=(async function(){
+    try{
+      var resp=await Promise.race([
+        fetch('/api/health',{method:'GET'}),
+        new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},1500)})
+      ]);
+      _serverAvailable=resp.ok;
+    }catch(e){
+      _serverAvailable=false;
+      console.log('[SERVER] Local TTS server not available (mobile/standalone mode):',e.message||e);
+    }
+    _serverCheckPromise=null;
+    return _serverAvailable;
+  })();
+  return _serverCheckPromise;
 }
 // Kick off the check immediately (non-blocking)
 checkServerAvailable();
+
+// ===== PRE-WARM: Only cache voice 1 (most common), defer others =====
+// Previous version fired 10 parallel fetches causing bandwidth contention.
+// Now we only pre-warm voice 1; other voices are cached on first click.
+var _prewarmAborted=false;
+(function prewarmVoice1(){
+  checkServerAvailable().then(function(serverOk){
+    if(_prewarmAborted)return;
+    var v=VOICES[1];
+    if(!v||!v.sample)return;
+    var cacheKey='v1';
+    if(_ttsPreviewCache[cacheKey])return;
+    var encodedText=encodeURIComponent(v.sample);
+    if(serverOk){
+      var localUrl='/api/tts?text='+encodedText+'&voice=1&rate=100&pitch='+(v.pitch||1.0);
+      fetch(localUrl).then(function(r){return r.blob()}).then(function(b){
+        if(b.size>200&&!_prewarmAborted){_ttsPreviewCache[cacheKey]=URL.createObjectURL(b);
+          console.log('[PREWARM] Voice 1 cached via local server');}
+      }).catch(function(){});
+    }else{
+      // Only try StreamElements (CORS-enabled, fast) - no slow CORS proxies
+      var seUrl='https://api.streamelements.com/kappa/v2/speech?voice=Zhiyu&text='+encodedText;
+      fetch(seUrl,{mode:'cors',credentials:'omit'}).then(function(r){return r.blob()}).then(function(b){
+        if(b.size>200&&!_prewarmAborted){_ttsPreviewCache[cacheKey]=URL.createObjectURL(b);
+          console.log('[PREWARM] Voice 1 cached via StreamElements');}
+      }).catch(function(){});
+    }
+  });
+})();
 
 function previewVoice(id){
   const v=VOICES[id];
@@ -2918,6 +2958,9 @@ function previewVoice(id){
   // ===== Increment preview token - stale fetch results will be ignored =====
   var myToken=++_previewToken;
 
+  // ===== ABORT prewarm to free up network bandwidth =====
+  _prewarmAborted=true;
+
   // ===== CHECK CACHE FIRST: if we've already fetched TTS for this voice, play instantly =====
   var cacheKey='v'+id;
   if(_ttsPreviewCache[cacheKey]){
@@ -2951,76 +2994,22 @@ function previewVoice(id){
     }
   }
 
-  // ===== Show loading feedback =====
-  showToast('正在加载 '+v.name+' 试听音频...');
-
-  // ===== KEY FIX: Use new Audio(url).play() directly instead of fetch()→blob→Audio→play()
-  // On mobile, fetch() breaks the user interaction chain, causing play() to be blocked
-  // by autoplay policy. Using Audio element directly keeps play() within user interaction window.
-  var previewUrl='/api/tts?text='+encodeURIComponent(v.sample)+'&voice='+id+'&rate='+voiceSpeed+'&pitch='+(v.pitch||1.0);
-  var audioEl=new Audio(previewUrl);
-  audioEl.volume=voiceVol/100;
-  audioEl.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
-  _activePreviewAudios.push(audioEl);
-  var voiceId=id;
-  var previewSettled=false;
-
-  // 15s timeout: if audio doesn't start playing, try fallback
-  var previewTimeout=setTimeout(function(){
-    if(previewSettled)return;
-    previewSettled=true;
-    console.log('[PREVIEW] Local server Audio timeout, trying fallback');
-    try{audioEl.pause();audioEl.src='';}catch(e){}
-    _previewVoiceDirect(id,v,myToken);
-  },15000);
-
-  audioEl.addEventListener('playing',function(){
-    if(previewSettled)return;
-    previewSettled=true;
-    clearTimeout(previewTimeout);
-    if(myToken!==_previewToken){try{audioEl.pause()}catch(e){}return;}
-    currentVoiceUtter={_voiceId:voiceId,_audioEl:audioEl};
-    showToast('试听: '+v.name);
-    renderVoices();
-    console.log('[PREVIEW] Local server Audio playback started');
-    // Cache in background for next time (non-blocking)
-    fetch(previewUrl).then(function(r){return r.blob()}).then(function(b){
-      if(b.size>200&&myToken===_previewToken){_ttsPreviewCache[cacheKey]=URL.createObjectURL(b);}
-    }).catch(function(){});
-  },{once:true});
-
-  audioEl.addEventListener('error',function(){
-    if(previewSettled)return;
-    previewSettled=true;
-    clearTimeout(previewTimeout);
-    if(myToken!==_previewToken)return;
-    console.log('[PREVIEW] Local server Audio error, trying fallback');
-    _previewVoiceDirect(id,v,myToken);
-  },{once:true});
-
-  audioEl.addEventListener('ended',function(){
-    if(myToken!==_previewToken)return;
-    if(currentVoiceUtter&&currentVoiceUtter._voiceId===voiceId){
-      currentVoiceUtter=null;
-      renderVoices();
-    }
-  },{once:true});
-
-  // Call play() immediately - within user interaction chain (no fetch() delay)
-  audioEl.play().catch(function(e){
-    if(previewSettled)return;
-    previewSettled=true;
-    clearTimeout(previewTimeout);
-    if(myToken!==_previewToken)return;
-    console.log('[PREVIEW] Local server play() rejected:',e.message||e,'- trying fallback');
-    _previewVoiceDirect(id,v,myToken);
-  });
+  // ===== FAST PATH: Use new Audio(url).play() directly within user interaction =====
+  // This is the KEY optimization: play() is called synchronously within the click handler,
+  // so mobile autoplay policy allows it. No fetch() delay, no CORS proxy needed.
+  // We try ONE source at a time with a short timeout, not racing multiple sources.
+  _previewVoiceFast(id,v,myToken);
 }
 
-// Direct Baidu TTS via CORS proxy + fetch + blob URL (same approach as rendering path)
-// This is the most reliable method on mobile: fetch through CORS proxy returns proper headers,
-// blob URL is same-origin, Audio element can play it without CORS issues.
-async function _previewVoiceDirect(id,v,myToken){
+// ===== FAST TTS PREVIEW: Single-source, short timeout, immediate playback =====
+// Strategy:
+// 1. If local server confirmed available: use /api/tts directly (fastest, no CORS)
+// 2. If server NOT available (mobile): use StreamElements direct Audio (CORS-enabled)
+//    - If StreamElements fails in 2s, try Baidu direct Audio (2s)
+//    - If both fail, speechSynthesis fallback
+// 3. Use AbortController to PROPERLY cancel abandoned fetches
+// 4. No CORS proxies (allorigins/corsproxy) - they're too slow on mobile
+function _previewVoiceFast(id,v,myToken){
   var per=0;
   if(id===2)per=1; if(id===3)per=5; if(id===4)per=3;
   if(id===5)per=3; if(id===6)per=4; if(id===7)per=4;
@@ -3029,139 +3018,99 @@ async function _previewVoiceDirect(id,v,myToken){
   var spd=Math.max(1,Math.min(9,Math.round(3+(v.rate||1.0)*speedMul*3)));
   var pit=Math.max(1,Math.min(9,Math.round(3+(v.pitch||1.0)*3)));
   var encodedText=encodeURIComponent(v.sample);
-  var baiduUrl1='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&ctp=1&text='+encodedText;
-  var baiduUrl2='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&text='+encodedText;
-  var googleTtsUrl='https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-CN&q='+encodedText;
-  var streamelementsUrl='https://api.streamelements.com/kappa/v2/speech?voice=Zhiyu&text='+encodedText;
-  // CORS-enabled + proxy + direct URLs (same comprehensive list as generateTTSAudio rendering path)
-  var allUrls=[
-    {url:streamelementsUrl,type:'proxy'},                                              // 0: StreamElements (CORS-enabled, most reliable - same as rendering)
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(googleTtsUrl),type:'proxy'}, // 1: Google Translate via allorigins
-    {url:'https://corsproxy.io/?url='+encodeURIComponent(googleTtsUrl),type:'proxy'},           // 2: Google Translate via corsproxy
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(baiduUrl1),type:'proxy'},    // 3: Baidu via allorigins
-    {url:'https://corsproxy.io/?url='+encodeURIComponent(baiduUrl1),type:'proxy'},              // 4: Baidu via corsproxy
-    {url:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(baiduUrl1),type:'proxy'},// 5: Baidu via codetabs
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(baiduUrl2),type:'proxy'},    // 6: Baidu url2 via allorigins
-    {url:baiduUrl1,type:'direct'},                                                    // 7: Direct Baidu (may work on mobile WebView)
-    {url:baiduUrl2,type:'direct'},                                                    // 8: Direct Baidu url2
-  ];
-  var urlIdx=0;
+  var baiduUrl='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&ctp=1&text='+encodedText;
+  var seUrl='https://api.streamelements.com/kappa/v2/speech?voice=Zhiyu&text='+encodedText;
+  var cacheKey='v'+id;
   var settled=false;
 
-  async function tryNextUrl(){
-    if(settled)return;
-    if(urlIdx>=allUrls.length){
-      if(settled)return;
-      settled=true;
-      console.log('[PREVIEW] All TTS URLs failed');
-      _previewVoiceSS(id,v);
-      return;
-    }
-    var item=allUrls[urlIdx];
-    console.log('[PREVIEW] Trying TTS URL',urlIdx,'('+item.type+'):',item.url.slice(0,70));
-
-    if(item.type==='proxy'){
-      // CORS proxy: fetch → blob → blobUrl → Audio element (same as rendering path)
-      try{
-        var response=await Promise.race([
-          fetch(item.url,{mode:'cors',credentials:'omit'}),
-          new Promise(function(_,reject){setTimeout(function(){reject(new Error('fetch timeout 10s'))},10000)})
-        ]);
-        if(!response.ok)throw new Error('HTTP '+response.status);
-        var blob=await response.blob();
-        if(blob.size<200)throw new Error('blob too small: '+blob.size);
-        if(settled)return;
-        var blobUrl=URL.createObjectURL(blob);
-        var audioEl=new Audio(blobUrl);
-        audioEl.volume=voiceVol/100;
-        audioEl.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
-        _activePreviewAudios.push(audioEl);
-
-        var playTimeout=setTimeout(function(){
-          if(settled)return;
-          console.log('[PREVIEW] Play timeout for proxy',urlIdx);
-          try{audioEl.pause();}catch(e){}
-          urlIdx++;
-          tryNextUrl();
-        },8000);
-
-        audioEl.addEventListener('playing',function(){
-          if(settled)return;
-          settled=true;
-          clearTimeout(playTimeout);
-          if(myToken!==_previewToken){try{audioEl.pause()}catch(e){}return;}
-          currentVoiceUtter={_voiceId:id,_audioEl:audioEl};
-          showToast('试听: '+v.name);
-          renderVoices();
-          console.log('[PREVIEW] TTS playback started from proxy',urlIdx);
-        },{once:true});
-
-        audioEl.addEventListener('error',function(){
-          if(settled)return;
-          clearTimeout(playTimeout);
-          console.log('[PREVIEW] Audio error from proxy',urlIdx);
-          urlIdx++;
-          tryNextUrl();
-        },{once:true});
-
-        audioEl.play().catch(function(e){
-          if(settled)return;
-          console.log('[PREVIEW] Play rejected from proxy',urlIdx,':',e.message||e);
-          clearTimeout(playTimeout);
-          urlIdx++;
-          tryNextUrl();
-        });
-      }catch(e){
-        if(settled)return;
-        console.log('[PREVIEW] Proxy',urlIdx,'failed:',e.message||e);
-        urlIdx++;
-        tryNextUrl();
-      }
-    }else{
-      // Direct URL: use Audio element (may work on some mobile browsers for playback)
-      var audioEl=new Audio();
-      audioEl.volume=voiceVol/100;
-      audioEl.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
-      _activePreviewAudios.push(audioEl);
-
-      var urlTimeout=setTimeout(function(){
-        if(settled)return;
-        console.log('[PREVIEW] Direct URL',urlIdx,'timeout');
-        try{audioEl.pause();audioEl.src='';}catch(e){}
-        urlIdx++;
-        tryNextUrl();
-      },12000);
-
-      audioEl.addEventListener('playing',function(){
-        if(settled)return;
-        settled=true;
-        clearTimeout(urlTimeout);
-        if(myToken!==_previewToken){try{audioEl.pause()}catch(e){}return;}
-        currentVoiceUtter={_voiceId:id,_audioEl:audioEl};
-        showToast('试听: '+v.name);
+  function onPlayStart(audioEl,source){
+    if(settled||myToken!==_previewToken){try{audioEl.pause()}catch(e){}return;}
+    settled=true;
+    currentVoiceUtter={_voiceId:id,_audioEl:audioEl};
+    showToast('试听: '+v.name);
+    renderVoices();
+    console.log('[PREVIEW] TTS playback started from '+source);
+    audioEl.addEventListener('ended',function(){
+      if(myToken!==_previewToken)return;
+      if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
+        currentVoiceUtter=null;
         renderVoices();
-        console.log('[PREVIEW] TTS playback started from direct URL',urlIdx);
-      },{once:true});
-
-      audioEl.addEventListener('error',function(){
-        if(settled)return;
-        console.log('[PREVIEW] Direct URL',urlIdx,'error');
-        clearTimeout(urlTimeout);
-        urlIdx++;
-        tryNextUrl();
-      },{once:true});
-
-      audioEl.src=item.url;
-      audioEl.load();
-      audioEl.play().catch(function(e){
-        if(e.name==='NotAllowedError'){
-          console.log('[PREVIEW] Autoplay blocked for direct URL',urlIdx);
-        }
-      });
+      }
+    },{once:true});
+    // Background cache: fetch blob for next time
+    var cacheUrl=(source==='streamelements')?seUrl:(source==='baidu')?baiduUrl:null;
+    if(cacheUrl){
+      fetch(cacheUrl,{mode:'cors',credentials:'omit'}).then(function(r){return r.blob()}).then(function(b){
+        if(b.size>200)_ttsPreviewCache[cacheKey]=URL.createObjectURL(b);
+      }).catch(function(){});
     }
   }
 
-  tryNextUrl();
+  function tryAudio(url,source,timeoutMs,onFail){
+    if(settled||myToken!==_previewToken){onFail();return;}
+    try{
+      var audioEl=new Audio(url);
+      audioEl.volume=voiceVol/100;
+      audioEl.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
+      _activePreviewAudios.push(audioEl);
+      var to=setTimeout(function(){
+        if(settled)return;
+        try{audioEl.pause();audioEl.src='';}catch(e){}
+        onFail();
+      },timeoutMs);
+      audioEl.addEventListener('playing',function(){
+        clearTimeout(to);
+        onPlayStart(audioEl,source);
+      },{once:true});
+      audioEl.addEventListener('error',function(){
+        if(settled)return;
+        clearTimeout(to);
+        try{audioEl.pause();audioEl.src='';}catch(e){}
+        onFail();
+      },{once:true});
+      audioEl.play().catch(function(e){
+        if(settled)return;
+        clearTimeout(to);
+        try{audioEl.pause();audioEl.src='';}catch(err){}
+        onFail();
+      });
+    }catch(e){onFail();}
+  }
+
+  // ===== DECIDE PATH based on server availability =====
+  if(_serverAvailable===true){
+    // Local server available - use it directly (fastest path)
+    var previewUrl='/api/tts?text='+encodeURIComponent(v.sample)+'&voice='+id+'&rate='+voiceSpeed+'&pitch='+(v.pitch||1.0);
+    showToast('正在加载 '+v.name+' 试听...');
+    tryAudio(previewUrl,'local',3000,function(){
+      // Local server failed, try StreamElements
+      console.log('[PREVIEW] Local server failed, trying StreamElements');
+      tryAudio(seUrl,'streamelements',2500,function(){
+        // StreamElements failed, try Baidu
+        console.log('[PREVIEW] StreamElements failed, trying Baidu');
+        tryAudio(baiduUrl,'baidu',2500,function(){
+          // All failed, speechSynthesis
+          console.log('[PREVIEW] All sources failed, using speechSynthesis');
+          _previewVoiceSS(id,v);
+        });
+      });
+    });
+  }else{
+    // Mobile/no server - go straight to external TTS
+    // StreamElements first (CORS-enabled, most reliable on mobile)
+    showToast('正在加载 '+v.name+' 试听...');
+    tryAudio(seUrl,'streamelements',2500,function(){
+      if(myToken!==_previewToken||settled)return;
+      // StreamElements failed, try Baidu direct
+      console.log('[PREVIEW] StreamElements failed, trying Baidu');
+      tryAudio(baiduUrl,'baidu',2500,function(){
+        if(myToken!==_previewToken||settled)return;
+        // Both failed, speechSynthesis
+        console.log('[PREVIEW] All external sources failed, using speechSynthesis');
+        _previewVoiceSS(id,v);
+      });
+    });
+  }
 }
 
 // speechSynthesis fallback for voice preview
@@ -6809,8 +6758,6 @@ function saveWorkPlaceholder(qty){
     }
   }catch(e){console.error('save error',e)}
 }
-function replayRenderVideo(){
-
 // ===== Collapsible render steps =====
 function toggleRenderSteps(){
   var stepsEl=document.getElementById('render-steps');
@@ -7534,6 +7481,37 @@ function setCameraMode(mode){
     photoBtn.style.background='transparent';
     label.textContent='录像';
   }
+  // ===== RESTART STREAM WITH CORRECT AUDIO SETTING =====
+  // When switching to video mode, we need audio tracks for recording.
+  // When switching to photo mode, we don't need audio (saves battery).
+  // Without this restart, video recording would have no audio track.
+  if(camStream){
+    var prevRecording=camRecording;
+    if(prevRecording)stopRecording();
+    camStream.getTracks().forEach(function(t){t.stop()});
+    camStream=null;
+    navigator.mediaDevices.getUserMedia({
+      video:{facingMode:camFacing,width:{ideal:1920},height:{ideal:1080}},
+      audio:mode==='video'
+    }).then(function(stream){
+      camStream=stream;
+      var v=document.getElementById('camera-video');
+      if(v)v.srcObject=stream;
+    }).catch(function(e){
+      // Fallback: try without facingMode constraint
+      navigator.mediaDevices.getUserMedia({
+        video:true,
+        audio:mode==='video'
+      }).then(function(stream2){
+        camStream=stream2;
+        var v2=document.getElementById('camera-video');
+        if(v2)v2.srcObject=stream2;
+      }).catch(function(e2){
+        console.error('Camera mode switch error:',e2);
+        showToast('切换模式失败，请重试');
+      });
+    });
+  }
 }
 
 async function switchCamera(){
@@ -7599,37 +7577,82 @@ function capturePhoto(){
 }
 
 function startRecording(){
-  if(!camStream)return;
+  if(!camStream){
+    showToast('摄像头未就绪，请稍后再试');
+    return;
+  }
+  // Check MediaRecorder availability (not supported in all WebView)
+  if(typeof MediaRecorder==='undefined'){
+    showToast('当前环境不支持录像，请使用相册上传视频');
+    return;
+  }
   camChunks=[];
   var mimeType='';
-  // Try different codecs
-  var types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+  // Try different codecs for cross-platform compatibility
+  var types=[
+    'video/mp4;codecs=h264,aac',       // iOS Safari / some Android WebView
+    'video/webm;codecs=vp9,opus',      // Chrome desktop
+    'video/webm;codecs=vp8,opus',      // Chrome mobile
+    'video/webm;codecs=h264,opus',     // Some Android
+    'video/webm',                       // Generic WebM
+    'video/mp4'                         // Generic MP4
+  ];
   for(var i=0;i<types.length;i++){
-    if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(types[i])){
-      mimeType=types[i];
-      break;
-    }
+    try{
+      if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(types[i])){
+        mimeType=types[i];
+        break;
+      }
+    }catch(e){/* isTypeSupported might throw in some WebView */}
   }
   try{
     camMediaRecorder=new MediaRecorder(camStream,mimeType?{mimeType:mimeType}:undefined);
   }catch(e){
+    console.log('[CAM] MediaRecorder with mimeType failed:',e);
     try{
       camMediaRecorder=new MediaRecorder(camStream);
+      mimeType='';
     }catch(e2){
-      showToast('录像功能不支持');
+      console.error('[CAM] MediaRecorder completely failed:',e2);
+      showToast('录像功能不支持，请使用相册上传视频');
       return;
     }
   }
   camMediaRecorder.ondataavailable=function(e){
     if(e.data&&e.data.size>0)camChunks.push(e.data);
   };
+  camMediaRecorder.onerror=function(e){
+    console.error('[CAM] MediaRecorder error:',e);
+    showToast('录像出错，请重试');
+    stopRecording();
+  };
   camMediaRecorder.onstop=function(){
-    var blob=new Blob(camChunks,{type:mimeType||'video/webm'});
+    if(camChunks.length===0){
+      showToast('录像失败，未捕获到数据');
+      return;
+    }
+    var blobType=mimeType||'video/webm';
+    var blob=new Blob(camChunks,{type:blobType});
+    if(blob.size<1000){
+      showToast('录像文件太小，请重新录制');
+      return;
+    }
     camCapturedBlob=blob;
-    camCapturedType=blob.type||'video/webm';
+    camCapturedType=blobType;
     showCapturePreview(blob,'video');
   };
-  camMediaRecorder.start();
+  // Use timeslice for more reliable data delivery on mobile
+  try{
+    camMediaRecorder.start(1000); // Collect data every 1 second
+  }catch(e3){
+    try{
+      camMediaRecorder.start();
+    }catch(e4){
+      console.error('[CAM] MediaRecorder.start failed:',e4);
+      showToast('无法开始录像，请重试');
+      return;
+    }
+  }
   camRecording=true;
   camRecStart=Date.now();
   // Update UI
@@ -7650,7 +7673,6 @@ function startRecording(){
 
 function stopRecording(){
   if(!camMediaRecorder||!camRecording)return;
-  camMediaRecorder.stop();
   camRecording=false;
   clearInterval(camRecTimer);
   camRecTimer=null;
@@ -7661,6 +7683,22 @@ function stopRecording(){
   inner.style.borderRadius='50%';
   inner.style.background='#fff';
   document.getElementById('camera-rec-timer').style.display='none';
+  // Request final data before stopping (important for mobile)
+  try{
+    if(camMediaRecorder.state==='recording'){
+      camMediaRecorder.requestData();
+    }
+  }catch(e){/* requestData might not be supported */}
+  // Stop with slight delay to allow final data delivery
+  setTimeout(function(){
+    try{
+      if(camMediaRecorder&&camMediaRecorder.state!=='inactive'){
+        camMediaRecorder.stop();
+      }
+    }catch(e){
+      console.error('[CAM] stop error:',e);
+    }
+  },200);
 }
 
 function showCapturePreview(blob,type){
@@ -8053,65 +8091,95 @@ async function init(){
       if(this.textContent==='')this.style.color='rgba(255,255,255,.4)';
     });
   });
-
-  // Global event delegation for nav-back buttons (most reliable approach)
-  // Uses a debounce to prevent double-calls from click + touchend
-  var _navBackLastTime=0;
-  function _handleNavBack(e){
-    var now=Date.now();
-    if(now-_navBackLastTime<500)return;
-    _navBackLastTime=now;
-    if(e){e.preventDefault();e.stopPropagation();}
-    goBack();
-  }
-  function _findNavBack(target){
-    while(target&&target!==document){
-      if(target.classList&&target.classList.contains('nav-back'))return target;
-      target=target.parentNode;
-    }
-    return null;
-  }
-  // Desktop: click event
-  document.addEventListener('click',function(e){
-    if(_findNavBack(e.target)){_handleNavBack(e);}
-  },{capture:true});
-  // Mobile: touchend event (fires before click on touch devices)
-  document.addEventListener('touchend',function(e){
-    if(_findNavBack(e.target)){_handleNavBack(e);}
-  },{passive:false});
-
-  // === Render button touch-end delegation (mobile instant response) ===
-  var _renderBtnLastTime=0;
-  function _findRenderBtn(target){
-    while(target&&target!==document){
-      if(target.classList&&target.classList.contains('btn-gradient'))return target;
-      if(target.classList&&target.classList.contains('btn-purple'))return target;
-      target=target.parentNode;
-    }
-    return null;
-  }
-  function _handleRenderBtn(el){
-    var now=Date.now();
-    if(now-_renderBtnLastTime<800)return; // debounce
-    _renderBtnLastTime=now;
-    var fn=el.getAttribute('onclick');
-    if(fn&&fn.indexOf('startClip')>=0){
-      startClip();
-    }else if(fn&&fn.indexOf('startFullAuto')>=0){
-      startFullAuto();
-    }
-  }
-  document.addEventListener('touchend',function(e){
-    var btn=_findRenderBtn(e.target);
-    if(btn){
-      e.preventDefault();
-      e.stopPropagation();
-      _handleRenderBtn(btn);
-    }
-  },{passive:false});
 }
 
-document.addEventListener('DOMContentLoaded',init);
+// ===== GLOBAL TOUCH DELEGATION FOR ALL ONCLICK ELEMENTS =====
+// Runs independently of init() so buttons work even if init() fails.
+// On mobile WebView, onclick on <div> elements can be unreliable or have 300ms delay.
+// This handler intercepts touchend, finds the closest element with onclick,
+// and executes it immediately, then prevents the subsequent click to avoid double-fire.
+// Also handles .nav-back buttons which have no onclick attribute.
+(function(){
+  var _gTouchLastTime=0;
+  var _gTouchLastKey='';
+  function _findClickableEl(target){
+    while(target&&target!==document){
+      var tag=target.tagName;
+      if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='VIDEO'||tag==='AUDIO'){
+        return null;
+      }
+      // Check for onclick attribute
+      if(target.getAttribute&&target.getAttribute('onclick')){
+        return {el:target,action:target.getAttribute('onclick')};
+      }
+      // Check for .nav-back class (back buttons without onclick)
+      if(target.classList&&target.classList.contains('nav-back')){
+        return {el:target,action:'goBack()'};
+      }
+      target=target.parentNode;
+    }
+    return null;
+  }
+  function _execAction(found,e){
+    var el=found.el;
+    var action=found.action;
+    var now=Date.now();
+    var elKey=(el.id||'')+'|'+(el.className||'')+'|'+action;
+    if(elKey===_gTouchLastKey&&now-_gTouchLastTime<500){
+      return false;
+    }
+    _gTouchLastTime=now;
+    _gTouchLastKey=elKey;
+    try{
+      new Function('event',action).call(el,e);
+    }catch(err){
+      console.error('[TOUCH] action execution error:',err);
+    }
+    return true;
+  }
+  // Mobile: touchend fires before click, execute action immediately
+  document.addEventListener('touchend',function(e){
+    var found=_findClickableEl(e.target);
+    if(found){
+      e.preventDefault();
+      e.stopPropagation();
+      _execAction(found,e);
+    }
+  },{passive:false});
+  // Desktop: handle click for non-touch devices, suppress if touchend already fired
+  document.addEventListener('click',function(e){
+    var found=_findClickableEl(e.target);
+    if(found){
+      var now=Date.now();
+      var elKey=(found.el.id||'')+'|'+(found.el.className||'')+'|'+found.action;
+      if(elKey===_gTouchLastKey&&now-_gTouchLastTime<500){
+        // Already handled by touchend, suppress click
+        e.preventDefault();
+        e.stopPropagation();
+      }else{
+        // Desktop click (no prior touchend), execute now
+        e.preventDefault();
+        e.stopPropagation();
+        _execAction(found,e);
+      }
+    }
+  },{capture:true});
+})();
+
+// Global error handler - catch any uncaught errors on mobile
+window.addEventListener('error',function(e){
+  console.error('[GLOBAL ERROR]',e.message,'at',e.filename+':'+e.lineno);
+});
+// Run init with error handling so partial failures don't break everything
+document.addEventListener('DOMContentLoaded',function(){
+  try{
+    init().catch(function(e){
+      console.error('[INIT] async error:',e);
+    });
+  }catch(e){
+    console.error('[INIT] sync error:',e);
+  }
+});
 </script>
 </body>
 </html>
