@@ -5488,7 +5488,14 @@ function _downloadBlob(blob,fileName){
 }
 
 // Web-only download (no plus API)
+// Mobile browsers: show dialog → open video in new window → long-press to save
 function _downloadBlobWeb(blob,fileName){
+  // ===== Mobile device: show dialog, open video for long-press save =====
+  if(_isMobileDevice()){
+    _showMobileSaveDialog(blob,fileName);
+    return;
+  }
+  // ===== Desktop: use <a download> with blob URL =====
   try{
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
@@ -5497,14 +5504,12 @@ function _downloadBlobWeb(blob,fileName){
     a.style.display='none';
     a.rel='noopener';
     document.body.appendChild(a);
-    // Use setTimeout to ensure DOM is updated before click
     setTimeout(function(){
       try{
         a.click();
       }catch(clickErr){
         console.error('Download click error:',clickErr);
       }
-      // Clean up after 3 seconds
       setTimeout(function(){
         try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
         try{URL.revokeObjectURL(url)}catch(e){}
@@ -5513,6 +5518,66 @@ function _downloadBlobWeb(blob,fileName){
     showToast('视频已开始下载，请在下载管理中查看');
   }catch(e){
     console.error('Web download error:',e);
+    _showVideoSaveOverlay(blob);
+  }
+}
+
+// Mobile save dialog:提示用户长按保存（匹配用户要求的简化方案）
+function _showMobileSaveDialog(blob,fileName){
+  try{
+    var blobUrl=URL.createObjectURL(blob);
+    // 创建模态对话框
+    var mask=document.createElement('div');
+    mask.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px';
+    var dialog=document.createElement('div');
+    dialog.style.cssText='background:#1a1a2e;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;border:1px solid rgba(244,220,172,.3)';
+    // 标题
+    var title=document.createElement('div');
+    title.style.cssText='color:#F4DCAC;font-size:17px;font-weight:700;margin-bottom:14px';
+    title.textContent='提示';
+    // 内容
+    var content=document.createElement('div');
+    content.style.cssText='color:rgba(255,255,255,.8);font-size:14px;line-height:1.7;margin-bottom:20px;white-space:pre-line';
+    content.textContent='当前为网页预览模式，无法直接写入相册。\n\n请点击"在浏览器打开"，然后长按视频选择"保存到相册"或"下载视频"。';
+    // 按钮容器
+    var btnRow=document.createElement('div');
+    btnRow.style.cssText='display:flex;gap:12px';
+    // 取消按钮
+    var cancelBtn=document.createElement('button');
+    cancelBtn.style.cssText='flex:1;padding:12px 0;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border:none;border-radius:24px;font-size:14px;cursor:pointer';
+    cancelBtn.textContent='我知道了';
+    cancelBtn.onclick=function(){
+      mask.remove();
+      try{URL.revokeObjectURL(blobUrl)}catch(e){}
+    };
+    // 确认按钮 - 在浏览器打开
+    var confirmBtn=document.createElement('button');
+    confirmBtn.style.cssText='flex:1;padding:12px 0;background:#F4DCAC;color:#1a1a2e;border:none;border-radius:24px;font-size:14px;font-weight:700;cursor:pointer';
+    confirmBtn.textContent='在浏览器打开';
+    confirmBtn.onclick=function(){
+      mask.remove();
+      // 先尝试在新窗口打开视频
+      var opened=false;
+      try{
+        var newWin=window.open(blobUrl,'_blank');
+        if(newWin){opened=true}
+      }catch(e){}
+      // 同时显示视频覆盖层，供长按保存
+      _showVideoSaveOverlay(blob);
+      if(!opened){
+        // 如果新窗口被拦截，直接显示覆盖层
+        showToast('请长按视频画面保存');
+      }
+    };
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(confirmBtn);
+    dialog.appendChild(title);
+    dialog.appendChild(content);
+    dialog.appendChild(btnRow);
+    mask.appendChild(dialog);
+    document.body.appendChild(mask);
+  }catch(e){
+    console.error('Mobile save dialog error:',e);
     _showVideoSaveOverlay(blob);
   }
 }
