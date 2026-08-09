@@ -2794,8 +2794,58 @@ let voicesLoaded=false;
 var _previewToken=0;
 // Track all active Audio elements so we can stop them before starting a new preview
 var _activePreviewAudios=[];
+// Track all parallel speakText Audio elements (for stopAllAudio)
+var _speakTextAudios=[];
+// Global welcome audio reference (assigned by DOMContentLoaded callback)
+var _welcomeAudio=null;
 // TTS Preview Cache: stores blob URLs by voice ID for instant playback on repeat clicks
 var _ttsPreviewCache={};
+
+// ===== GLOBAL: Stop ALL audio sources (prevents any overlap) =====
+// Call this before playing any new audio (speakText, previewVoice, playWelcome).
+// Incrementing tokens invalidates ALL pending async fallbacks from previous calls,
+// preventing the "src=''" error event from triggering unwanted Baidu fallbacks.
+function stopAllAudio(){
+  // 0. Invalidate all pending async fallbacks (prevents race condition)
+  _speakTextToken++;
+  _previewToken++;
+  // 1. Stop all speakText audios (parallel array) — also remove from DOM
+  for(var sti=0;sti<_speakTextAudios.length;sti++){
+    _removeAudioEl(_speakTextAudios[sti]);
+  }
+  _speakTextAudios=[];
+  if(typeof _speakTtsAudio!=='undefined'&&_speakTtsAudio){_removeAudioEl(_speakTtsAudio);_speakTtsAudio=null}
+  // 2. Stop all preview audios — also remove from DOM
+  if(typeof _activePreviewAudios!=='undefined'){
+    for(var sai=0;sai<_activePreviewAudios.length;sai++){
+      _removeAudioEl(_activePreviewAudios[sai]);
+    }
+    _activePreviewAudios=[];
+  }
+  // 3. Stop welcome audio
+  if(_welcomeAudio){_removeAudioEl(_welcomeAudio);_welcomeAudio=null}
+  // 4. Cancel speechSynthesis
+  if(typeof speechSynthesis!=='undefined'){try{speechSynthesis.cancel()}catch(e){}}
+}
+
+// ===== Hidden audio element helpers =====
+// Some mobile WebViews require audio elements to be in the DOM for playback.
+// These helpers create hidden audio elements and clean them up properly.
+function _createHiddenAudio(url){
+  var el=document.createElement('audio');
+  el.style.cssText='position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;';
+  el.preload='auto';
+  if(url)el.src=url;
+  document.body.appendChild(el);
+  return el;
+}
+function _removeAudioEl(el){
+  if(!el)return;
+  try{el.pause()}catch(e){}
+  try{el.src='';el.removeAttribute('src')}catch(e){}
+  try{el.load()}catch(e){}
+  try{if(el.parentNode)el.parentNode.removeChild(el)}catch(e){}
+}
 
 function loadVoices(){
   if(typeof speechSynthesis==='undefined')return;
@@ -2904,14 +2954,8 @@ var _prewarmAborted=false;
 function previewVoice(id){
   const v=VOICES[id];
   if(!v||!v.sample)return;
-  // ===== STOP ALL ACTIVE PREVIEW AUDIO (prevents overlapping) =====
-  // Cancel speechSynthesis
-  if(typeof speechSynthesis!=='undefined'){try{speechSynthesis.cancel()}catch(e){}}
-  // Stop all tracked Audio elements
-  for(var ai=0;ai<_activePreviewAudios.length;ai++){
-    try{_activePreviewAudios[ai].pause();_activePreviewAudios[ai].src='';}catch(e){}
-  }
-  _activePreviewAudios=[];
+  // ===== STOP ALL AUDIO (welcome voice, speakText, preview, etc.) =====
+  stopAllAudio();
   // Handle clone voice preview
   if(v.isClone){
     if(!clonedVoiceBlob){
@@ -2926,21 +2970,22 @@ function previewVoice(id){
       return;
     }
     try{
-      var cloneAudio=new Audio(URL.createObjectURL(clonedVoiceBlob));
+      var cloneAudio=_createHiddenAudio(URL.createObjectURL(clonedVoiceBlob));
       cloneAudio.volume=voiceVol/100;
       cloneAudio.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
       _activePreviewAudios.push(cloneAudio);
       var cloneToken=++_previewToken;
       currentVoiceUtter={_voiceId:id,_audioEl:cloneAudio};
-      cloneAudio.onended=function(){
+      cloneAudio.addEventListener('ended',function(){
         if(cloneToken!==_previewToken)return;
         if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
           currentVoiceUtter=null;
           renderVoices();
         }
-      };
+        _removeAudioEl(cloneAudio);
+      },{once:true});
       cloneAudio.play().then(function(){
-        if(cloneToken!==_previewToken){try{cloneAudio.pause()}catch(e){}return;}
+        if(cloneToken!==_previewToken){_removeAudioEl(cloneAudio);return;}
         showToast('试听: 克隆声音');
         renderVoices();
       }).catch(function(e){console.log('Clone preview error:',e)});
@@ -2965,27 +3010,29 @@ function previewVoice(id){
   var cacheKey='v'+id;
   if(_ttsPreviewCache[cacheKey]){
     try{
-      var cachedAudio=new Audio(_ttsPreviewCache[cacheKey]);
+      var cachedAudio=_createHiddenAudio(_ttsPreviewCache[cacheKey]);
       cachedAudio.volume=voiceVol/100;
       cachedAudio.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
       _activePreviewAudios.push(cachedAudio);
       currentVoiceUtter={_voiceId:id,_audioEl:cachedAudio};
-      cachedAudio.onended=function(){
+      cachedAudio.addEventListener('ended',function(){
         if(myToken!==_previewToken)return;
         if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
           currentVoiceUtter=null;
           renderVoices();
         }
-      };
+        _removeAudioEl(cachedAudio);
+      },{once:true});
       cachedAudio.play().then(function(){
-        if(myToken!==_previewToken){try{cachedAudio.pause()}catch(e){}return;}
+        if(myToken!==_previewToken){_removeAudioEl(cachedAudio);return;}
         showToast('试听: '+v.name);
         renderVoices();
       }).catch(function(e){
         if(myToken!==_previewToken)return;
         console.log('[PREVIEW] Cached audio play failed, fetching fresh:',e);
+        _removeAudioEl(cachedAudio);
         delete _ttsPreviewCache[cacheKey];
-        _previewVoiceSS(id,v);
+        _previewVoiceFast(id,v,myToken);
       });
       return;
     }catch(cacheErr){
@@ -3001,14 +3048,14 @@ function previewVoice(id){
   _previewVoiceFast(id,v,myToken);
 }
 
-// ===== FAST TTS PREVIEW: Single-source, short timeout, immediate playback =====
+// ===== FAST TTS PREVIEW: Parallel multi-source, first-to-play-wins =====
 // Strategy:
-// 1. If local server confirmed available: use /api/tts directly (fastest, no CORS)
-// 2. If server NOT available (mobile): use StreamElements direct Audio (CORS-enabled)
-//    - If StreamElements fails in 2s, try Baidu direct Audio (2s)
-//    - If both fail, speechSynthesis fallback
-// 3. Use AbortController to PROPERLY cancel abandoned fetches
-// 4. No CORS proxies (allorigins/corsproxy) - they're too slow on mobile
+// 1. Desktop (local server): try /api/tts first, add Baidu backup after 1s
+// 2. Mobile (no server): try 5 TTS sources IN PARALLEL (2s each)
+//    Sources: StreamElements + 3 Baidu TTS URLs + Youdao
+//    First 'playing' event wins; others are stopped.
+// 3. If none play within 2.5s, try speechSynthesis fallback
+// Audio elements are appended to DOM (some WebViews require this for playback).
 function _previewVoiceFast(id,v,myToken){
   var per=0;
   if(id===2)per=1; if(id===3)per=5; if(id===4)per=3;
@@ -3018,14 +3065,42 @@ function _previewVoiceFast(id,v,myToken){
   var spd=Math.max(1,Math.min(9,Math.round(3+(v.rate||1.0)*speedMul*3)));
   var pit=Math.max(1,Math.min(9,Math.round(3+(v.pitch||1.0)*3)));
   var encodedText=encodeURIComponent(v.sample);
-  var baiduUrl='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&ctp=1&text='+encodedText;
+  // Multiple TTS URL formats — different endpoints/domains for maximum reliability
+  var baiduUrl1='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&ctp=1&text='+encodedText;
+  var baiduUrl2='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&text='+encodedText;
+  var baiduUrl3='https://fanyi.baidu.com/gettts?lan=zh&text='+encodedText+'&spd='+spd+'&source=web';
   var seUrl='https://api.streamelements.com/kappa/v2/speech?voice=Zhiyu&text='+encodedText;
+  var youdaoUrl='https://dict.youdao.com/dictvoice?audio='+encodedText+'&le=zh&type=2';
   var cacheKey='v'+id;
   var settled=false;
+  var ssTimer=null;
+  var failedCount=0;
+  var totalSources=0;
+
+  function checkAllFailed(){
+    if(settled)return false;
+    failedCount++;
+    if(failedCount>=totalSources){
+      // All sources failed — try speechSynthesis immediately (don't wait for timeout)
+      if(ssTimer){clearTimeout(ssTimer);ssTimer=null}
+      console.log('[PREVIEW] All '+totalSources+' sources failed, trying speechSynthesis');
+      _previewVoiceSS(id,v);
+      return true;
+    }
+    return false;
+  }
 
   function onPlayStart(audioEl,source){
-    if(settled||myToken!==_previewToken){try{audioEl.pause()}catch(e){}return;}
+    if(settled||myToken!==_previewToken){_removeAudioEl(audioEl);return;}
     settled=true;
+    if(ssTimer){clearTimeout(ssTimer);ssTimer=null}
+    // Stop all other parallel preview audios
+    for(var ai=0;ai<_activePreviewAudios.length;ai++){
+      if(_activePreviewAudios[ai]!==audioEl){
+        _removeAudioEl(_activePreviewAudios[ai]);
+      }
+    }
+    _activePreviewAudios=[audioEl];
     currentVoiceUtter={_voiceId:id,_audioEl:audioEl};
     showToast('试听: '+v.name);
     renderVoices();
@@ -3036,80 +3111,95 @@ function _previewVoiceFast(id,v,myToken){
         currentVoiceUtter=null;
         renderVoices();
       }
+      _removeAudioEl(audioEl);
     },{once:true});
-    // Background cache: fetch blob for next time
-    var cacheUrl=(source==='streamelements')?seUrl:(source==='baidu')?baiduUrl:null;
-    if(cacheUrl){
-      fetch(cacheUrl,{mode:'cors',credentials:'omit'}).then(function(r){return r.blob()}).then(function(b){
-        if(b.size>200)_ttsPreviewCache[cacheKey]=URL.createObjectURL(b);
-      }).catch(function(){});
-    }
+    // Background cache: fetch blob for next time (only for Baidu URLs which return audio)
+    fetch(baiduUrl1,{mode:'cors',credentials:'omit'}).then(function(r){return r.blob()}).then(function(b){
+      if(b.size>200)_ttsPreviewCache[cacheKey]=URL.createObjectURL(b);
+    }).catch(function(){});
   }
 
-  function tryAudio(url,source,timeoutMs,onFail){
-    if(settled||myToken!==_previewToken){onFail();return;}
+  function tryAudio(url,source,timeoutMs){
+    if(settled||myToken!==_previewToken)return;
+    totalSources++;
     try{
-      var audioEl=new Audio(url);
+      var audioEl=_createHiddenAudio(url);
       audioEl.volume=voiceVol/100;
       audioEl.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
       _activePreviewAudios.push(audioEl);
       var to=setTimeout(function(){
-        if(settled)return;
-        try{audioEl.pause();audioEl.src='';}catch(e){}
-        onFail();
+        if(settled){return}
+        _removeAudioEl(audioEl);
+        // Remove from active list
+        var idx=_activePreviewAudios.indexOf(audioEl);
+        if(idx>=0)_activePreviewAudios.splice(idx,1);
+        checkAllFailed();
       },timeoutMs);
       audioEl.addEventListener('playing',function(){
+        if(settled){_removeAudioEl(audioEl);return}
         clearTimeout(to);
         onPlayStart(audioEl,source);
       },{once:true});
       audioEl.addEventListener('error',function(){
-        if(settled)return;
+        if(settled){return}
         clearTimeout(to);
-        try{audioEl.pause();audioEl.src='';}catch(e){}
-        onFail();
+        _removeAudioEl(audioEl);
+        var idx2=_activePreviewAudios.indexOf(audioEl);
+        if(idx2>=0)_activePreviewAudios.splice(idx2,1);
+        console.log('[PREVIEW] '+source+' error');
+        checkAllFailed();
       },{once:true});
       audioEl.play().catch(function(e){
-        if(settled)return;
+        if(settled){return}
         clearTimeout(to);
-        try{audioEl.pause();audioEl.src='';}catch(err){}
-        onFail();
+        _removeAudioEl(audioEl);
+        var idx3=_activePreviewAudios.indexOf(audioEl);
+        if(idx3>=0)_activePreviewAudios.splice(idx3,1);
+        console.log('[PREVIEW] '+source+' play() rejected:',e.name||e);
+        checkAllFailed();
       });
-    }catch(e){onFail();}
+    }catch(e){
+      totalSources--;
+      console.log('[PREVIEW] '+source+' exception:',e.message||e);
+    }
   }
 
   // ===== DECIDE PATH based on server availability =====
   if(_serverAvailable===true){
-    // Local server available - use it directly (fastest path)
+    // Desktop: local server (fastest), Baidu backup after 1s
     var previewUrl='/api/tts?text='+encodeURIComponent(v.sample)+'&voice='+id+'&rate='+voiceSpeed+'&pitch='+(v.pitch||1.0);
     showToast('正在加载 '+v.name+' 试听...');
-    tryAudio(previewUrl,'local',3000,function(){
-      // Local server failed, try StreamElements
-      console.log('[PREVIEW] Local server failed, trying StreamElements');
-      tryAudio(seUrl,'streamelements',2500,function(){
-        // StreamElements failed, try Baidu
-        console.log('[PREVIEW] StreamElements failed, trying Baidu');
-        tryAudio(baiduUrl,'baidu',2500,function(){
-          // All failed, speechSynthesis
-          console.log('[PREVIEW] All sources failed, using speechSynthesis');
-          _previewVoiceSS(id,v);
-        });
-      });
-    });
-  }else{
-    // Mobile/no server - go straight to external TTS
-    // StreamElements first (CORS-enabled, most reliable on mobile)
-    showToast('正在加载 '+v.name+' 试听...');
-    tryAudio(seUrl,'streamelements',2500,function(){
-      if(myToken!==_previewToken||settled)return;
-      // StreamElements failed, try Baidu direct
-      console.log('[PREVIEW] StreamElements failed, trying Baidu');
-      tryAudio(baiduUrl,'baidu',2500,function(){
-        if(myToken!==_previewToken||settled)return;
-        // Both failed, speechSynthesis
-        console.log('[PREVIEW] All external sources failed, using speechSynthesis');
+    tryAudio(previewUrl,'local',2500);
+    // If local server hasn't responded in 1s, try Baidu in parallel
+    setTimeout(function(){
+      if(!settled&&myToken===_previewToken){
+        console.log('[PREVIEW] Local server slow, adding Baidu backup');
+        tryAudio(baiduUrl1,'baidu1',2500);
+      }
+    },1000);
+    // If all fail in 3s, try speechSynthesis
+    ssTimer=setTimeout(function(){
+      if(!settled&&myToken===_previewToken){
+        console.log('[PREVIEW] All sources failed, using speechSynthesis');
         _previewVoiceSS(id,v);
-      });
-    });
+      }
+    },3000);
+  }else{
+    // Mobile: try 5 TTS sources IN PARALLEL — first to play wins
+    // StreamElements (CORS-enabled) + 3 Baidu URLs + Youdao
+    showToast('正在加载 '+v.name+' 试听...');
+    tryAudio(baiduUrl1,'baidu1',2500);
+    tryAudio(baiduUrl2,'baidu2',2500);
+    tryAudio(baiduUrl3,'baidu3',2500);
+    tryAudio(seUrl,'streamelements',2500);
+    tryAudio(youdaoUrl,'youdao',2500);
+    // Fallback: if none play within 2.5s, try speechSynthesis
+    ssTimer=setTimeout(function(){
+      if(!settled&&myToken===_previewToken){
+        console.log('[PREVIEW] Timeout — all sources slow, trying speechSynthesis');
+        _previewVoiceSS(id,v);
+      }
+    },2500);
   }
 }
 
@@ -3117,8 +3207,7 @@ function _previewVoiceFast(id,v,myToken){
 function _previewVoiceSS(id,v){
   if(typeof speechSynthesis==='undefined'){
     // On mobile WebView, speechSynthesis is often not available.
-    // Show a more helpful message instead of "浏览器不支持"
-    showToast('配音加载超时，请检查网络连接后重试。背景音乐为本地文件可正常播放，配音需联网加载');
+    showToast('配音加载失败，请检查网络后重试');
     return;
   }
   // Use the current preview token to prevent overlapping speechSynthesis
@@ -3434,133 +3523,233 @@ var _speakTextToken=0; // Token to prevent overlapping audio from stale fallback
 function speakText(text,opts){
   opts=opts||{};
   if(!text||text.length<2)return;
-  // ===== STOP ALL PREVIOUS AUDIO =====
-  // 1. Stop previous TTS Audio element
-  if(_speakTtsAudio){try{_speakTtsAudio.pause();_speakTtsAudio.src='';}catch(e){}}
-  // 2. Cancel speechSynthesis (prevents overlap with fallback path)
-  if(typeof speechSynthesis!=='undefined'){try{speechSynthesis.cancel()}catch(e){}}
-  // 3. Increment token: all stale fallback fetches will be invalidated
+  // ===== STOP ALL PREVIOUS AUDIO (welcome voice, preview voice, etc.) =====
+  stopAllAudio();
+  // Increment token: all stale fallback fetches will be invalidated
   var myToken=++_speakTextToken;
-  // KEY FIX: Use TTS Audio element directly instead of speechSynthesis
-  // speechSynthesis is often broken on mobile browsers (API exists but produces no sound)
-  // Audio element with /api/tts URL works reliably on both desktop and mobile
-  var ttsUrl='/api/tts?text='+encodeURIComponent(text)+'&voice=1&rate=100&pitch=1.0';
-  _speakTtsAudio=new Audio(ttsUrl);
-  _speakTtsAudio.volume=0.8;
-  var ssFallback=false;
-  _speakTtsAudio.addEventListener('error',function(){
-    if(ssFallback||myToken!==_speakTextToken)return;
-    ssFallback=true;
-    console.log('[speakText] TTS Audio error, trying fallback');
-    _speakTextFallback(text,opts,myToken);
-  },{once:true});
-  _speakTtsAudio.play().then(function(){
-    if(myToken!==_speakTextToken){try{_speakTtsAudio.pause()}catch(e){}return}
-    console.log('[speakText] TTS audio playing');
-  }).catch(function(e){
-    if(ssFallback||myToken!==_speakTextToken)return;
-    ssFallback=true;
-    console.log('[speakText] TTS Audio play failed, trying fallback:',e.message||e);
-    _speakTextFallback(text,opts,myToken);
-  });
+  var encodedText=encodeURIComponent(text);
+
+  // ===== PATH SELECTION based on server availability =====
+  if(_serverAvailable===true){
+    // Desktop: local edge-tts server (fastest, highest quality)
+    var ttsUrl='/api/tts?text='+encodedText+'&voice=1&rate=100&pitch=1.0';
+    _speakTtsAudio=_createHiddenAudio(ttsUrl);
+    _speakTtsAudio.volume=0.8;
+    _speakTextAudios.push(_speakTtsAudio);
+    var ssFallback=false;
+    // 2s timeout: if local server is slow, fall back to multi-source parallel
+    var localTo=setTimeout(function(){
+      if(ssFallback||myToken!==_speakTextToken)return;
+      ssFallback=true;
+      console.log('[speakText] Local server timeout (2s), trying multi-source parallel');
+      _removeAudioEl(_speakTtsAudio);
+      _speakTtsAudio=null;
+      _speakTextBaiduDirect(text,myToken);
+    },2000);
+    _speakTtsAudio.addEventListener('playing',function(){
+      clearTimeout(localTo);
+      if(myToken!==_speakTextToken){_removeAudioEl(_speakTtsAudio);_speakTtsAudio=null;return}
+      console.log('[speakText] Local TTS playing');
+    },{once:true});
+    _speakTtsAudio.addEventListener('error',function(){
+      if(ssFallback||myToken!==_speakTextToken)return;
+      clearTimeout(localTo);
+      ssFallback=true;
+      console.log('[speakText] Local server error, trying multi-source parallel');
+      _removeAudioEl(_speakTtsAudio);
+      _speakTtsAudio=null;
+      _speakTextBaiduDirect(text,myToken);
+    },{once:true});
+    _speakTtsAudio.play().catch(function(e){
+      if(ssFallback||myToken!==_speakTextToken)return;
+      clearTimeout(localTo);
+      ssFallback=true;
+      console.log('[speakText] Local play failed, trying multi-source parallel:',e.message||e);
+      _removeAudioEl(_speakTtsAudio);
+      _speakTtsAudio=null;
+      _speakTextBaiduDirect(text,myToken);
+    });
+  }else{
+    // Mobile: no local server — use multi-source TTS parallel directly
+    _speakTextBaiduDirect(text,myToken);
+  }
 }
 
-// speechSynthesis / external TTS fallback (used when /api/tts Audio fails)
+// ===== Multi-source TTS playback for mobile (no CORS proxy, no slow fallback chain) =====
+// Uses _createHiddenAudio (DOM-appended) for maximum WebView compatibility.
+// Tries 5 TTS sources IN PARALLEL — first to play wins.
+// Sources: StreamElements (CORS) + 3 Baidu TTS URLs + Youdao
+// If all fail within 2.5s, tries speechSynthesis. No proxy chain.
+function _speakTextBaiduDirect(text,token){
+  if(token!==undefined&&token!==_speakTextToken){return}
+  var encodedText=encodeURIComponent(text);
+  // Multiple TTS URL formats — different endpoints/domains for maximum reliability
+  var baiduUrl1='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd=5&pit=5&per=0&ctp=1&text='+encodedText;
+  var baiduUrl2='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd=5&pit=5&per=0&text='+encodedText;
+  var baiduUrl3='https://fanyi.baidu.com/gettts?lan=zh&text='+encodedText+'&spd=5&source=web';
+  var seUrl='https://api.streamelements.com/kappa/v2/speech?voice=Zhiyu&text='+encodedText;
+  var youdaoUrl='https://dict.youdao.com/dictvoice?audio='+encodedText+'&le=zh&type=2';
+  var settled=false;
+  var ssTimer=null;
+  var failedCount=0;
+  var totalSources=0;
+
+  function checkAllFailed(){
+    if(settled)return false;
+    failedCount++;
+    if(failedCount>=totalSources){
+      if(ssTimer){clearTimeout(ssTimer);ssTimer=null}
+      console.log('[speakText] All '+totalSources+' sources failed, trying speechSynthesis');
+      _speakTextFallback(text,{},token);
+      return true;
+    }
+    return false;
+  }
+
+  function tryDirect(url,source,timeoutMs){
+    if(settled||(token!==undefined&&token!==_speakTextToken))return;
+    totalSources++;
+    try{
+      var audioEl=_createHiddenAudio(url);
+      audioEl.volume=0.8;
+      _speakTextAudios.push(audioEl);
+      var to=setTimeout(function(){
+        if(settled){return}
+        _removeAudioEl(audioEl);
+        var idx=_speakTextAudios.indexOf(audioEl);
+        if(idx>=0)_speakTextAudios.splice(idx,1);
+        checkAllFailed();
+      },timeoutMs);
+      audioEl.addEventListener('playing',function(){
+        if(settled){_removeAudioEl(audioEl);return}
+        clearTimeout(to);
+        if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(audioEl);return}
+        settled=true;
+        _speakTtsAudio=audioEl;
+        // Stop all other parallel speakText audios
+        for(var ai=0;ai<_speakTextAudios.length;ai++){
+          if(_speakTextAudios[ai]!==audioEl){
+            _removeAudioEl(_speakTextAudios[ai]);
+          }
+        }
+        _speakTextAudios=[audioEl];
+        if(ssTimer){clearTimeout(ssTimer);ssTimer=null}
+        console.log('[speakText] Playing from',source);
+      },{once:true});
+      audioEl.addEventListener('error',function(){
+        if(settled){return}
+        clearTimeout(to);
+        _removeAudioEl(audioEl);
+        var idx2=_speakTextAudios.indexOf(audioEl);
+        if(idx2>=0)_speakTextAudios.splice(idx2,1);
+        console.log('[speakText] '+source+' error');
+        checkAllFailed();
+      },{once:true});
+      audioEl.play().catch(function(e){
+        if(settled){return}
+        clearTimeout(to);
+        _removeAudioEl(audioEl);
+        var idx3=_speakTextAudios.indexOf(audioEl);
+        if(idx3>=0)_speakTextAudios.splice(idx3,1);
+        console.log('[speakText] '+source+' play() rejected:',e.name||e);
+        checkAllFailed();
+      });
+    }catch(e){
+      totalSources--;
+    }
+  }
+
+  // Try all 5 TTS sources IN PARALLEL — first to play wins
+  tryDirect(baiduUrl1,'baidu1',2500);
+  tryDirect(baiduUrl2,'baidu2',2500);
+  tryDirect(baiduUrl3,'baidu3',2500);
+  tryDirect(seUrl,'streamelements',2500);
+  tryDirect(youdaoUrl,'youdao',2500);
+  // Fallback: if none play within 2.5s, try speechSynthesis
+  ssTimer=setTimeout(function(){
+    if(settled||(token!==undefined&&token!==_speakTextToken))return;
+    console.log('[speakText] Timeout — all sources slow, trying speechSynthesis');
+    _speakTextFallback(text,{},token);
+  },2500);
+}
+
+// speechSynthesis fallback (used when all online TTS sources fail)
+// If speechSynthesis is unavailable (mobile WebView), tries ONE direct Baidu Audio.
+// NO proxy chain — the old 6-proxy sequential approach caused 30-48s delays.
 function _speakTextFallback(text,opts,token){
   opts=opts||{};
   if(token!==undefined&&token!==_speakTextToken){return} // Stale call, abort
-  if(typeof speechSynthesis==='undefined'){
-    _speakTextViaTTS(text,token);
-    return;
+  // Try speechSynthesis first (local, instant)
+  if(typeof speechSynthesis!=='undefined'){
+    speechSynthesis.cancel();
+    if(!voicesLoaded){loadVoices()}
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN';
+    u.rate=opts.rate||1.0;
+    u.pitch=opts.pitch||1.0;
+    u.volume=1.0;
+    var zhVoice=findZhVoice('zh-CN');
+    if(zhVoice){u.voice=zhVoice}
+    u.onerror=function(){};
+    setTimeout(function(){
+      if(token!==undefined&&token!==_speakTextToken){return}
+      try{speechSynthesis.speak(u)}catch(e){}
+    },50);
+    // Also try a direct Audio as backup in case speechSynthesis doesn't produce sound
+    // (common on mobile WebView — speechSynthesis exists but is silent)
+    setTimeout(function(){
+      if(token!==undefined&&token!==_speakTextToken){return}
+      _speakTextDirectAudio(text,token);
+    },200);
+  }else{
+    // speechSynthesis unavailable — try direct Audio only
+    _speakTextDirectAudio(text,token);
   }
-  speechSynthesis.cancel();
-  if(!voicesLoaded){loadVoices()}
-  var u=new SpeechSynthesisUtterance(text);
-  u.lang='zh-CN';
-  u.rate=opts.rate||1.0;
-  u.pitch=opts.pitch||1.0;
-  u.volume=1.0;
-  var zhVoice=findZhVoice('zh-CN');
-  if(zhVoice){u.voice=zhVoice}
-  u.onerror=function(){};
-  setTimeout(function(){
-    if(token!==undefined&&token!==_speakTextToken){return} // Stale call, abort
-    try{speechSynthesis.speak(u)}catch(e){}
-  },50);
 }
 
-// TTS audio fallback for speakText (used on mobile where speechSynthesis is unavailable)
-// Uses same CORS proxy + blob URL approach that works for video rendering
+// Simple direct Audio attempt (single Baidu URL, 2s timeout, no proxy chain)
+// Used as last-resort fallback when speechSynthesis is unavailable/silent.
 var _speakTtsAudio=null;
-function _speakTextViaTTS(text,token){
+function _speakTextDirectAudio(text,token){
   if(!text||text.length<2)return;
-  console.log('[speakText] Using Baidu TTS audio fallback for:',text.slice(0,30));
-  // Stop previous TTS audio
-  if(_speakTtsAudio){try{_speakTtsAudio.pause();_speakTtsAudio.src='';}catch(e){}}
+  if(token!==undefined&&token!==_speakTextToken){return}
+  console.log('[speakText] Last resort: direct Baidu Audio');
   var ttsUrl='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd=5&per=0&ctp=1&text='+encodeURIComponent(text);
-  var streamelementsUrl='https://api.streamelements.com/kappa/v2/speech?voice=Zhiyu&text='+encodeURIComponent(text);
-  var googleTtsUrl='https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-CN&q='+encodeURIComponent(text);
-  // Try CORS-enabled + proxy URLs (same comprehensive list as generateTTSAudio rendering path)
-  var proxyUrls=[
-    streamelementsUrl,                                                          // 0: StreamElements (CORS-enabled, most reliable - same as rendering)
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(googleTtsUrl),     // 1: Google Translate via allorigins
-    'https://corsproxy.io/?url='+encodeURIComponent(googleTtsUrl),              // 2: Google Translate via corsproxy
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(ttsUrl),           // 3: Baidu via allorigins
-    'https://corsproxy.io/?url='+encodeURIComponent(ttsUrl),                    // 4: Baidu via corsproxy
-    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(ttsUrl),     // 5: Baidu via codetabs
-  ];
-  var proxyIdx=0;
-  function tryProxy(){
-    // ===== TOKEN CHECK: abort if a newer speakText call has been made =====
-    if(token!==undefined&&token!==_speakTextToken){
-      console.log('[speakText] Stale fallback aborted (token mismatch)');
-      return;
-    }
-    if(proxyIdx>=proxyUrls.length){
-      // Last resort: direct Audio element (may work on some mobile browsers)
+  try{
+    var audioEl=_createHiddenAudio(ttsUrl);
+    audioEl.volume=0.8;
+    _speakTextAudios.push(audioEl);
+    _speakTtsAudio=audioEl;
+    var to=setTimeout(function(){
+      if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(audioEl);return}
+      _removeAudioEl(audioEl);
+      console.log('[speakText] Direct audio timeout (2s)');
+      showToast('语音加载失败，请检查网络');
+    },2000);
+    audioEl.addEventListener('playing',function(){
+      if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(audioEl);return}
+      clearTimeout(to);
+      console.log('[speakText] Direct audio playing');
+    },{once:true});
+    audioEl.addEventListener('error',function(){
+      clearTimeout(to);
+      _removeAudioEl(audioEl);
+      console.log('[speakText] Direct audio error');
       if(token!==undefined&&token!==_speakTextToken){return}
-      console.log('[speakText] All proxies failed, trying direct Audio');
-      _speakTtsAudio=new Audio(ttsUrl);
-      _speakTtsAudio.volume=0.8;
-      _speakTtsAudio.play().catch(function(e){console.log('[speakText] Direct audio also failed:',e.message||e)});
-      return;
-    }
-    Promise.race([
-      fetch(proxyUrls[proxyIdx],{mode:'cors',credentials:'omit'}),
-      new Promise(function(_,reject){setTimeout(function(){reject(new Error('fetch timeout 8s'))},8000)})
-    ])
-      .then(function(resp){
-        if(!resp.ok)throw new Error('HTTP '+resp.status);
-        return resp.blob();
-      })
-      .then(function(blob){
-        // ===== TOKEN CHECK before playing: abort if stale =====
-        if(token!==undefined&&token!==_speakTextToken){
-          console.log('[speakText] Stale fallback result discarded (token mismatch)');
-          return;
-        }
-        if(blob.size<200)throw new Error('blob too small');
-        var blobUrl=URL.createObjectURL(blob);
-        _speakTtsAudio=new Audio(blobUrl);
-        _speakTtsAudio.volume=0.8;
-        _speakTtsAudio.play().then(function(){
-          if(token!==undefined&&token!==_speakTextToken){try{_speakTtsAudio.pause()}catch(e){}return}
-          console.log('[speakText] TTS audio playing from proxy',proxyIdx);
-        }).catch(function(e){
-          if(token!==undefined&&token!==_speakTextToken){return}
-          console.log('[speakText] Play failed from proxy',proxyIdx,':',e.message||e);
-          proxyIdx++;
-          tryProxy();
-        });
-      })
-      .catch(function(e){
-        if(token!==undefined&&token!==_speakTextToken){return}
-        console.log('[speakText] Proxy',proxyIdx,'failed:',e.message||e);
-        proxyIdx++;
-        tryProxy();
-      });
+      showToast('语音加载失败，请检查网络');
+    },{once:true});
+    audioEl.play().catch(function(e){
+      clearTimeout(to);
+      _removeAudioEl(audioEl);
+      console.log('[speakText] Direct audio play() failed:',e.name||e);
+      if(token!==undefined&&token!==_speakTextToken){return}
+      showToast('语音加载失败，请检查网络');
+    });
+  }catch(e){
+    console.log('[speakText] Direct audio exception:',e.message||e);
+    if(token!==undefined&&token!==_speakTextToken){return}
+    showToast('语音加载失败，请检查网络');
   }
-  tryProxy();
 }
 
 var rewriteInProgress=false;
@@ -6682,6 +6871,8 @@ function playTTSForPreview(){
   if(selectedVoice===0)return;
   var voice=VOICES[selectedVoice];
   if(!voice)return;
+  // Stop all other audio before playing
+  stopAllAudio();
   // If cloned voice is selected, play the recorded audio
   if(voice.isClone&&clonedVoiceBlob){
     try{
@@ -8209,41 +8400,17 @@ document.addEventListener('DOMContentLoaded',function(){
   }
   // ===== WELCOME VOICE: 欢迎来到正商诸葛AI，让我们一起打造爆款视频 =====
   // Strategy: Desktop → auto play after 1.5s; Mobile → play on first user interaction.
-  // Uses a dedicated Audio element (not speakText) to avoid fallback chain interference.
+  // Uses speakText() which handles both local server (desktop) and Baidu TTS (mobile).
   var _welcomePlayed=false;
-  var _welcomeAudio=null;
   function playWelcome(){
     if(_welcomePlayed)return;
     _welcomePlayed=true;
     // Remove interaction listeners if they were set
     document.removeEventListener('touchend',_onFirstInteraction,true);
     document.removeEventListener('click',_onFirstInteraction,true);
-    try{
-      var welcomeText='欢迎来到正商诸葛AI，让我们一起打造爆款视频';
-      var ttsUrl='/api/tts?text='+encodeURIComponent(welcomeText)+'&voice=1&rate=100&pitch=1.0';
-      _welcomeAudio=new Audio(ttsUrl);
-      _welcomeAudio.volume=0.9;
-      _welcomeAudio.play().then(function(){
-        console.log('[WELCOME] Welcome voice playing');
-      }).catch(function(e){
-        console.log('[WELCOME] Direct play failed, trying speechSynthesis fallback:',e.message||e);
-        // Fallback: speechSynthesis
-        if(typeof speechSynthesis!=='undefined'){
-          try{
-            speechSynthesis.cancel();
-            var u=new SpeechSynthesisUtterance(welcomeText);
-            u.lang='zh-CN';
-            u.rate=1.0;
-            u.pitch=1.0;
-            u.volume=1.0;
-            var zhV=findZhVoice('zh-CN');
-            if(zhV){u.voice=zhV}
-            speechSynthesis.speak(u);
-            console.log('[WELCOME] speechSynthesis fallback started');
-          }catch(ssErr){console.log('[WELCOME] speechSynthesis also failed:',ssErr)}
-        }
-      });
-    }catch(e){console.log('[WELCOME] Error:',e)}
+    console.log('[WELCOME] Playing welcome voice');
+    // speakText handles server availability check and mobile fallback automatically
+    speakText('欢迎来到正商诸葛AI，让我们一起打造爆款视频');
   }
   // First-interaction handler (for mobile autoplay restriction)
   function _onFirstInteraction(e){
