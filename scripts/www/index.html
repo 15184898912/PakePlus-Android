@@ -2808,6 +2808,8 @@ function initParticles(){
 let currentVoiceUtter=null;
 let availableVoices=[];
 let voicesLoaded=false;
+var _speechSynthesisWorks=null;
+var _speechSynthesisRetryCount=0;
 // Preview token: incremented each time a new preview starts.
 // When async fetch resolves, only play audio if token matches (prevents overlapping).
 var _previewToken=0;
@@ -2850,7 +2852,7 @@ function stopAllAudio(){
     try{if(typeof _stopAndroidTTS==='function'){_stopAndroidTTS()}}catch(e){}
   }
   // 4. Cancel speechSynthesis
-  if(typeof speechSynthesis!=='undefined'){try{speechSynthesis.cancel()}catch(e){}}
+  if(typeof speechSynthesis!=='undefined'&&_speechSynthesisWorks!==false){try{speechSynthesis.cancel()}catch(e){}}
 }
 
 // ===== Hidden audio element helpers =====
@@ -2875,7 +2877,16 @@ function _removeAudioEl(el){
 function loadVoices(){
   if(typeof speechSynthesis==='undefined')return;
   availableVoices=speechSynthesis.getVoices();
-  if(availableVoices.length>0){voicesLoaded=true}
+  if(availableVoices.length>0){
+    voicesLoaded=true;
+    console.log('[VOICES] Loaded',availableVoices.length,'voices,',availableVoices.filter(function(v){return v.lang&&v.lang.indexOf('zh')>=0}).length,'Chinese');
+  }else{
+    if(_speechSynthesisRetryCount<5){
+      _speechSynthesisRetryCount++;
+      console.log('[VOICES] Empty, retry',_speechSynthesisRetryCount,'in 300ms');
+      setTimeout(loadVoices,300);
+    }
+  }
 }
 if(typeof speechSynthesis!=='undefined'){
   loadVoices();
@@ -3292,16 +3303,16 @@ function _previewVoiceFast(id,v,myToken){
 
 // speechSynthesis fallback for voice preview
 function _previewVoiceSS(id,v){
-  if(typeof speechSynthesis==='undefined'){
-    // On mobile WebView, speechSynthesis is often not available.
-    // Try native Android TTS before giving up
-    if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
-      console.log('[PREVIEW] Using Android native TTS for voice preview');
-      showToast('试听(设备语音): '+v.name);
-      currentVoiceUtter={_voiceId:id,_androidTTS:true};
-      renderVoices();
-      return;
-    }
+  // ALWAYS try native Android TTS first (best option on mobile, offline, no CORS)
+  if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
+    console.log('[PREVIEW] Using Android native TTS for voice preview');
+    showToast('试听(设备语音): '+v.name);
+    currentVoiceUtter={_voiceId:id,_androidTTS:true};
+    renderVoices();
+    return;
+  }
+  // If speechSynthesis is unavailable or known broken, show error
+  if(typeof speechSynthesis==='undefined'||_speechSynthesisWorks===false){
     if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
     return;
   }
@@ -3319,6 +3330,10 @@ function _previewVoiceSS(id,v){
   if(zhVoice){u.voice=zhVoice}
   var voiceId=id;
   var hasEnded=false;
+  u.onstart=function(){
+    _speechSynthesisWorks=true;
+    console.log('[PREVIEW] speechSynthesis started for voice',id);
+  };
   u.onend=function(){
     hasEnded=true;
     if(ssToken!==_previewToken)return;
@@ -3339,6 +3354,7 @@ function _previewVoiceSS(id,v){
       return;
     }
     console.error('Voice error:',errType,e);
+    _speechSynthesisWorks=false;
     if(u._retried){return}
     u._retried=true;
     if(currentVoiceUtter&&currentVoiceUtter._voiceId===voiceId){
@@ -3364,6 +3380,7 @@ function _previewVoiceSS(id,v){
       };
       u2.onerror=function(e2){
         if(ssToken!==_previewToken)return;
+        _speechSynthesisWorks=false;
         if(currentVoiceUtter&&currentVoiceUtter._voiceId===voiceId){
           currentVoiceUtter=null;
           renderVoices();
@@ -3384,10 +3401,11 @@ function _previewVoiceSS(id,v){
       },200);
     }catch(err){
       console.error('Speak error:',err);
+      _speechSynthesisWorks=false;
       currentVoiceUtter=null;
       renderVoices();
     }
-  },50);
+  },200);
   renderVoices();
   showToast('试听: '+v.name);
 }
@@ -3986,8 +4004,8 @@ function _speakTextFallback(text,opts,token){
     console.log('[speakText] Native Android TTS started in fallback');
     return;
   }
-  // Try speechSynthesis first (local, instant)
-  if(typeof speechSynthesis!=='undefined'){
+  // Try speechSynthesis first (local, instant) — skip if known broken
+  if(typeof speechSynthesis!=='undefined'&&_speechSynthesisWorks!==false){
     speechSynthesis.cancel();
     if(!voicesLoaded){loadVoices()}
     var u=new SpeechSynthesisUtterance(text);
@@ -3997,23 +4015,23 @@ function _speakTextFallback(text,opts,token){
     u.volume=1.0;
     var zhVoice=findZhVoice('zh-CN');
     if(zhVoice){u.voice=zhVoice}
-    u.onerror=function(){};
-    u.onstart=function(){_voicePlaying=true;console.log('[speakText] speechSynthesis started');};
-    u.onend=function(){_voicePlaying=true;};
+    u.onerror=function(e){console.log('[speakText] speechSynthesis error:',e.error||e);_speechSynthesisWorks=false;_voicePlaying=false;};
+    u.onstart=function(){_voicePlaying=true;_speechSynthesisWorks=true;console.log('[speakText] speechSynthesis started');};
+    u.onend=function(){_voicePlaying=false;};
     setTimeout(function(){
       if(token!==undefined&&token!==_speakTextToken){return}
-      try{speechSynthesis.speak(u)}catch(e){}
-    },50);
+      try{speechSynthesis.speak(u)}catch(e){_speakTextDirectAudio(text,token)}
+    },200);
     // Also try a direct Audio as backup in case speechSynthesis doesn't produce sound
     // (common on mobile WebView — speechSynthesis exists but is silent)
-    // Delay increased to 1500ms to give speechSynthesis time to start.
+    // Reduced to 800ms for faster fallback.
     // _speakTextDirectAudio checks _voicePlaying — if speechSynthesis already
     // started playing, it will skip itself to prevent duplicate audio.
     setTimeout(function(){
       if(token!==undefined&&token!==_speakTextToken){return}
       if(_voicePlaying){console.log('[speakText] speechSynthesis playing, skipping direct audio');return}
       _speakTextDirectAudio(text,token);
-    },1500);
+    },800);
   }else{
     // speechSynthesis unavailable — try direct Audio only
     _speakTextDirectAudio(text,token);
@@ -4034,6 +4052,13 @@ function _speakTextDirectAudio(text,token){
     return;
   }
   console.log('[speakText] Last resort: direct Baidu TTS Audio (per=0 female)');
+  var ttsFailedFn=function(){
+    if(token!==undefined&&token!==_speakTextToken){return}
+    if(_voicePlaying){return}
+    var displayText=text.length>50?text.substring(0,50)+'...':text;
+    showToast(displayText,3000);
+    console.log('[speakText] All TTS methods failed, showing text as toast:',displayText);
+  };
   // Use text2audio with per=0 (female) first, Fanyi as fallback
   var ttsUrl='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd=5&pit=5&per=0&ctp=1&text='+encodeURIComponent(text);
   var fanyiUrl='https://fanyi.baidu.com/gettts?lan=zh&text='+encodeURIComponent(text)+'&spd=5&source=web';
@@ -4054,8 +4079,8 @@ function _speakTextDirectAudio(text,token){
       var fanyiTo=setTimeout(function(){
         if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(fanyiEl);return}
         _removeAudioEl(fanyiEl);
-        if(!_voicePlaying){showToast('语音加载失败，请检查网络')}
-      },5000);
+        ttsFailedFn();
+      },3000);
       fanyiEl.addEventListener('playing',function(){
         if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(fanyiEl);return}
         clearTimeout(fanyiTo);
@@ -4066,15 +4091,15 @@ function _speakTextDirectAudio(text,token){
         clearTimeout(fanyiTo);
         _removeAudioEl(fanyiEl);
         if(token!==undefined&&token!==_speakTextToken){return}
-        if(!_voicePlaying){showToast('语音加载失败，请检查网络')}
+        ttsFailedFn();
       },{once:true});
       fanyiEl.play().catch(function(e){
         clearTimeout(fanyiTo);
         _removeAudioEl(fanyiEl);
         if(token!==undefined&&token!==_speakTextToken){return}
-        if(!_voicePlaying){showToast('语音加载失败，请检查网络')}
+        ttsFailedFn();
       });
-    },5000);
+    },3000);
     audioEl.addEventListener('playing',function(){
       if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(audioEl);return}
       clearTimeout(to);
@@ -4086,19 +4111,19 @@ function _speakTextDirectAudio(text,token){
       _removeAudioEl(audioEl);
       console.log('[speakText] Direct audio error');
       if(token!==undefined&&token!==_speakTextToken){return}
-      if(!_voicePlaying){showToast('语音加载失败，请检查网络')}
+      ttsFailedFn();
     },{once:true});
     audioEl.play().catch(function(e){
       clearTimeout(to);
       _removeAudioEl(audioEl);
       console.log('[speakText] Direct audio play() failed:',e.name||e);
       if(token!==undefined&&token!==_speakTextToken){return}
-      if(!_voicePlaying){showToast('语音加载失败，请检查网络')}
+      ttsFailedFn();
     });
   }catch(e){
     console.log('[speakText] Direct audio exception:',e.message||e);
     if(token!==undefined&&token!==_speakTextToken){return}
-    if(!_voicePlaying){showToast('语音加载失败，请检查网络')}
+    ttsFailedFn();
   }
 }
 
