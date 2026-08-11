@@ -5861,13 +5861,24 @@ function saveRenderToAlbum(){
     showToast('视频较大('+_blobSizeMB+'MB)，正在安全保存...');
   }
   _saveRenderBusy=true;
-  // Safety timeout: reset button after 15 seconds no matter what
+  // Safety timeout: reset button after 20 seconds no matter what
   _saveBtnTimeout=setTimeout(function(){
     console.error('[SAVE-RENDER] Safety timeout reached, resetting button');
     _resetSaveButton();
     showToast('保存超时，请重试');
-  },15000);
+  },20000);
   try{
+    // ===== CRITICAL: Free up video preview memory BEFORE saving =====
+    // The video preview uses URL.createObjectURL() which consumes WebView memory.
+    // Pause video and clear src to free memory for the save operation.
+    var videoEl=document.getElementById('render-video-el');
+    if(videoEl){
+      videoEl.pause();
+      videoEl.removeAttribute('src');
+      videoEl.load(); // Force cleanup of video resources
+      console.log('[SAVE-RENDER] Video preview paused and src cleared to free memory');
+    }
+    // DO NOT revoke _renderVideoUrl — _downloadBlobWebSafe may reuse it
     var now=new Date();
     var resTag=RESOLUTION_CONFIG[selectedResolution]?RESOLUTION_CONFIG[selectedResolution].label:'1080P';
     var ext='webm';
@@ -5879,7 +5890,7 @@ function saveRenderToAlbum(){
     _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
     // Reset button after save starts (NOT after 3s — wait for callback)
     // The _saveBlobToAlbum chain calls _resetSaveButton on success/failure
-    // Safety timeout at 15s handles edge cases
+    // Safety timeout at 20s handles edge cases
   }catch(e){
     console.error('[SAVE-RENDER] saveRenderToAlbum error:',e);
     showToast('保存失败，请重试');
@@ -8917,17 +8928,46 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
     else if(blobType.indexOf('quicktime')>=0)ext='.mov';
     var safeName='zhuge_'+Date.now()+ext;
 
-    // ===== In WebView (PakePlus/Tauri): use ONLY <a download> (safest, no crash) =====
+    // ===== In WebView (PakePlus/Tauri): use navigator.share (native share sheet) =====
+    // This is the ONLY reliable way to save to phone album in WebView.
+    // navigator.canShare() crashes PakePlus WebView, so we skip it entirely.
+    // navigator.share() uses the native share panel — no WebView memory involved.
     if(_isWebView()){
-      console.log('[SAVE] WebView detected, using safe <a download> only');
-      _downloadBlobWebSafe(blob,safeName);
+      console.log('[SAVE] WebView detected, using navigator.share (native share sheet)');
+      if(navigator.share){
+        var shareFile=new File([blob],safeName,{type:blobType});
+        showToast('正在打开分享面板...');
+        navigator.share({files:[shareFile],title:title||'AI智能成片'}).then(function(){
+          console.log('[SAVE] Share sheet completed ✅');
+          showToast('视频已保存到相册');
+          _resetSaveButton();
+          _downloadInProgress=false;
+        }).catch(function(e){
+          console.error('[SAVE] Share failed:',e.message||e);
+          // User cancelled or share failed — try server upload fallback
+          if(e.message&&e.message.indexOf('cancel')>=0){
+            showToast('已取消分享');
+            _resetSaveButton();
+            _downloadInProgress=false;
+          }else{
+            showToast('分享失败，尝试服务器保存...');
+            _downloadBlobWebSafe(blob,safeName);
+          }
+        });
+      }else{
+        console.log('[SAVE] navigator.share not available, fallback to download');
+        _downloadBlobWebSafe(blob,safeName);
+      }
       return;
     }
 
     // ===== Method 1: navigator.share with files (mobile Chrome/Edge, NOT WebView) =====
     var canShare=false;
     try{
-      canShare=navigator.canShare&&navigator.canShare({files:[new File([blob],safeName,{type:blobType})]});
+      // SKIP canShare in WebView-like environments — it may crash
+      if(!_isWebView()){
+        canShare=navigator.canShare&&navigator.canShare({files:[new File([blob],safeName,{type:blobType})]});
+      }
     }catch(shareErr){
       console.log('[SAVE] navigator.canShare crashed, skipping:',shareErr);
       canShare=false;
@@ -9021,29 +9061,53 @@ function _downloadBlobWebSafe(blob,fileName){
   }catch(e){console.log('[SAVE-WEB] Reuse URL check failed:',e)}
 
   // ===== WebView protection: if no reusable URL, avoid createObjectURL for large blobs =====
-  // KEY FIX: Removed Tauri Array.from(arr) path — it causes 8x memory explosion
-  // (100MB blob → 800MB JS array → WebView crash).
-  // For large blobs without reusable URL, use server upload or notify user.
-  if(!reuseUrl&&_isWebView()&&blob.size>30*1048576){
-    console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB and no reusable URL');
-    // Try server upload (avoids createObjectURL entirely)
-    var serverBase=getApiBase();
-    var serverOk=false;
-    if(serverBase!==null){
-      if(_serverAvailable===false){
-        console.log('[SAVE-WEB] Server already checked and unavailable');
-      }else{
-        serverOk=true; // null (not checked yet) or true
-      }
+  // KEY FIX: Use navigator.share (native share sheet) which bypasses WebView memory limits.
+  // This is the ONLY reliable way to save large videos to the phone album.
+  if(!reuseUrl&&_isWebView()){
+    if(blob.size>30*1048576){
+      console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB and no reusable URL');
     }
-    if(serverOk){
-      console.log('[SAVE-WEB] Uploading to server for safe download');
-      _tryServerSaveLargeBlob(blob,fileName);
-      // _downloadInProgress will be reset in _tryServerSaveLargeBlob callbacks
+    // Try navigator.share first (native share sheet — no WebView memory involved)
+    if(navigator.share){
+      var safeName=fileName||('zhuge_'+Date.now()+'.webm');
+      var shareFile=new File([blob],safeName,{type:blob.type||'video/webm'});
+      console.log('[SAVE-WEB] Using navigator.share for WebView save');
+      showToast('正在打开分享面板...');
+      navigator.share({files:[shareFile],title:'AI智能成片'}).then(function(){
+        console.log('[SAVE-WEB] Share sheet completed ✅');
+        showToast('视频已保存到相册');
+        _resetSaveButton();
+        _downloadInProgress=false;
+      }).catch(function(e){
+        console.error('[SAVE-WEB] Share failed:',e.message||e);
+        if(e.message&&e.message.indexOf('cancel')>=0){
+          showToast('已取消分享');
+          _resetSaveButton();
+          _downloadInProgress=false;
+        }else{
+          // Share failed — try server upload as last resort
+          var serverBase=getApiBase();
+          if(serverBase!==null&&_serverAvailable!==false){
+            console.log('[SAVE-WEB] Share failed, trying server upload');
+            _tryServerSaveLargeBlob(blob,fileName);
+          }else{
+            showToast('保存失败，视频已保留在作品库中');
+            _resetSaveButton();
+            _downloadInProgress=false;
+          }
+        }
+      });
       return;
     }
-    // No server and no reusable URL: DO NOT call createObjectURL (it will crash WebView)
-    console.error('[SAVE-WEB] Cannot save large blob ('+blobMB+'MB) without reusable URL or server');
+    // No navigator.share: try server upload
+    var serverBase=getApiBase();
+    if(serverBase!==null&&_serverAvailable!==false){
+      console.log('[SAVE-WEB] No share API, trying server upload');
+      _tryServerSaveLargeBlob(blob,fileName);
+      return;
+    }
+    // Nothing works: DON'T call createObjectURL (it will crash WebView)
+    console.error('[SAVE-WEB] Cannot save blob ('+blobMB+'MB) — no share API, no server');
     showToast('视频已保存在作品库中，请在作品库中查看');
     _resetSaveButton();
     _downloadInProgress=false;
