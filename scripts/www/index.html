@@ -2471,7 +2471,7 @@ a{color:inherit;text-decoration:none}
     <div id="render-no-video" style="display:none;margin-top:16px;padding:12px;background:rgba(255,200,0,.1);border-radius:10px;text-align:center;font-size:13px;color:rgba(255,200,0,.8)">⚠️ 未找到视频素材，请先在视频素材库上传视频</div>
     <div style="display:flex;gap:12px;margin-top:20px">
       <button id="render-replay-btn" class="render-done-btn" style="flex:1;background:rgba(255,255,255,.1);color:#fff" onclick="replayRenderVideo()">↻ 重新播放</button>
-      <button id="render-save-btn" class="render-done-btn" style="flex:1;background:rgba(48,209,88,.2);color:#30D158;position:relative;z-index:10;pointer-events:auto" onclick="saveRenderToAlbum()">📥 保存到相册</button>
+      <button id="render-save-btn" class="render-done-btn" style="flex:1;background:rgba(48,209,88,.2);color:#30D158;position:relative;z-index:10" onclick="saveRenderToAlbum()">📥 保存到相册</button>
       <button class="render-done-btn" id="render-done-btn" style="flex:1" onclick="finishRender()">✦ 查看作品</button>
     </div>
   </div>
@@ -5827,6 +5827,13 @@ setInterval(function(){
 },20000);
 function saveRenderToAlbum(){
   console.log('[SAVE-RENDER] saveRenderToAlbum CALLED at',new Date().toISOString());
+  // ===== KEY GUARD: Check if render mask is actually visible =====
+  // Prevents stale clicks from triggering save on other pages
+  var mask=document.getElementById('render-mask');
+  if(!mask||!mask.classList.contains('show')){
+    console.log('[SAVE-RENDER] Render mask not visible, ignoring save request');
+    return;
+  }
   if(_saveRenderBusy){
     console.log('[SAVE-RENDER] Already saving, skipping duplicate call');
     showToast('正在保存中，请稍候...');
@@ -8979,7 +8986,24 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
 }
 
 // Safe download function: uses <a download> only, no video overlay (prevents crash)
+var _downloadInProgress=false;
+var _downloadResetTimer=null;
 function _downloadBlobWebSafe(blob,fileName){
+  // ===== CRITICAL GUARD: Prevent multiple simultaneous downloads =====
+  // Each download creates a blob URL and triggers a native download dialog.
+  // Multiple simultaneous downloads can crash the WebView.
+  if(_downloadInProgress){
+    console.warn('[SAVE-WEB] Download already in progress, skipping duplicate');
+    return;
+  }
+  _downloadInProgress=true;
+  // Safety reset: clear flag after 30 seconds no matter what
+  if(_downloadResetTimer){clearTimeout(_downloadResetTimer);}
+  _downloadResetTimer=setTimeout(function(){
+    _downloadInProgress=false;
+    console.warn('[SAVE-WEB] Download guard auto-reset after timeout');
+  },30000);
+  
   console.log('[SAVE-WEB] _downloadBlobWebSafe: blob size=',blob.size,'type=',blob.type);
   var blobMB=(blob.size/1048576).toFixed(1);
   // ===== KEY FIX: Reuse existing _renderVideoUrl if available =====
@@ -9015,12 +9039,14 @@ function _downloadBlobWebSafe(blob,fileName){
     if(serverOk){
       console.log('[SAVE-WEB] Uploading to server for safe download');
       _tryServerSaveLargeBlob(blob,fileName);
+      // _downloadInProgress will be reset in _tryServerSaveLargeBlob callbacks
       return;
     }
     // No server and no reusable URL: DO NOT call createObjectURL (it will crash WebView)
     console.error('[SAVE-WEB] Cannot save large blob ('+blobMB+'MB) without reusable URL or server');
     showToast('视频已保存在作品库中，请在作品库中查看');
     _resetSaveButton();
+    _downloadInProgress=false;
     return;
   }
   // ===== For small blobs or when reusing URL: use <a download> =====
@@ -9040,6 +9066,7 @@ function _downloadBlobWebSafe(blob,fileName){
         console.error('Download click error:',clickErr);
         showToast('保存失败，请长按视频保存');
       }
+      _downloadInProgress=false;
       // Reset save button after download click
       if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
       // Only revoke if we created the URL (not if reusing _renderVideoUrl)
@@ -9057,6 +9084,7 @@ function _downloadBlobWebSafe(blob,fileName){
   }catch(e){
     console.error('Safe download error:',e);
     showToast('保存失败，视频已保存在作品库中');
+    _downloadInProgress=false;
     if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
   }
 }
@@ -9097,6 +9125,7 @@ function _tryServerSaveLargeBlob(blob,fileName){
       console.error('[SAVE-WEB] Upload failed:',xhr.status);
       showToast('上传失败，请重试');
       _resetSaveButton();
+      _downloadInProgress=false;
       return;
     }
     var data;
@@ -9104,12 +9133,14 @@ function _tryServerSaveLargeBlob(blob,fileName){
       console.error('[SAVE-WEB] Parse error:',xhr.responseText.substring(0,200));
       showToast('服务器响应异常');
       _resetSaveButton();
+      _downloadInProgress=false;
       return;
     }
     if(!data.success||!data.url){
       console.error('[SAVE-WEB] Upload failed:',data.error||'unknown');
       showToast('上传失败: '+(data.error||'未知错误'));
       _resetSaveButton();
+      _downloadInProgress=false;
       return;
     }
     // Server has the file now. Download from server URL (small memory footprint)
@@ -9127,6 +9158,7 @@ function _tryServerSaveLargeBlob(blob,fileName){
         console.error('[SAVE-WEB] Download click failed:',e);
         showToast('视频已上传到服务器，请访问 '+fileUrl.slice(0,40)+'...')
       }
+      _downloadInProgress=false;
       if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
       setTimeout(function(){try{if(a.parentNode)document.body.removeChild(a)}catch(e){}},3000);
     },100);
@@ -9135,6 +9167,7 @@ function _tryServerSaveLargeBlob(blob,fileName){
     console.error('[SAVE-WEB] Upload network error');
     showToast('服务器不可用，视频已保存在作品库中');
     _resetSaveButton();
+    _downloadInProgress=false;
     // KEY FIX: Do NOT call _directDownloadBlob — it uses createObjectURL which crashes WebView
     // The video is already saved in the works library (作品库)
   };
@@ -9142,6 +9175,7 @@ function _tryServerSaveLargeBlob(blob,fileName){
     console.error('[SAVE-WEB] Upload timeout');
     showToast('上传超时，视频已保存在作品库中');
     _resetSaveButton();
+    _downloadInProgress=false;
     // KEY FIX: Do NOT call _directDownloadBlob — it uses createObjectURL which crashes WebView
   };
   // Send the blob directly — XHR handles large blobs without createObjectURL
@@ -11631,6 +11665,8 @@ function finishRender(){
   var videoEl=document.getElementById('render-video-el');
   if(videoEl){videoEl.pause();}
   if(_renderVideoUrl){URL.revokeObjectURL(_renderVideoUrl);_renderVideoUrl=null;}
+  // KEY FIX: Clear _lastRenderedBlob so stale clicks can't trigger save on other pages
+  _lastRenderedBlob=null;
   // Stop TTS and BGM
   if(typeof speechSynthesis!=='undefined')speechSynthesis.cancel();
   if(typeof stopBgm==='function')stopBgm();
