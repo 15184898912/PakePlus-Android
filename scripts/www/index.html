@@ -2947,9 +2947,13 @@ var _serverCheckPromise=null;
 function getApiBase(){
   // If running under file: protocol (HBuilderX standalone/APK)
   if(window.location.protocol==='file:'){
-    // Use remote server if configured
     if(REMOTE_SERVER_URL)return REMOTE_SERVER_URL.replace(/\/+$/,'');
-    return null; // No server available in standalone mode
+    return null;
+  }
+  // PakePlus/Tauri WebView: protocol is tauri:// or similar — MUST use REMOTE_SERVER_URL
+  if(typeof window.__TAURI__!=='undefined'){
+    if(REMOTE_SERVER_URL)return REMOTE_SERVER_URL.replace(/\/+$/,'');
+    return null;
   }
   // Running under http(s): protocol - relative URLs work
   return '';
@@ -5869,13 +5873,10 @@ function saveRenderToAlbum(){
   },20000);
   try{
     // ===== CRITICAL: Free up video preview memory BEFORE saving =====
-    // The video preview uses URL.createObjectURL() which consumes WebView memory.
-    // Pause video and clear src to free memory for the save operation.
     var videoEl=document.getElementById('render-video-el');
     if(videoEl){
       videoEl.pause();
-      videoEl.removeAttribute('src');
-      videoEl.load(); // Force cleanup of video resources
+      videoEl.src=''; // Clear source to free WebView memory (safer than removeAttribute)
       console.log('[SAVE-RENDER] Video preview paused and src cleared to free memory');
     }
     // DO NOT revoke _renderVideoUrl — _downloadBlobWebSafe may reuse it
@@ -8928,35 +8929,43 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
     else if(blobType.indexOf('quicktime')>=0)ext='.mov';
     var safeName='zhuge_'+Date.now()+ext;
 
-    // ===== In WebView (PakePlus/Tauri): use navigator.share (native share sheet) =====
-    // This is the ONLY reliable way to save to phone album in WebView.
-    // navigator.canShare() crashes PakePlus WebView, so we skip it entirely.
-    // navigator.share() uses the native share panel — no WebView memory involved.
+    // ===== In WebView (PakePlus/Tauri): use SERVER UPLOAD as primary method =====
+    // navigator.share() + new File([blob]) crashes PakePlus WebView for large blobs.
+    // Server upload uses xhr.send(blob) — streams directly, NO createObjectURL, NO memory crash.
+    // After upload, download from server URL — goes to device Downloads folder.
     if(_isWebView()){
-      console.log('[SAVE] WebView detected, using navigator.share (native share sheet)');
+      console.log('[SAVE] WebView detected, using server upload (safe path)');
+      var serverBase=getApiBase();
+      if(serverBase!==null&&serverBase!==''){
+        // Server is configured — use it directly
+        _downloadBlobWebSafe(blob,safeName);
+        return;
+      }
+      // No server configured — try navigator.share as last resort (may crash)
+      console.warn('[SAVE] No server in WebView, trying navigator.share (may be unstable)');
       if(navigator.share){
-        var shareFile=new File([blob],safeName,{type:blobType});
-        showToast('正在打开分享面板...');
-        navigator.share({files:[shareFile],title:title||'AI智能成片'}).then(function(){
-          console.log('[SAVE] Share sheet completed ✅');
-          showToast('视频已保存到相册');
-          _resetSaveButton();
-          _downloadInProgress=false;
-        }).catch(function(e){
-          console.error('[SAVE] Share failed:',e.message||e);
-          // User cancelled or share failed — try server upload fallback
-          if(e.message&&e.message.indexOf('cancel')>=0){
-            showToast('已取消分享');
+        try{
+          var shareFile=new File([blob],safeName,{type:blobType});
+          showToast('正在打开分享面板...');
+          navigator.share({files:[shareFile],title:title||'AI智能成片'}).then(function(){
+            showToast('视频已保存到相册');
             _resetSaveButton();
             _downloadInProgress=false;
-          }else{
-            showToast('分享失败，尝试服务器保存...');
-            _downloadBlobWebSafe(blob,safeName);
-          }
-        });
+          }).catch(function(e){
+            showToast('保存失败，请确保服务器已启动');
+            _resetSaveButton();
+            _downloadInProgress=false;
+          });
+        }catch(shareErr){
+          console.error('[SAVE] Share crashed:',shareErr);
+          showToast('保存失败，请配置服务器地址后重试');
+          _resetSaveButton();
+          _downloadInProgress=false;
+        }
       }else{
-        console.log('[SAVE] navigator.share not available, fallback to download');
-        _downloadBlobWebSafe(blob,safeName);
+        showToast('保存失败，请配置服务器地址');
+        _resetSaveButton();
+        _downloadInProgress=false;
       }
       return;
     }
@@ -9060,55 +9069,48 @@ function _downloadBlobWebSafe(blob,fileName){
     }
   }catch(e){console.log('[SAVE-WEB] Reuse URL check failed:',e)}
 
-  // ===== WebView protection: if no reusable URL, avoid createObjectURL for large blobs =====
-  // KEY FIX: Use navigator.share (native share sheet) which bypasses WebView memory limits.
-  // This is the ONLY reliable way to save large videos to the phone album.
+  // ===== WebView: use SERVER UPLOAD as the ONLY safe path =====
+  // navigator.share() + new File([blob]) crashes PakePlus WebView for large blobs.
+  // xhr.send(blob) streams directly to server — NO createObjectURL, NO memory crash.
+  // After upload, download from server URL — goes to device Downloads folder.
   if(!reuseUrl&&_isWebView()){
     if(blob.size>30*1048576){
       console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB and no reusable URL');
     }
-    // Try navigator.share first (native share sheet — no WebView memory involved)
-    if(navigator.share){
-      var safeName=fileName||('zhuge_'+Date.now()+'.webm');
-      var shareFile=new File([blob],safeName,{type:blob.type||'video/webm'});
-      console.log('[SAVE-WEB] Using navigator.share for WebView save');
-      showToast('正在打开分享面板...');
-      navigator.share({files:[shareFile],title:'AI智能成片'}).then(function(){
-        console.log('[SAVE-WEB] Share sheet completed ✅');
-        showToast('视频已保存到相册');
-        _resetSaveButton();
-        _downloadInProgress=false;
-      }).catch(function(e){
-        console.error('[SAVE-WEB] Share failed:',e.message||e);
-        if(e.message&&e.message.indexOf('cancel')>=0){
-          showToast('已取消分享');
-          _resetSaveButton();
-          _downloadInProgress=false;
-        }else{
-          // Share failed — try server upload as last resort
-          var serverBase=getApiBase();
-          if(serverBase!==null&&_serverAvailable!==false){
-            console.log('[SAVE-WEB] Share failed, trying server upload');
-            _tryServerSaveLargeBlob(blob,fileName);
-          }else{
-            showToast('保存失败，视频已保留在作品库中');
-            _resetSaveButton();
-            _downloadInProgress=false;
-          }
-        }
-      });
-      return;
-    }
-    // No navigator.share: try server upload
-    var serverBase=getApiBase();
-    if(serverBase!==null&&_serverAvailable!==false){
-      console.log('[SAVE-WEB] No share API, trying server upload');
+    // Primary: server upload (xhr.send streams blob directly, no memory issues)
+    var serverBase2=getApiBase();
+    if(serverBase2!==null&&serverBase2!==''){
+      console.log('[SAVE-WEB] Server available, uploading via XHR (safe, no createObjectURL)');
       _tryServerSaveLargeBlob(blob,fileName);
       return;
     }
+    // No server — try navigator.share as last resort (wrapped in try-catch to prevent crash)
+    console.warn('[SAVE-WEB] No server available, trying navigator.share (may be unstable)');
+    if(navigator&&navigator.share){
+      try{
+        var safeName2=fileName||('zhuge_'+Date.now()+'.webm');
+        var shareFile2=new File([blob],safeName2,{type:blob.type||'video/webm'});
+        showToast('正在打开分享面板...');
+        navigator.share({files:[shareFile2],title:'AI智能成片'}).then(function(){
+          showToast('视频已保存到相册');
+          _resetSaveButton();
+          _downloadInProgress=false;
+        }).catch(function(e){
+          showToast('保存失败，请确保服务器已启动');
+          _resetSaveButton();
+          _downloadInProgress=false;
+        });
+      }catch(shareErr2){
+        console.error('[SAVE-WEB] Share crashed:',shareErr2);
+        showToast('保存失败，请配置服务器地址后重试');
+        _resetSaveButton();
+        _downloadInProgress=false;
+      }
+      return;
+    }
     // Nothing works: DON'T call createObjectURL (it will crash WebView)
-    console.error('[SAVE-WEB] Cannot save blob ('+blobMB+'MB) — no share API, no server');
-    showToast('视频已保存在作品库中，请在作品库中查看');
+    console.error('[SAVE-WEB] Cannot save blob ('+blobMB+'MB) — no server, no share API');
+    showToast('保存失败，请启动服务器后重试');
     _resetSaveButton();
     _downloadInProgress=false;
     return;
