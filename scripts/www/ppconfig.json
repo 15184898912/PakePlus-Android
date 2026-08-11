@@ -1,0 +1,54 @@
+{
+    "name": "正商诸葛AI",
+    "version": "1.2.0",
+    "identifier": "com.zsag.ai",
+    "url": "index.html",
+    "icon": "static/icon.png",
+    "platforms": ["windows", "macos", "linux"],
+    "window": {
+        "width": 420,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "minWidth": 360,
+        "minHeight": 640,
+        "title": "正商诸葛AI",
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false
+    },
+    "user_agent": "",
+    "inject_js": "",
+    "filter_elements": "",
+    "single_instance": true,
+    "state_persistence": true,
+    "debug": false,
+    "tauri": {
+        "windows": [
+            {
+                "title": "正商诸葛AI",
+                "width": 420,
+                "height": 800,
+                "resizable": true,
+                "center": true,
+                "minWidth": 360,
+                "minHeight": 640,
+                "decorations": true,
+                "fullscreen": false,
+                "transparent": false
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; font-src 'self' data: https:"
+        },
+        "bundle": {
+            "active": true,
+            "targets": ["msi", "nsis", "app", "dmg", "deb", "rpm"],
+            "identifier": "com.zsag.ai",
+            "icon": [
+                "static/icon.png"
+            ]
+        }
+    }
+}
