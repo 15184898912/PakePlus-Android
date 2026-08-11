@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -5872,14 +5872,21 @@ function saveRenderToAlbum(){
     showToast('保存超时，请重试');
   },20000);
   try{
-    // ===== CRITICAL: Free up video preview memory BEFORE saving =====
+    // ===== PakePlus/Tauri: just pause video, DO NOT clear src =====
+    // Clearing videoEl.src may cause the WebView to garbage-collect the blob,
+    // making _renderVideoUrl invalid and crashing the save.
     var videoEl=document.getElementById('render-video-el');
     if(videoEl){
       videoEl.pause();
-      videoEl.src=''; // Clear source to free WebView memory (safer than removeAttribute)
-      console.log('[SAVE-RENDER] Video preview paused and src cleared to free memory');
+      console.log('[SAVE-RENDER] Video paused (src preserved for save)');
     }
-    // DO NOT revoke _renderVideoUrl — _downloadBlobWebSafe may reuse it
+    // ===== ENSURE _renderVideoUrl exists =====
+    // If _renderVideoUrl was somehow lost, recreate it from _lastRenderedBlob
+    if(!_renderVideoUrl&&_lastRenderedBlob){
+      console.warn('[SAVE-RENDER] _renderVideoUrl was null, recreating from blob');
+      _renderVideoUrl=URL.createObjectURL(_lastRenderedBlob);
+    }
+    // DO NOT revoke _renderVideoUrl — _downloadBlobWebSafe reuses it
     var now=new Date();
     var resTag=RESOLUTION_CONFIG[selectedResolution]?RESOLUTION_CONFIG[selectedResolution].label:'1080P';
     var ext='webm';
@@ -5887,8 +5894,14 @@ function saveRenderToAlbum(){
     else if(_lastRenderedBlob.type&&_lastRenderedBlob.type.indexOf('quicktime')>=0)ext='mov';
     var fileName='AI智能成片_'+resTag+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+String(now.getSeconds()).padStart(2,'0')+'.'+ext;
     var blobType=_lastRenderedBlob.type||'video/webm';
-    console.log('[SAVE-RENDER] Calling _saveBlobToAlbum, fileName:',fileName,'blobType:',blobType,'size:',_lastRenderedBlob.size);
-    _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
+    console.log('[SAVE-RENDER] Calling _saveBlobToAlbum, fileName:',fileName,'blobType:',blobType,'size:',_lastRenderedBlob.size,'_renderVideoUrl:',_renderVideoUrl?'exists':'NULL');
+    // ===== PakePlus/Tauri: use direct download path, skip server/share =====
+    if(typeof window.__TAURI__!=='undefined'){
+      console.log('[SAVE-RENDER] PakePlus detected, using direct download path');
+      _downloadBlobWebSafe(_lastRenderedBlob,fileName);
+    }else{
+      _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
+    }
     // Reset button after save starts (NOT after 3s — wait for callback)
     // The _saveBlobToAlbum chain calls _resetSaveButton on success/failure
     // Safety timeout at 20s handles edge cases
@@ -9069,11 +9082,27 @@ function _downloadBlobWebSafe(blob,fileName){
     }
   }catch(e){console.log('[SAVE-WEB] Reuse URL check failed:',e)}
 
-  // ===== WebView: use SERVER UPLOAD as the ONLY safe path =====
-  // navigator.share() + new File([blob]) crashes PakePlus WebView for large blobs.
-  // xhr.send(blob) streams directly to server — NO createObjectURL, NO memory crash.
-  // After upload, download from server URL — goes to device Downloads folder.
-  if(!reuseUrl&&_isWebView()){
+  // ===== PakePlus/Tauri: NEVER use navigator.share or new File([blob]) — it crashes =====
+  // PakePlus WebView can only safely use <a download> with an existing blob URL.
+  // If no reuse URL, create one from the blob (this is the only safe path).
+  if(typeof window.__TAURI__!=='undefined'){
+    if(!reuseUrl){
+      console.warn('[SAVE-WEB] PakePlus: no reuse URL, creating new blob URL for download');
+      try{
+        reuseUrl=URL.createObjectURL(blob);
+      }catch(e){
+        console.error('[SAVE-WEB] PakePlus: createObjectURL failed:',e);
+        showToast('保存失败：视频过大');
+        _resetSaveButton();
+        _downloadInProgress=false;
+        return;
+      }
+    }
+    console.log('[SAVE-WEB] PakePlus: using <a download> with blob URL');
+    // Fall through to <a download> below
+  }
+  // ===== WebView (non-PakePlus): use SERVER UPLOAD as the safe path =====
+  else if(!reuseUrl&&_isWebView()){
     if(blob.size>30*1048576){
       console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB and no reusable URL');
     }
@@ -12427,7 +12456,7 @@ function _openNativeCameraPhoto(){
   var camInput=document.createElement('input');
   camInput.type='file';
   camInput.accept='image/*';
-  camInput.capture='environment';
+  camInput.capture='environment'; // DOM property (NOT setAttribute) — required for PakePlus WebView
   camInput.style.display='none';
   camInput.onchange=function(){
     if(camInput.files&&camInput.files.length>0){
@@ -12449,11 +12478,19 @@ function _openNativeCameraVideo(){
     _plusCameraVideoViaAndroidIntent();
     return;
   }
+  // ===== PakePlus/Tauri WebView: <input capture> doesn't work for video =====
+  // Use getUserMedia + MediaRecorder instead — this is the only reliable way
+  // to open the camera for video recording in PakePlus WebView.
+  if(typeof window.__TAURI__!=='undefined'){
+    console.log('[CAM] PakePlus detected, using getUserMedia for video recording');
+    _openCameraViaGetUserMedia();
+    return;
+  }
   console.log('[CAM] Using <input> for video capture (browser mode)');
   var camInput=document.createElement('input');
   camInput.type='file';
   camInput.accept='video/*';
-  camInput.setAttribute('capture','environment');
+  camInput.capture='environment'; // DOM property (NOT setAttribute) — required for PakePlus WebView
   camInput.style.display='none';
   var handled=false;
   camInput.onchange=function(){
@@ -12521,6 +12558,257 @@ function _plusCameraVideoViaAndroidIntent(){
   dialog.appendChild(sheet);
   dialog.onclick=function(e){if(e.target===dialog)dialog.remove()};
   document.body.appendChild(dialog);
+}
+
+// ===== getUserMedia + MediaRecorder camera (for PakePlus/Tauri WebView) =====
+// <input capture> doesn't work for video in PakePlus WebView.
+// This uses navigator.mediaDevices.getUserMedia() to open the camera directly.
+var _recMediaStream=null;
+var _recMediaRecorder=null;
+var _recChunks=[];
+var _recTimerEl=null;
+var _recTimerSec=0;
+var _recTimerInterval=null;
+var _recOverlay=null;
+
+function _openCameraViaGetUserMedia(){
+  // Check if mediaDevices is available
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    console.error('[CAM-REC] mediaDevices.getUserMedia not available');
+    showToast('该设备不支持摄像头录制，请从相册选择视频');
+    // Fall back to file picker
+    _plusGalleryPickVideo();
+    return;
+  }
+  console.log('[CAM-REC] Starting getUserMedia camera...');
+
+  // Clean up any previous recording overlay
+  _cleanupRecording();
+
+  // Create recording overlay
+  _recOverlay=document.createElement('div');
+  _recOverlay.id='camera-rec-overlay';
+  _recOverlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center';
+
+  // Video preview element
+  var videoPreview=document.createElement('video');
+  videoPreview.id='camera-rec-preview';
+  videoPreview.style.cssText='width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0';
+  videoPreview.autoplay=true;
+  videoPreview.playsInline=true;
+  videoPreview.muted=true; // Mute preview to avoid feedback
+  _recOverlay.appendChild(videoPreview);
+
+  // Top bar with timer and close button
+  var topBar=document.createElement('div');
+  topBar.style.cssText='position:absolute;top:0;left:0;right:0;padding:16px;display:flex;align-items:center;justify-content:space-between;z-index:2;background:linear-gradient(180deg,rgba(0,0,0,.6),transparent)';
+
+  var closeBtn=document.createElement('div');
+  closeBtn.style.cssText='width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;cursor:pointer';
+  closeBtn.innerHTML='✕';
+  closeBtn.onclick=function(){_cleanupRecording();showToast('已取消录制')};
+  topBar.appendChild(closeBtn);
+
+  _recTimerEl=document.createElement('div');
+  _recTimerEl.style.cssText='color:#fff;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums';
+  _recTimerEl.textContent='00:00';
+  topBar.appendChild(_recTimerEl);
+
+  var switchBtn=document.createElement('div');
+  switchBtn.style.cssText='width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;cursor:pointer';
+  switchBtn.innerHTML='🔄';
+  switchBtn.onclick=function(){_switchCameraFacing()};
+  topBar.appendChild(switchBtn);
+
+  _recOverlay.appendChild(topBar);
+
+  // Bottom control bar
+  var bottomBar=document.createElement('div');
+  bottomBar.style.cssText='position:absolute;bottom:0;left:0;right:0;padding:32px 16px;display:flex;align-items:center;justify-content:center;gap:40px;z-index:2;background:linear-gradient(0deg,rgba(0,0,0,.6),transparent)';
+
+  // Record button
+  var recBtn=document.createElement('div');
+  recBtn.id='camera-rec-btn';
+  recBtn.style.cssText='width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:rgba(255,59,48,.8);cursor:pointer;transition:transform .15s;display:flex;align-items:center;justify-content:center';
+  recBtn.innerHTML='<div style="width:28px;height:28px;border-radius:4px;background:#fff"></div>';
+  recBtn.onclick=function(){_toggleRecording(videoPreview)};
+  bottomBar.appendChild(recBtn);
+
+  _recOverlay.appendChild(bottomBar);
+
+  // Recording indicator (hidden by default)
+  var recIndicator=document.createElement('div');
+  recIndicator.id='camera-rec-indicator';
+  recIndicator.style.cssText='position:absolute;top:60px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;z-index:2;background:rgba(255,59,48,.9);padding:6px 16px;border-radius:20px';
+  recIndicator.innerHTML='<div style="width:10px;height:10px;border-radius:50%;background:#fff;animation:cameraRecPulse 1s ease-in-out infinite"></div><span style="color:#fff;font-size:14px;font-weight:600">录制中</span>';
+  _recOverlay.appendChild(recIndicator);
+
+  document.body.appendChild(_recOverlay);
+
+  // Add keyframe animation for recording pulse
+  if(!document.getElementById('camera-rec-style')){
+    var styleEl=document.createElement('style');
+    styleEl.id='camera-rec-style';
+    styleEl.textContent='@keyframes cameraRecPulse{0%,100%{opacity:1}50%{opacity:.3}}';
+    document.head.appendChild(styleEl);
+  }
+
+  // Request camera access
+  showToast('正在打开摄像头...');
+  _startCameraPreview(videoPreview);
+}
+
+var _currentFacing='environment';
+
+function _startCameraPreview(videoEl){
+  var constraints={
+    video:{facingMode:_currentFacing,width:{ideal:1280},height:{ideal:720}},
+    audio:true
+  };
+  navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
+    console.log('[CAM-REC] Camera opened successfully');
+    _recMediaStream=stream;
+    videoEl.srcObject=stream;
+    videoEl.play().catch(function(e){console.log('[CAM-REC] Preview play error:',e)});
+    showToast('摄像头已就绪，点击按钮开始录制');
+  }).catch(function(err){
+    console.error('[CAM-REC] Camera access denied:',err);
+    showToast('无法访问摄像头，请检查权限设置');
+    _cleanupRecording();
+    // Fall back to file picker
+    _plusGalleryPickVideo();
+  });
+}
+
+function _switchCameraFacing(){
+  _currentFacing=_currentFacing==='environment'?'user':'environment';
+  console.log('[CAM-REC] Switching camera to:',_currentFacing);
+  // Stop current stream
+  if(_recMediaStream){
+    _recMediaStream.getTracks().forEach(function(t){t.stop()});
+    _recMediaStream=null;
+  }
+  // Restart with new facing mode
+  var videoEl=document.getElementById('camera-rec-preview');
+  if(videoEl){
+    _startCameraPreview(videoEl);
+  }
+}
+
+function _toggleRecording(videoEl){
+  if(_recMediaRecorder&&_recMediaRecorder.state==='recording'){
+    // Stop recording
+    _stopRecording();
+    return;
+  }
+  // Start recording
+  _startRecording();
+}
+
+function _startRecording(){
+  if(!_recMediaStream){
+    showToast('摄像头未就绪');
+    return;
+  }
+  _recChunks=[];
+  _recTimerSec=0;
+  try{
+    // Try MP4 first, fallback to WebM
+    var mimeType='video/webm;codecs=vp8';
+    if(MediaRecorder.isTypeSupported('video/webm;codecs=vp9')){
+      mimeType='video/webm;codecs=vp9';
+    }
+    _recMediaRecorder=new MediaRecorder(_recMediaStream,{mimeType:mimeType});
+  }catch(e){
+    console.warn('[CAM-REC] Preferred codec not supported:',e);
+    _recMediaRecorder=new MediaRecorder(_recMediaStream);
+  }
+  console.log('[CAM-REC] Recording started, mimeType:',_recMediaRecorder.mimeType);
+
+  _recMediaRecorder.ondataavailable=function(e){
+    if(e.data&&e.data.size>0){
+      _recChunks.push(e.data);
+      console.log('[CAM-REC] Data chunk:',e.data.size,'bytes');
+    }
+  };
+  _recMediaRecorder.onstop=function(){
+    console.log('[CAM-REC] Recording stopped, chunks:',_recChunks.length);
+    var blob=new Blob(_recChunks,{type:_recMediaRecorder.mimeType||'video/webm'});
+    console.log('[CAM-REC] Final blob size:',blob.size,'bytes');
+    _cleanupRecording();
+    // Save the recorded video
+    var ts=new Date();
+    var fileName='拍摄视频_'+ts.getFullYear()+String(ts.getMonth()+1).padStart(2,'0')+String(ts.getDate()).padStart(2,'0')+'_'+String(ts.getHours()).padStart(2,'0')+String(ts.getMinutes()).padStart(2,'0')+String(ts.getSeconds()).padStart(2,'0')+'.webm';
+    _saveCaptureToMaterials(blob,fileName,'video/webm');
+    showToast('视频已保存到素材库');
+  };
+  _recMediaRecorder.onerror=function(e){
+    console.error('[CAM-REC] Recorder error:',e);
+    showToast('录制出错，请重试');
+    _cleanupRecording();
+  };
+
+  _recMediaRecorder.start(1000); // Collect data every second
+
+  // Update UI
+  var recBtn=document.getElementById('camera-rec-btn');
+  if(recBtn){
+    recBtn.style.background='rgba(255,59,48,1)';
+    recBtn.style.borderColor='#ff3b30';
+    recBtn.innerHTML='<div style="width:16px;height:16px;background:#fff"></div>';
+  }
+  var recIndicator=document.getElementById('camera-rec-indicator');
+  if(recIndicator)recIndicator.style.display='flex';
+
+  // Start timer
+  _recTimerInterval=setInterval(function(){
+    _recTimerSec++;
+    var min=Math.floor(_recTimerSec/60);
+    var sec=_recTimerSec%60;
+    if(_recTimerEl){
+      _recTimerEl.textContent=String(min).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+    }
+    // Auto-stop at 60 seconds
+    if(_recTimerSec>=60){
+      console.log('[CAM-REC] Auto-stopping at 60s');
+      _stopRecording();
+    }
+  },1000);
+
+  showToast('正在录制...');
+}
+
+function _stopRecording(){
+  if(_recMediaRecorder&&_recMediaRecorder.state==='recording'){
+    _recMediaRecorder.stop();
+    console.log('[CAM-REC] Recording stop requested');
+  }
+  if(_recTimerInterval){
+    clearInterval(_recTimerInterval);
+    _recTimerInterval=null;
+  }
+}
+
+function _cleanupRecording(){
+  console.log('[CAM-REC] Cleaning up recording resources');
+  if(_recMediaRecorder&&_recMediaRecorder.state==='recording'){
+    try{_recMediaRecorder.stop()}catch(e){}
+  }
+  _recMediaRecorder=null;
+  if(_recMediaStream){
+    _recMediaStream.getTracks().forEach(function(t){t.stop()});
+    _recMediaStream=null;
+  }
+  if(_recTimerInterval){
+    clearInterval(_recTimerInterval);
+    _recTimerInterval=null;
+  }
+  _recChunks=[];
+  _recTimerSec=0;
+  if(_recOverlay&&_recOverlay.parentNode){
+    _recOverlay.parentNode.removeChild(_recOverlay);
+    _recOverlay=null;
+  }
 }
 
 // Convert Android content:// URI to file path
@@ -12626,7 +12914,7 @@ function _openNativeCameraVideoBrowser(){
   var camInput=document.createElement('input');
   camInput.type='file';
   camInput.accept='video/*';
-  camInput.setAttribute('capture','environment');
+  camInput.capture='environment'; // DOM property — required for PakePlus WebView
   camInput.style.display='none';
   camInput.onchange=function(){
     if(camInput.files&&camInput.files.length>0){
