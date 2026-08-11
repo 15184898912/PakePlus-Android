@@ -3130,6 +3130,12 @@ function previewVoice(id){
   // This is the KEY optimization: play() is called synchronously within the click handler,
   // so mobile autoplay policy allows it. No fetch() delay, no CORS proxy needed.
   // We try ONE source at a time with a short timeout, not racing multiple sources.
+  // ===== WEBVIEW DETECTION: Skip external APIs (they all fail due to CORS), go directly to speechSynthesis =====
+  if(_isWebView()){
+    console.log('[PREVIEW] WebView detected, skipping external APIs, using speechSynthesis directly');
+    _previewVoiceSS(id,v);
+    return;
+  }
   _previewVoiceFast(id,v,myToken);
 }
 
@@ -3992,6 +3998,12 @@ function speakText(text,opts){
   }
 
   // ===== PATH SELECTION based on server availability =====
+  // ===== WEBVIEW: Skip all external APIs (CORS fails), go directly to speechSynthesis =====
+  if(_isWebView()&&!_hasPlusAPI()){
+    console.log('[speakText] WebView detected, skipping external APIs, using speechSynthesis directly');
+    _speakTextFallback(text,opts,myToken);
+    return;
+  }
   if(_serverAvailable===true){
     // Desktop: local edge-tts server (fastest, highest quality)
     var ttsUrl=apiUrl('/api/tts?text='+encodedText+'&voice=1&rate=100&pitch=1.0');
@@ -5693,6 +5705,17 @@ async function processAndShowVideo(qty){
 
 // Save rendered video to device photo album (download)
 var _saveRenderBusy=false;
+var _saveBtnTimeout=null;
+function _resetSaveButton(){
+  _saveRenderBusy=false;
+  if(_saveBtnTimeout){clearTimeout(_saveBtnTimeout);_saveBtnTimeout=null}
+  var btn=document.getElementById('render-save-btn');
+  if(btn){
+    btn.style.opacity='1';
+    btn.style.pointerEvents='auto';
+    btn.innerHTML='📥 保存到相册';
+  }
+}
 function saveRenderToAlbum(){
   console.log('[SAVE-RENDER] saveRenderToAlbum CALLED');
   if(_saveRenderBusy){
@@ -5709,11 +5732,16 @@ function saveRenderToAlbum(){
   showToast('⏳ 正在准备保存...');
   if(!_lastRenderedBlob){
     showToast('暂无可保存的视频');
-    if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.innerHTML='📥 保存到相册';}
+    _resetSaveButton();
     return;
   }
   _saveRenderBusy=true;
-  setTimeout(function(){_saveRenderBusy=false},1500); // Reset after 1.5s (reduced from 3s)
+  // Safety timeout: reset button after 15 seconds no matter what
+  _saveBtnTimeout=setTimeout(function(){
+    console.error('[SAVE-RENDER] Safety timeout reached, resetting button');
+    _resetSaveButton();
+    showToast('保存超时，请重试');
+  },15000);
   try{
     var now=new Date();
     var resTag=RESOLUTION_CONFIG[selectedResolution]?RESOLUTION_CONFIG[selectedResolution].label:'1080P';
@@ -5724,10 +5752,12 @@ function saveRenderToAlbum(){
     var blobType=_lastRenderedBlob.type||'video/webm';
     console.log('[SAVE-RENDER] Calling _saveBlobToAlbum, fileName:',fileName,'blobType:',blobType,'size:',_lastRenderedBlob.size);
     _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
+    // Reset button after a short delay (save is async, give it time to start)
+    setTimeout(function(){_resetSaveButton()},3000);
   }catch(e){
     console.error('[SAVE-RENDER] saveRenderToAlbum error:',e);
     showToast('保存失败，请重试');
-    if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.innerHTML='📥 保存到相册';}
+    _resetSaveButton();
   }
 }
 
@@ -7680,8 +7710,7 @@ function _saveToAlbumPlus(blob,fileName,title){
   var _timer=null;
 
   function _restoreBtn(){
-    var btn=document.getElementById('render-save-btn');
-    if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.innerHTML='📥 保存到相册';}
+    _resetSaveButton();
   }
   function _ok(msg){
     if(_done)return;_done=true;
@@ -8768,15 +8797,21 @@ function _saveBlobToAlbum(blob,fileName,blobType,title){
     }
     console.log('[SAVE] No plus API detected, using web fallback');
     // ===== Web fallback (ONLY when not in HBuilderX) =====
-    _saveBlobToAlbumWeb(blob,fileName,blobType,title);
+    _saveBlobToAlbumWeb(blob,fileName,blobType,title).then(function(){
+      // Save completed successfully
+      setTimeout(function(){_resetSaveButton()},500);
+    }).catch(function(e){
+      console.error('[SAVE] Web save failed:',e);
+      _resetSaveButton();
+      showToast('保存失败，请重试');
+    });
   }catch(e){
     console.error('Save to album error:',e);
+    _resetSaveButton();
     if(_hasPlusAPI()||(typeof window.plus!=='undefined'&&window.plus!==null)){
       showToast('保存失败，请重试');
-      var btn=document.getElementById('render-save-btn');
-      if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.innerHTML='📥 保存到相册';}
     }else{
-      _saveBlobToAlbumWeb(blob,fileName,blobType,title);
+      _saveBlobToAlbumWeb(blob,fileName,blobType,title).catch(function(){_resetSaveButton()});
     }
   }
 }
@@ -8798,94 +8833,100 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
     else if(blobType.indexOf('quicktime')>=0)ext='.mov';
     var safeName='zhuge_'+Date.now()+ext;
 
-    // ===== Method 1: navigator.share with files (mobile Chrome/Edge) =====
-    // Wrap in try-catch: navigator.canShare may crash some WebViews
+    // ===== In WebView (PakePlus/Tauri): use ONLY <a download> (safest, no crash) =====
+    if(_isWebView()){
+      console.log('[SAVE] WebView detected, using safe <a download> only');
+      _downloadBlobWebSafe(blob,safeName);
+      return;
+    }
+
+    // ===== Method 1: navigator.share with files (mobile Chrome/Edge, NOT WebView) =====
     var canShare=false;
-    // Skip navigator.canShare in WebView - it can cause native crashes
-    if(!_isWebView()){
-      try{
-        canShare=navigator.canShare&&navigator.canShare({files:[new File([blob],safeName,{type:blobType})]});
-      }catch(shareErr){
-        console.log('[SAVE] navigator.canShare crashed, skipping:',shareErr);
-        canShare=false;
-      }
-    }else{
-      console.log('[SAVE] Skipping navigator.canShare in WebView environment');
+    try{
+      canShare=navigator.canShare&&navigator.canShare({files:[new File([blob],safeName,{type:blobType})]});
+    }catch(shareErr){
+      console.log('[SAVE] navigator.canShare crashed, skipping:',shareErr);
+      canShare=false;
     }
     if(canShare){
       console.log('[SAVE] Using navigator.share with files');
       var shareFile=new File([blob],safeName,{type:blobType});
-      navigator.share({
-        files:[shareFile],
-        title:title||'AI智能成片',
-        text:'我用正商诸葛AI生成了一个视频'
-      }).then(function(){
+      try{
+        await navigator.share({
+          files:[shareFile],
+          title:title||'AI智能成片',
+          text:'我用正商诸葛AI生成了一个视频'
+        });
         console.log('[SAVE] navigator.share success');
         showToast('视频已保存');
-      }).catch(function(e){
+        return;
+      }catch(e){
         if(e.name!=='AbortError'){
           console.log('[SAVE] navigator.share failed, falling back to download:',e);
-          _downloadBlobWeb(blob,safeName);
+        }else{
+          return; // User cancelled, don't show error
         }
-      });
-      return;
+      }
     }
 
     // ===== Method 2: File System Access API (desktop Chrome only) =====
-    // Skip on mobile or WebView (may crash)
     try{
-      if(window.showSaveFilePicker&&!_isMobileDevice()&&!_isWebView()){
-        window.showSaveFilePicker({
+      if(window.showSaveFilePicker&&!_isMobileDevice()){
+        var handle=await window.showSaveFilePicker({
           suggestedName:safeName,
           types:[{
             description:'视频文件',
             accept:{'video/webm':['.webm'],'video/mp4':['.mp4'],'video/quicktime':['.mov']}
           }]
-        }).then(function(handle){
-          return handle.createWritable().then(function(writable){
-            return writable.write(blob).then(function(){
-              return writable.close();
-            });
-          });
-        }).then(function(){
-          showToast('视频已保存');
-        }).catch(function(e){
-          if(e.name!=='AbortError'){
-            console.log('File System Access API failed:',e);
-            _downloadBlobWeb(blob,safeName);
-          }
         });
+        var writable=await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        showToast('视频已保存');
         return;
       }
     }catch(fsErr){
-      console.log('File System Access API error:',fsErr);
-    }
-    // ===== Tauri/PakePlus native save (if available) =====
-    if(typeof window.__TAURI__!=='undefined'){
-      try{
-        var tauri=window.__TAURI__;
-        console.log('[SAVE] Tauri API detected, attempting native save');
-        if(tauri.dialog&&tauri.fs){
-          var uint8=new Uint8Array(await blob.arrayBuffer());
-          var filePath=await tauri.dialog.save({
-            defaultPath:safeName,
-            filters:[{name:'Video',extensions:[ext.replace('.','')]}]
-          });
-          if(filePath){
-            await tauri.fs.writeFile(filePath,uint8);
-            showToast('视频已保存: '+filePath);
-            return;
-          }
-        }
-      }catch(tauriErr){
-        console.log('[SAVE] Tauri save failed:',tauriErr);
+      if(fsErr.name!=='AbortError'){
+        console.log('File System Access API error:',fsErr);
+      }else{
+        return; // User cancelled
       }
     }
-    // ===== Method 3: <a download> + video overlay (fallback) =====
-    _downloadBlobWeb(blob,safeName);
+
+    // ===== Method 3: <a download> (universal fallback) =====
+    _downloadBlobWebSafe(blob,safeName);
   }catch(e){
     console.error('Web save error:',e);
-    try{_downloadBlobWeb(blob,'zhuge_video'+ext)}catch(e2){showToast('保存失败，请重试')}
+    try{_downloadBlobWebSafe(blob,'zhuge_video'+ext)}catch(e2){showToast('保存失败，请重试')}
+  }
+}
+
+// Safe download function: uses <a download> only, no video overlay (prevents crash)
+function _downloadBlobWebSafe(blob,fileName){
+  try{
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName;
+    a.style.display='none';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    setTimeout(function(){
+      try{
+        a.click();
+        showToast('视频已开始下载');
+      }catch(clickErr){
+        console.error('Download click error:',clickErr);
+        showToast('保存失败，请长按视频保存');
+      }
+      setTimeout(function(){
+        try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
+        try{URL.revokeObjectURL(url)}catch(e){}
+      },5000);
+    },100);
+  }catch(e){
+    console.error('Safe download error:',e);
+    showToast('保存失败，视频已保存在作品库中');
   }
 }
 
@@ -9166,6 +9207,67 @@ async function generateTTSAudio(audioCtx,text,voiceId){
   var voice=VOICES[voiceId];
   if(!voice||voiceId===0)return null;
 
+  // ===== 0. Tauri HTTP API (bypasses CORS completely, works in PakePlus) =====
+  if(typeof window.__TAURI__!=='undefined'){
+    var tauriHttp=window.__TAURI__.http||window.__TAURI__.request||null;
+    if(tauriHttp&&tauriHttp.fetch){
+      try{
+        var per=0;
+        if(voiceId===2)per=1; if(voiceId===3)per=5; if(voiceId===4)per=3;
+        if(voiceId===5)per=3; if(voiceId===6)per=4; if(voiceId===7)per=4;
+        if(voiceId===8)per=3; if(voiceId===10)per=1;
+        var speedMultiplier=(voiceSpeed/100)*0.8+0.4;
+        var spd=Math.round(3+(voice.rate||1.0)*speedMultiplier*3);
+        spd=Math.max(1,Math.min(9,spd));
+        var pit=Math.round(3+(voice.pitch||1.0)*3);
+        pit=Math.max(1,Math.min(9,pit));
+        var chunks=[];
+        var remaining=text;
+        while(remaining.length>200){
+          var cutPos=200;
+          for(var ci=200;ci>100;ci--){
+            if('。！？，、；：.!?'.indexOf(remaining[ci])>=0){cutPos=ci+1;break}
+          }
+          chunks.push(remaining.slice(0,cutPos));
+          remaining=remaining.slice(cutPos);
+        }
+        if(remaining)chunks.push(remaining);
+        var tauriBuffers=[];
+        for(var ti=0;ti<chunks.length;ti++){
+          var encodedText=encodeURIComponent(chunks[ti]);
+          var tauriUrl='https://fanyi.baidu.com/gettts?lan=zh&text='+encodedText+'&spd='+spd+'&source=web';
+          console.log('[TTS] Trying Tauri HTTP for chunk',ti);
+          var tauriResp=await Promise.race([
+            tauriHttp.fetch(tauriUrl,{method:'GET'}),
+            new Promise(function(_,reject){setTimeout(function(){reject(new Error('Tauri HTTP timeout 15s'))},15000)})
+          ]);
+          if(tauriResp&&tauriResp.ok){
+            var tauriBuf=await tauriResp.arrayBuffer();
+            if(tauriBuf&&tauriBuf.byteLength>200){
+              var tauriAudioBuf=await audioCtx.decodeAudioData(tauriBuf.slice(0));
+              console.log('[TTS] Tauri HTTP success! chunk',ti,'size:',tauriBuf.byteLength);
+              tauriBuffers.push(tauriAudioBuf);
+            }
+          }
+        }
+        if(tauriBuffers.length>0){
+          if(tauriBuffers.length===1)return tauriBuffers[0];
+          var totalLen=tauriBuffers.reduce(function(s,b){return s+b.length},0);
+          var tauriResult=audioCtx.createBuffer(1,totalLen,tauriBuffers[0].sampleRate);
+          var tauriOffset=0;
+          for(var tb=0;tb<tauriBuffers.length;tb++){
+            tauriResult.getChannelData(0).set(tauriBuffers[tb].getChannelData(0),tauriOffset);
+            tauriOffset+=tauriBuffers[tb].length;
+          }
+          console.log('[TTS] Tauri HTTP: all chunks concatenated, duration:',tauriResult.duration.toFixed(2)+'s');
+          return tauriResult;
+        }
+      }catch(tauriErr){
+        console.log('[TTS] Tauri HTTP failed:',tauriErr.message||tauriErr);
+      }
+    }
+  }
+
   // ===== 1. 优先使用本地TTS服务器（edge-tts，高质量，无CORS问题）=====
   // Skip if server is known to be unavailable (mobile/standalone mode)
   var serverOk=await checkServerAvailable();
@@ -9307,6 +9409,118 @@ async function generateTTSAudio(audioCtx,text,voiceId){
     offset+=audioBuffers[j].length;
   }
   return result;
+}
+
+// ===== Generate TTS AudioBuffer via speechSynthesis + microphone capture =====
+// This is the "BGM approach" for voice: generates speech locally and captures it as an AudioBuffer.
+// Used as last resort when all external TTS APIs fail (CORS, no network).
+// Requires microphone permission (user will hear speech through speakers, mic captures it).
+async function generateTtsViaSpeechCapture(audioCtx,text,voiceId){
+  if(!text||text.length<2)return null;
+  if(typeof speechSynthesis==='undefined'){
+    console.log('[TTS-CAPTURE] speechSynthesis not available');
+    return null;
+  }
+  var voice=VOICES[voiceId];
+  if(!voice)return null;
+  console.log('[TTS-CAPTURE] Starting speechSynthesis capture for text length:',text.length);
+  try{
+    // Request microphone access
+    var micStream=await navigator.mediaDevices.getUserMedia({
+      audio:{
+        echoCancellation:false,
+        noiseSuppression:false,
+        autoGainControl:false
+      },
+      video:false
+    });
+    if(!micStream){
+      console.log('[TTS-CAPTURE] Microphone access denied');
+      return null;
+    }
+    console.log('[TTS-CAPTURE] Microphone access granted');
+    // Create MediaRecorder
+    var mr=null;
+    var mimeType='audio/webm';
+    if(!MediaRecorder.isTypeSupported('audio/webm')){
+      if(MediaRecorder.isTypeSupported('audio/mp4'))mimeType='audio/mp4';
+      else if(MediaRecorder.isTypeSupported('audio/ogg'))mimeType='audio/ogg';
+      else mimeType='';
+    }
+    try{
+      mr=mimeType?new MediaRecorder(micStream,{mimeType:mimeType}):new MediaRecorder(micStream);
+    }catch(mrErr){
+      console.log('[TTS-CAPTURE] MediaRecorder creation failed:',mrErr);
+      micStream.getTracks().forEach(function(t){t.stop()});
+      return null;
+    }
+    var chunks=[];
+    mr.ondataavailable=function(e){if(e.data&&e.data.size>0)chunks.push(e.data)};
+    // Split long text for speechSynthesis (500 char limit)
+    var ttsChunks=[];
+    var remaining=text;
+    while(remaining.length>500){
+      var cutPos=500;
+      for(var ci=500;ci>200;ci--){
+        if('。！？!?；;\n'.indexOf(remaining[ci])>=0){cutPos=ci+1;break}
+      }
+      ttsChunks.push(remaining.slice(0,cutPos));
+      remaining=remaining.slice(cutPos);
+    }
+    if(remaining)ttsChunks.push(remaining);
+    console.log('[TTS-CAPTURE] Text split into',ttsChunks.length,'chunks');
+    // Start recording
+    mr.start(500);
+    // Speak each chunk sequentially
+    for(var ci2=0;ci2<ttsChunks.length;ci2++){
+      await new Promise(function(resolve){
+        var u=new SpeechSynthesisUtterance(ttsChunks[ci2]);
+        u.lang=voice.lang||'zh-CN';
+        var speedMul=(voiceSpeed/100)*0.6+0.7;
+        u.rate=Math.max(0.7,Math.min(1.3,(voice.rate||1.0)*speedMul));
+        u.pitch=Math.max(0.5,Math.min(1.5,voice.pitch||1.0));
+        u.volume=1.0;
+        var zhVoice=findZhVoice(u.lang);
+        if(zhVoice)u.voice=zhVoice;
+        var chunkDone=false;
+        var chunkTimeout=setTimeout(function(){
+          if(!chunkDone){chunkDone=true;resolve()}
+        },30000); // 30s timeout per chunk
+        u.onend=function(){if(!chunkDone){chunkDone=true;clearTimeout(chunkTimeout);resolve()}};
+        u.onerror=function(){if(!chunkDone){chunkDone=true;clearTimeout(chunkTimeout);resolve()}};
+        try{speechSynthesis.speak(u)}catch(e){if(!chunkDone){chunkDone=true;clearTimeout(chunkTimeout);resolve()}}
+      });
+    }
+    // Wait a bit for last audio to be captured
+    await new Promise(function(r){setTimeout(r,1000)});
+    // Stop recording
+    mr.stop();
+    // Wait for recorder to finish
+    await new Promise(function(r){
+      if(mr.state==='inactive'){r();return}
+      mr.onstop=function(){r()};
+      setTimeout(r,3000); // Safety timeout
+    });
+    // Stop microphone
+    micStream.getTracks().forEach(function(t){t.stop()});
+    if(chunks.length===0){
+      console.log('[TTS-CAPTURE] No audio captured');
+      return null;
+    }
+    var blob=new Blob(chunks,{type:mimeType||'audio/webm'});
+    if(blob.size<500){
+      console.log('[TTS-CAPTURE] Captured audio too small:',blob.size);
+      return null;
+    }
+    console.log('[TTS-CAPTURE] Captured audio size:',blob.size);
+    var arrayBuf=await blob.arrayBuffer();
+    var audioBuf=await audioCtx.decodeAudioData(arrayBuf);
+    console.log('[TTS-CAPTURE] Success! Duration:',audioBuf.duration.toFixed(2)+'s');
+    return audioBuf;
+  }catch(e){
+    console.log('[TTS-CAPTURE] Failed:',e.message||e);
+    return null;
+  }
 }
 
 // Fallback TTS: load via Audio element + CORS proxy + createMediaElementSource
@@ -9641,39 +9855,52 @@ async function processVideoWithEffects(videoBlob){
           ttsDuration=ttsAudioEl.duration||Math.max(ttsText.length/4,duration);
           console.log('TTS loaded via Audio element, duration:',ttsDuration);
         }else{
-          // Last resort: speechSynthesis (plays through speakers during recording)
-          console.log('TTS all methods failed, using speechSynthesis fallback');
-          // Split long text into chunks for speechSynthesis (avoids 500-char truncation)
-          var ttsTextForSS=ttsText;
-          if(ttsText.length>500){
-            var ssChunks=[];
-            var ssSentences=ttsText.split(/([。！？!?；;\n]+)/);
-            var ssCur='';
-            for(var sc=0;sc<ssSentences.length;sc++){
-              if((ssCur+ssSentences[sc]).length>450&&ssCur.length>0){
-                ssChunks.push(ssCur);ssCur=ssSentences[sc];
-              }else{ssCur+=ssSentences[sc];}
-            }
-            if(ssCur)ssChunks.push(ssCur);
-            ttsTextForSS=ssChunks.join(' ');
-          }
-          var voice=VOICES[selectedVoice];
-          ttsDuration=Math.max(ttsText.length/4,duration);
-          if(typeof speechSynthesis!=='undefined'){
-            ttsUseSpeechSynthesis=true;
-            ttsVoiceConfig={text:ttsTextForSS,voice:voice,vol:voiceVol,speed:voiceSpeed};
-            console.log('TTS will use speechSynthesis during recording, estimated duration:',ttsDuration);
-            showToast('配音使用浏览器内置语音引擎（字幕仍会烧录到视频中）');
-          }else if(_androidTTSReady||_androidTTSInitializing){
-            // Use native Android TTS during recording (plays through speaker, captured by MediaRecorder)
-            ttsUseSpeechSynthesis=true;
-            ttsVoiceConfig={text:ttsTextForSS,voice:voice,vol:voiceVol,speed:voiceSpeed,_useAndroidTTS:true};
-            console.log('TTS will use Android TTS during recording, estimated duration:',ttsDuration,
-              _androidTTSReady?'(TTS ready)':'(TTS still initializing, will be ready by recording time)');
-            showToast('配音使用设备语音引擎（字幕仍会烧录到视频中）');
+          // ===== TRY speechSynthesis + microphone capture (embeds voice into video like BGM) =====
+          console.log('[TTS] All external methods failed, trying speechSynthesis capture (embeds voice into video)');
+          showToast('正在使用本地语音合成配音，请允许麦克风权限以嵌入配音...');
+          try{
+            ttsBuffer=await Promise.race([
+              generateTtsViaSpeechCapture(audioCtx,ttsText,selectedVoice),
+              new Promise(function(_,reject){setTimeout(function(){reject(new Error('TTS capture timeout 120s'))},120000)})
+            ]);
+          }catch(capErr){console.log('[TTS] Speech capture failed:',capErr.message||capErr);ttsBuffer=null}
+          if(ttsBuffer){
+            ttsDuration=ttsBuffer.duration;
+            console.log('[TTS] Voice captured successfully! Duration:',ttsDuration.toFixed(2)+'s — voice will be embedded in video');
+            showToast('配音已合成完成，将嵌入视频中');
           }else{
-            console.log('TTS: All methods failed and speechSynthesis/Android TTS not available. Video will have subtitles but no voice.');
-            if(!_voicePlaying){showToast('配音加载失败，视频将有字幕和背景音乐但无配音语音。请检查网络后重试')}
+            // Last resort: speechSynthesis during recording (plays through speakers, may not be captured)
+            console.log('TTS capture failed, using speechSynthesis during recording fallback');
+            var ttsTextForSS=ttsText;
+            if(ttsText.length>500){
+              var ssChunks=[];
+              var ssSentences=ttsText.split(/([。！？!?；;\n]+)/);
+              var ssCur='';
+              for(var sc=0;sc<ssSentences.length;sc++){
+                if((ssCur+ssSentences[sc]).length>450&&ssCur.length>0){
+                  ssChunks.push(ssCur);ssCur=ssSentences[sc];
+                }else{ssCur+=ssSentences[sc];}
+              }
+              if(ssCur)ssChunks.push(ssCur);
+              ttsTextForSS=ssChunks.join(' ');
+            }
+            var voice=VOICES[selectedVoice];
+            ttsDuration=Math.max(ttsText.length/4,duration);
+            if(_androidTTSReady||_androidTTSInitializing){
+              // HBuilderX: Use native Android TTS during recording
+              ttsUseSpeechSynthesis=true;
+              ttsVoiceConfig={text:ttsTextForSS,voice:voice,vol:voiceVol,speed:voiceSpeed,_useAndroidTTS:true};
+              console.log('TTS will use Android TTS during recording, estimated duration:',ttsDuration);
+              showToast('配音使用设备语音引擎（字幕仍会烧录到视频中）');
+            }else if(typeof speechSynthesis!=='undefined'){
+              ttsUseSpeechSynthesis=true;
+              ttsVoiceConfig={text:ttsTextForSS,voice:voice,vol:voiceVol,speed:voiceSpeed};
+              console.log('TTS will use speechSynthesis during recording, estimated duration:',ttsDuration);
+              showToast('配音使用浏览器语音（字幕+背景音乐已嵌入视频）');
+            }else{
+              console.log('TTS: All methods failed. Video will have subtitles and BGM but no voice.');
+              if(!_voicePlaying){showToast('配音合成失败，视频将包含字幕和背景音乐')}
+            }
           }
         }
       }
