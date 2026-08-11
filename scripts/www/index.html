@@ -3313,11 +3313,13 @@ function _previewVoiceSS(id,v){
     renderVoices();
     return;
   }
-  // If speechSynthesis is unavailable or known broken, show error
-  if(typeof speechSynthesis==='undefined'||_speechSynthesisWorks===false){
+  // If speechSynthesis is completely unavailable, show error
+  if(typeof speechSynthesis==='undefined'){
     if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
     return;
   }
+  // Reset previous broken state — retry speechSynthesis (may work on different attempt)
+  _speechSynthesisWorks=null;
   // Use the current preview token to prevent overlapping speechSynthesis
   var ssToken=++_previewToken;
   if(!voicesLoaded){loadVoices()}
@@ -3332,11 +3334,21 @@ function _previewVoiceSS(id,v){
   if(zhVoice){u.voice=zhVoice}
   var voiceId=id;
   var hasEnded=false;
+  // Timeout: if speechSynthesis doesn't start within 3s, show error
+  var ssStartTimer=setTimeout(function(){
+    if(!hasEnded&&ssToken===_previewToken){
+      console.log('[PREVIEW] speechSynthesis timeout, no start event');
+      _speechSynthesisWorks=false;
+      if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
+    }
+  },3000);
   u.onstart=function(){
+    clearTimeout(ssStartTimer);
     _speechSynthesisWorks=true;
     console.log('[PREVIEW] speechSynthesis started for voice',id);
   };
   u.onend=function(){
+    clearTimeout(ssStartTimer);
     hasEnded=true;
     if(ssToken!==_previewToken)return;
     if(currentVoiceUtter&&currentVoiceUtter._voiceId===voiceId){
@@ -3345,6 +3357,7 @@ function _previewVoiceSS(id,v){
     }
   };
   u.onerror=function(e){
+    clearTimeout(ssStartTimer);
     if(hasEnded)return;
     if(ssToken!==_previewToken)return;
     var errType=e.error||'';
@@ -3356,8 +3369,11 @@ function _previewVoiceSS(id,v){
       return;
     }
     console.error('Voice error:',errType,e);
-    _speechSynthesisWorks=false; // Mark as broken
-    if(u._retried){return}
+    // Don't permanently mark as broken — allow retry on next attempt
+    if(u._retried){
+      if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
+      return;
+    }
     u._retried=true;
     if(currentVoiceUtter&&currentVoiceUtter._voiceId===voiceId){
       currentVoiceUtter=null;
@@ -4007,7 +4023,10 @@ function _speakTextFallback(text,opts,token){
     return;
   }
   // Try speechSynthesis first (local, instant) — skip if known broken
-  if(typeof speechSynthesis!=='undefined'&&_speechSynthesisWorks!==false){
+  // Reset previous broken state
+  _speechSynthesisWorks=null;
+  // Try speechSynthesis first (local, instant)
+  if(typeof speechSynthesis!=='undefined'){
     speechSynthesis.cancel();
     if(!voicesLoaded){loadVoices()}
     var u=new SpeechSynthesisUtterance(text);
@@ -4017,12 +4036,31 @@ function _speakTextFallback(text,opts,token){
     u.volume=1.0;
     var zhVoice=findZhVoice('zh-CN');
     if(zhVoice){u.voice=zhVoice}
-    u.onerror=function(e){console.log('[speakText] speechSynthesis error:',e.error||e);_speechSynthesisWorks=false;_voicePlaying=false;};
-    u.onstart=function(){_voicePlaying=true;_speechSynthesisWorks=true;console.log('[speakText] speechSynthesis started');};
+    var ssStarted=false;
+    var ssTimer=setTimeout(function(){
+      if(!ssStarted&&token===_speakTextToken){
+        console.log('[speakText] speechSynthesis start timeout (3s), trying direct audio');
+        _speakTextDirectAudio(text,token);
+      }
+    },3000);
+    u.onerror=function(e){
+      clearTimeout(ssTimer);
+      var errType=e.error||'';
+      console.log('[speakText] speechSynthesis error:',errType||e);
+      if(errType==='canceled'||errType==='interrupted'||errType===''||typeof errType==='undefined'){
+        _voicePlaying=false;return;
+      }
+      _speechSynthesisWorks=false;_voicePlaying=false;
+    };
+    u.onstart=function(){
+      clearTimeout(ssTimer);ssStarted=true;
+      _voicePlaying=true;_speechSynthesisWorks=true;
+      console.log('[speakText] speechSynthesis started');
+    };
     u.onend=function(){_voicePlaying=false;};
     setTimeout(function(){
       if(token!==undefined&&token!==_speakTextToken){return}
-      try{speechSynthesis.speak(u)}catch(e){_speakTextDirectAudio(text,token)}
+      try{speechSynthesis.speak(u)}catch(e){clearTimeout(ssTimer);_speakTextDirectAudio(text,token)}
     },200);
     // Also try a direct Audio as backup in case speechSynthesis doesn't produce sound
     // (common on mobile WebView — speechSynthesis exists but is silent)
@@ -8627,8 +8665,20 @@ function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
     var safeName='zhuge_'+Date.now()+ext;
 
     // ===== Method 1: navigator.share with files (mobile Chrome/Edge) =====
-    // This opens the native share sheet which includes "Save to gallery" on Android
-    if(navigator.canShare&&navigator.canShare({files:[new File([blob],safeName,{type:blobType})]})){
+    // Wrap in try-catch: navigator.canShare may crash some WebViews
+    var canShare=false;
+    // Skip navigator.canShare in WebView - it can cause native crashes
+    if(!_isWebView()){
+      try{
+        canShare=navigator.canShare&&navigator.canShare({files:[new File([blob],safeName,{type:blobType})]});
+      }catch(shareErr){
+        console.log('[SAVE] navigator.canShare crashed, skipping:',shareErr);
+        canShare=false;
+      }
+    }else{
+      console.log('[SAVE] Skipping navigator.canShare in WebView environment');
+    }
+    if(canShare){
       console.log('[SAVE] Using navigator.share with files');
       var shareFile=new File([blob],safeName,{type:blobType});
       navigator.share({
@@ -8647,9 +8697,10 @@ function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
       return;
     }
 
-    // ===== Method 2: File System Access API (desktop Chrome) =====
-    if(window.showSaveFilePicker&&!_isMobileDevice()){
-      try{
+    // ===== Method 2: File System Access API (desktop Chrome only) =====
+    // Skip on mobile or WebView (may crash)
+    try{
+      if(window.showSaveFilePicker&&!_isMobileDevice()&&!_isWebView()){
         window.showSaveFilePicker({
           suggestedName:safeName,
           types:[{
@@ -8671,15 +8722,15 @@ function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
           }
         });
         return;
-      }catch(fsErr){
-        console.log('File System Access API error:',fsErr);
       }
+    }catch(fsErr){
+      console.log('File System Access API error:',fsErr);
     }
     // ===== Method 3: <a download> + video overlay (fallback) =====
     _downloadBlobWeb(blob,safeName);
   }catch(e){
     console.error('Web save error:',e);
-    _downloadBlobWeb(blob,'zhuge_video'+ext);
+    try{_downloadBlobWeb(blob,'zhuge_video'+ext)}catch(e2){showToast('保存失败，请重试')}
   }
 }
 
@@ -8742,10 +8793,13 @@ function _downloadBlobWeb(blob,fileName){
         try{URL.revokeObjectURL(url)}catch(e){}
       },3000);
     },50);
-    // On mobile, also show video overlay for long-press save (some browsers block <a download>)
+    // On mobile WebView, show video overlay for long-press save
+    // Wrap in try-catch: overlay may crash WebView with large blobs
     if(_isMobileDevice()){
       setTimeout(function(){
-        _showVideoSaveOverlay(blob);
+        try{_showVideoSaveOverlay(blob)}catch(overlayErr){
+          console.error('[SAVE] Video overlay error:',overlayErr);
+        }
       },800);
       showToast('视频已开始下载，如未成功请长按视频画面保存');
     }else{
@@ -8753,7 +8807,10 @@ function _downloadBlobWeb(blob,fileName){
     }
   }catch(e){
     console.error('Web download error:',e);
-    _showVideoSaveOverlay(blob);
+    try{_showVideoSaveOverlay(blob)}catch(e2){
+      console.error('[SAVE] Fallback overlay also failed:',e2);
+      showToast('保存失败，请尝试长按视频画面保存');
+    }
   }
 }
 
@@ -11401,6 +11458,22 @@ function playShutterSound(){
 // Detect mobile device
 function _isMobileDevice(){
   return (typeof window.ontouchstart!=='undefined')||(navigator.maxTouchPoints>0)||(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||''));
+}
+
+// Detect WebView environment (PakePlus, Tauri, Cordova, etc.)
+// WebViews often lack navigator.canShare, showSaveFilePicker, etc.
+function _isWebView(){
+  var ua=navigator.userAgent||'';
+  // PakePlus/Tauri detection
+  if(typeof window.__TAURI__!=='undefined')return true;
+  // Generic WebView detection
+  if(/wv|WebView|PakePlus|Tauri/i.test(ua))return true;
+  // Non-browser, non-file protocol without plus API = likely WebView
+  if(!_hasPlusAPI()&&window.location.protocol!=='file:'&&!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(window.location.href)){
+    // Could be a WebView — be cautious with native APIs
+    return true;
+  }
+  return false;
 }
 
 // Open native camera via file input (most reliable on mobile WebView)
