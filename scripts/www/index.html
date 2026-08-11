@@ -3457,6 +3457,7 @@ function _previewVoiceSS(id,v){
   // ===== PRIORITY: Use pre-generated TTS audio (like BGM approach, works offline in WebView) =====
   if(typeof _getPregeneratedTts==='function'){
     var pregData=_getPregeneratedTts(id);
+    console.log('[PREVIEW] Pre-generated TTS check: voice',id,'data exists:',!!pregData,'TTS_PREGENERATED available:',typeof TTS_PREGENERATED!=='undefined');
     if(pregData){
       console.log('[PREVIEW] Using pre-generated TTS audio for voice',id);
       try{
@@ -3505,7 +3506,7 @@ function _previewVoiceSS(id,v){
 function _previewVoiceSSFallback(id,v){
   // If speechSynthesis is completely unavailable, show error
   if(typeof speechSynthesis==='undefined'){
-    if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
+    if(!_voicePlaying){showToast('配音播放不可用，请尝试其他音色')}
     return;
   }
   // Reset previous broken state — retry speechSynthesis (may work on different attempt)
@@ -3529,7 +3530,7 @@ function _previewVoiceSSFallback(id,v){
     if(!hasEnded&&ssToken===_previewToken){
       console.log('[PREVIEW] speechSynthesis timeout, no start event');
       _speechSynthesisWorks=false;
-      if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
+      if(!_voicePlaying){showToast('配音加载中，请稍后重试')}
     }
   },3000);
   u.onstart=function(){
@@ -3561,7 +3562,7 @@ function _previewVoiceSSFallback(id,v){
     console.error('Voice error:',errType,e);
     // Don't permanently mark as broken — allow retry on next attempt
     if(u._retried){
-      if(!_voicePlaying){showToast('配音加载失败，请检查网络后重试')}
+      if(!_voicePlaying){showToast('配音播放失败，请尝试其他音色')}
       return;
     }
     u._retried=true;
@@ -4064,6 +4065,7 @@ function speakText(text,opts){
   if(_isWebView()&&!_hasPlusAPI()){
     // Try pre-generated TTS audio for known prompt texts
     var promptKey=_matchPregeneratedPrompt(text);
+    console.log('[speakText] WebView: promptKey=',promptKey,'TTS_PREGENERATED available:',typeof TTS_PREGENERATED!=='undefined');
     if(promptKey&&typeof _playPregeneratedPrompt==='function'){
       console.log('[speakText] WebView: Using pre-generated audio for prompt:',promptKey);
       _voicePlaying=true;
@@ -4327,6 +4329,14 @@ function _speakTextDirectAudio(text,token){
   // Last chance: try native Android TTS before external APIs
   if(_tryPlusSpeech(text,{})){
     console.log('[speakText] Native Android TTS started in direct audio fallback');
+    return;
+  }
+  // ===== WEBVIEW: Skip external TTS APIs (they all fail due to CORS) =====
+  // Just show the text as toast — external API attempts waste time and cause errors
+  if(_isWebView()&&!_hasPlusAPI()){
+    console.log('[speakText] WebView: skipping external TTS APIs (CORS), showing text');
+    var displayText=text.length>50?text.substring(0,50)+'...':text;
+    showToast(displayText,3000);
     return;
   }
   console.log('[speakText] Last resort: direct Baidu TTS Audio (per=0 female)');
@@ -5808,22 +5818,30 @@ function _resetSaveButton(){
     btn.innerHTML='📥 保存到相册';
   }
 }
+// Auto-reset safeguard: if _saveRenderBusy is still true after 20s, force reset
+setInterval(function(){
+  if(_saveRenderBusy){
+    console.warn('[SAVE-RENDER] Auto-reset: _saveRenderBusy stuck for too long');
+    _resetSaveButton();
+  }
+},20000);
 function saveRenderToAlbum(){
-  console.log('[SAVE-RENDER] saveRenderToAlbum CALLED');
+  console.log('[SAVE-RENDER] saveRenderToAlbum CALLED at',new Date().toISOString());
   if(_saveRenderBusy){
     console.log('[SAVE-RENDER] Already saving, skipping duplicate call');
+    showToast('正在保存中，请稍候...');
     return;
   }
   // ===== IMMEDIATE visual feedback - show loading state right away =====
   var btn=document.getElementById('render-save-btn');
   if(btn){
     btn.style.opacity='0.6';
-    btn.style.pointerEvents='none';
     btn.innerHTML='⏳ 正在保存...';
+    // Do NOT set pointerEvents='none' — it prevents re-clicks and can get stuck
   }
   showToast('⏳ 正在准备保存...');
   if(!_lastRenderedBlob){
-    showToast('暂无可保存的视频');
+    showToast('暂无可保存的视频，请先完成渲染');
     _resetSaveButton();
     return;
   }
@@ -5852,8 +5870,9 @@ function saveRenderToAlbum(){
     var blobType=_lastRenderedBlob.type||'video/webm';
     console.log('[SAVE-RENDER] Calling _saveBlobToAlbum, fileName:',fileName,'blobType:',blobType,'size:',_lastRenderedBlob.size);
     _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
-    // Reset button after a short delay (save is async, give it time to start)
-    setTimeout(function(){_resetSaveButton()},3000);
+    // Reset button after save starts (NOT after 3s — wait for callback)
+    // The _saveBlobToAlbum chain calls _resetSaveButton on success/failure
+    // Safety timeout at 15s handles edge cases
   }catch(e){
     console.error('[SAVE-RENDER] saveRenderToAlbum error:',e);
     showToast('保存失败，请重试');
@@ -5861,77 +5880,35 @@ function saveRenderToAlbum(){
   }
 }
 
-// ===== Direct event listener for render save button (bypasses touch delegation) =====
-// The global touch delegation system may not always fire onclick on buttons inside modals.
-// This adds a direct listener as a fallback.
+// ===== Save button handler: simplified, no touchend interception =====
+// Previous version used touchend+preventDefault which blocked onclick on mobile.
+// Now we rely solely on onclick (set both in HTML and JS) with touch-action:manipulation.
 (function(){
-  function attachSaveBtnListener(){
+  function ensureSaveBtnHandler(){
     var btn=document.getElementById('render-save-btn');
-    if(!btn){
-      // Retry until button exists in DOM
-      setTimeout(attachSaveBtnListener,500);
-      return;
-    }
-    if(btn._directListenerAttached)return;
-    btn._directListenerAttached=true;
-    console.log('[SAVE-RENDER] Direct listener attached to render-save-btn');
-
-    // Direct click listener (bypasses touch delegation)
-    btn.addEventListener('click',function(e){
-      console.log('[SAVE-RENDER] Direct click event on save button');
-      e.stopPropagation();
-      // Don't preventDefault — let the onclick also fire if it can
-      // But if onclick already handled it, saveRenderToAlbum will be called twice
-      // which is fine because _saveBlobToAlbum has dedup protection
-    },{capture:false});
-
-    // Direct touchend listener for mobile (bypasses global touch delegation)
-    var _touchStartY=0;
-    var _touchMoved=false;
-    btn.addEventListener('touchstart',function(e){
-      if(e.touches&&e.touches.length>0){
-        _touchStartY=e.touches[0].clientY;
-      }
-      _touchMoved=false;
-    },{passive:true});
-    btn.addEventListener('touchmove',function(e){
-      if(e.touches&&e.touches.length>0){
-        var dy=Math.abs(e.touches[0].clientY-_touchStartY);
-        if(dy>10)_touchMoved=true;
-      }
-    },{passive:true});
-    btn.addEventListener('touchend',function(e){
-      if(_touchMoved){
-        console.log('[SAVE-RENDER] Touch moved (scroll), skipping click');
-        return;
-      }
-      console.log('[SAVE-RENDER] Direct touchend on save button, calling saveRenderToAlbum');
-      e.preventDefault();
-      e.stopPropagation();
-      try{
-        saveRenderToAlbum();
-      }catch(err){
-        console.error('[SAVE-RENDER] Direct touchend error:',err);
-        showToast('保存失败，请重试');
-      }
-    },{passive:false});
+    if(!btn){setTimeout(ensureSaveBtnHandler,500);return}
+    // Always (re-)assign onclick in case button was recreated
+    btn.onclick=function(e){
+      if(e){e.stopPropagation()}
+      console.log('[SAVE-RENDER] onclick fired on save button');
+      saveRenderToAlbum();
+    };
+    // CSS: remove 300ms tap delay without custom touch handlers
+    btn.style.touchAction='manipulation';
+    btn.style.webkitTapHighlightColor='transparent';
   }
-  // Start trying to attach
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',attachSaveBtnListener);
+    document.addEventListener('DOMContentLoaded',ensureSaveBtnHandler);
   }else{
-    attachSaveBtnListener();
+    ensureSaveBtnHandler();
   }
-  // Also re-attach after render modal is shown (button might be re-created)
-  var _origShow=null;
+  // Re-assign handler after render modal is shown (button might be recreated)
   var _renderMask=document.getElementById('render-mask');
   if(_renderMask){
     var observer=new MutationObserver(function(mutations){
       mutations.forEach(function(m){
-        if(m.attributeName==='class'){
-          if(_renderMask.classList.contains('show')){
-            setTimeout(attachSaveBtnListener,100);
-          }
+        if(m.attributeName==='class'&&_renderMask.classList.contains('show')){
+          setTimeout(ensureSaveBtnHandler,100);
         }
       });
     });
@@ -9010,20 +8987,24 @@ function _downloadBlobWebSafe(blob,fileName){
   // This happens especially after template rewrite (longer text → longer TTS → larger video)
   // Solution: Upload blob to server first, then download from server URL (avoids large blob URL)
   if(_isWebView()&&blob.size>50*1048576){
-    console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB — using server relay to avoid crash');
+    console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB — checking server availability');
+    // Only use server relay if server is actually accessible
     var serverBase=getApiBase();
+    var serverOk=false;
     if(serverBase){
+      // Quick sync check: if _serverAvailable is explicitly false, skip server
+      if(_serverAvailable===false){
+        console.log('[SAVE-WEB] Server already checked and unavailable, skipping server relay');
+      }else{
+        serverOk=true;
+      }
+    }
+    if(serverOk){
       console.log('[SAVE-WEB] Uploading to server for safe download');
       _tryServerSaveLargeBlob(blob,fileName);
       return;
     }
-    // No server: try Tauri HTTP API to upload to remote server
-    if(typeof window.__TAURI__!=='undefined'&&(window.__TAURI__.http||window.__TAURI__.request)){
-      console.log('[SAVE-WEB] Using Tauri HTTP API for large blob upload');
-      _tryTauriHttpUpload(blob,fileName);
-      return;
-    }
-    // No server, no Tauri HTTP: try direct download with memory cleanup
+    // No server or server unavailable: try direct download with memory cleanup
     console.warn('[SAVE-WEB] No server available, attempting direct download with cleanup');
     showToast('视频较大('+blobMB+'MB)，正在尝试保存...');
     // Clear any remaining references to free memory before createObjectURL
@@ -9040,11 +9021,13 @@ function _downloadBlobWebSafe(blob,fileName){
     setTimeout(function(){
       try{
         a.click();
-        showToast('视频已开始下载');
+        showToast('视频已开始下载，请查看下载管理');
       }catch(clickErr){
         console.error('Download click error:',clickErr);
         showToast('保存失败，请长按视频保存');
       }
+      // Reset save button after download click
+      if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
       setTimeout(function(){
         try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
         try{URL.revokeObjectURL(url)}catch(e){}
@@ -9053,6 +9036,7 @@ function _downloadBlobWebSafe(blob,fileName){
   }catch(e){
     console.error('Safe download error:',e);
     showToast('保存失败，视频已保存在作品库中');
+    if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
   }
 }
 
@@ -9122,21 +9106,61 @@ function _tryServerSaveLargeBlob(blob,fileName){
         console.error('[SAVE-WEB] Download click failed:',e);
         showToast('视频已上传到服务器，请访问 '+fileUrl.slice(0,40)+'...')
       }
+      if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
       setTimeout(function(){try{if(a.parentNode)document.body.removeChild(a)}catch(e){}},3000);
     },100);
   };
   xhr.onerror=function(){
-    console.error('[SAVE-WEB] Upload network error');
-    showToast('网络错误，请检查服务器连接');
+    console.error('[SAVE-WEB] Upload network error, falling back to direct download');
+    showToast('服务器不可用，正在直接保存...');
     _resetSaveButton();
+    // Fall back to direct download (may crash for very large blobs, but better than nothing)
+    try{_directDownloadBlob(blob,fileName)}catch(e){
+      console.error('[SAVE-WEB] Fallback download also failed:',e);
+      showToast('保存失败，视频已保存在作品库中');
+    }
   };
   xhr.ontimeout=function(){
-    console.error('[SAVE-WEB] Upload timeout');
-    showToast('上传超时，请重试');
+    console.error('[SAVE-WEB] Upload timeout, falling back to direct download');
+    showToast('上传超时，正在直接保存...');
     _resetSaveButton();
+    try{_directDownloadBlob(blob,fileName)}catch(e){
+      console.error('[SAVE-WEB] Fallback download also failed:',e);
+      showToast('保存失败，视频已保存在作品库中');
+    }
   };
   // Send the blob directly — XHR handles large blobs without createObjectURL
   xhr.send(blob);
+}
+
+// Direct download fallback: creates <a download> with createObjectURL
+// Used when server relay fails — may crash WebView for very large blobs (>80MB)
+// but better than not saving at all
+function _directDownloadBlob(blob,fileName){
+  console.log('[SAVE-WEB] Direct download fallback, blob size:',blob.size);
+  try{
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName||('zhuge_'+Date.now()+'.webm');
+    a.style.display='none';
+    document.body.appendChild(a);
+    setTimeout(function(){
+      try{a.click();showToast('视频已开始下载')}catch(e){
+        console.error('[SAVE-WEB] Direct download click failed:',e);
+        showToast('保存失败，视频已保存在作品库中');
+      }
+      if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
+      setTimeout(function(){
+        try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
+        try{URL.revokeObjectURL(url)}catch(e){}
+      },5000);
+    },100);
+  }catch(e){
+    console.error('[SAVE-WEB] Direct download error:',e);
+    showToast('保存失败，视频已保存在作品库中');
+    if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
+  }
 }
 
 // Tauri HTTP API upload (bypasses CORS, handles large payloads)
@@ -11582,6 +11606,11 @@ function startFullAuto(){
   }
 }
 function finishRender(){
+  // Prevent navigation if save is in progress
+  if(typeof _saveRenderBusy!=='undefined'&&_saveRenderBusy){
+    showToast('正在保存中，请稍候...');
+    return;
+  }
   document.getElementById('render-mask').classList.remove('show');
   if(_renderTimer){clearInterval(_renderTimer);_renderTimer=null;}
   var videoEl=document.getElementById('render-video-el');
