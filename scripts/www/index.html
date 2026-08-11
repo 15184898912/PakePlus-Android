@@ -3174,7 +3174,7 @@ function _previewVoiceFast(id,v,myToken){
       if(ssTimer){clearTimeout(ssTimer);ssTimer=null}
       settled=true; // Prevent ssTimer from also triggering fallback
       console.log('[PREVIEW] All '+totalSources+' sources failed, trying speechSynthesis');
-      _previewVoiceSS(id,v);
+      _previewVoiceViaFetch(id,v,myToken);
       return true;
     }
     return false;
@@ -3271,8 +3271,8 @@ function _previewVoiceFast(id,v,myToken){
     ssTimer=setTimeout(function(){
       if(!settled&&myToken===_previewToken){
         settled=true; // Prevent checkAllFailed from also triggering fallback
-        console.log('[PREVIEW] All sources failed, using speechSynthesis');
-        _previewVoiceSS(id,v);
+        console.log('[PREVIEW] All sources failed, trying fetch proxy');
+        _previewVoiceViaFetch(id,v,myToken);
       }
     },3000);
   }else{
@@ -3296,13 +3296,147 @@ function _previewVoiceFast(id,v,myToken){
     ssTimer=setTimeout(function(){
       if(!settled&&myToken===_previewToken){
         settled=true; // Prevent checkAllFailed from also triggering fallback
-        console.log('[PREVIEW] Timeout — all sources slow, trying speechSynthesis');
-        _previewVoiceSS(id,v);
+        console.log('[PREVIEW] Timeout — all sources slow, trying fetch proxy');
+        _previewVoiceViaFetch(id,v,myToken);
       }
     },3500);
   }
 }
 
+// ===== Fetch TTS via CORS proxy to blob URL (works in WebViews where direct Audio fails) =====
+async function _fetchTtsBlobUrl(text,voiceId,speedMul,pitchMul){
+  var encodedText=encodeURIComponent(text);
+  var per=0;
+  if(voiceId===2)per=1; if(voiceId===3)per=5; if(voiceId===4)per=3;
+  if(voiceId===5)per=3; if(voiceId===6)per=4; if(voiceId===7)per=4;
+  if(voiceId===8)per=3; if(voiceId===10)per=1;
+  var spd=Math.max(1,Math.min(9,Math.round(3+(speedMul||1.0)*3)));
+  var pit=Math.max(1,Math.min(9,Math.round(3+(pitchMul||1.0)*3)));
+  var baiduUrl1='https://tts.baidu.com/text2audio?lan=zh&ie=UTF-8&spd='+spd+'&pit='+pit+'&per='+per+'&ctp=1&text='+encodedText;
+  var baiduFanyiUrl='https://fanyi.baidu.com/gettts?lan=zh&text='+encodedText+'&spd='+spd+'&source=web';
+  var allUrls=[
+    baiduUrl1,
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(baiduUrl1),
+    'https://corsproxy.io/?url='+encodeURIComponent(baiduUrl1),
+    baiduFanyiUrl,
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(baiduFanyiUrl),
+    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(baiduUrl1),
+    'https://corsproxy.io/?url='+encodeURIComponent(baiduFanyiUrl),
+  ];
+  for(var i=0;i<allUrls.length;i++){
+    try{
+      console.log('[TTS-FETCH] Trying source',i);
+      var resp=await Promise.race([
+        fetch(allUrls[i],{mode:'cors',credentials:'omit'}),
+        new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout 8s'))},8000)})
+      ]);
+      if(!resp.ok){console.log('[TTS-FETCH] Source',i,'HTTP',resp.status);continue}
+      var ct=resp.headers.get('content-type')||'';
+      if(ct.indexOf('application/json')>=0){console.log('[TTS-FETCH] Source',i,'JSON error, skip');continue}
+      var blob=await resp.blob();
+      if(blob.size<100){console.log('[TTS-FETCH] Source',i,'too small:',blob.size);continue}
+      var blobUrl=URL.createObjectURL(blob);
+      console.log('[TTS-FETCH] Source',i,'OK! size:',blob.size);
+      return blobUrl;
+    }catch(e){
+      console.log('[TTS-FETCH] Source',i,'error:',e.message||e);
+    }
+  }
+  return null;
+}
+
+// Play TTS via fetch proxy for voice preview (fallback when direct Audio fails)
+async function _previewVoiceViaFetch(id,v,myToken){
+  if(myToken!==_previewToken)return;
+  showToast('姝ｅ湪鍔犺浇 '+v.name+' 璇曞惉...');
+  var speedMul=(voiceSpeed/100)*0.6+0.7;
+  var blobUrl=await _fetchTtsBlobUrl(PREVIEW_TEXT,id,(v.rate||1.0)*speedMul,v.pitch||1.0);
+  if(!blobUrl){
+    console.log('[PREVIEW] Fetch proxy failed, trying speechSynthesis');
+    if(myToken===_previewToken)_previewVoiceSS(id,v);
+    return;
+  }
+  if(myToken!==_previewToken){try{URL.revokeObjectURL(blobUrl)}catch(e){}return}
+  try{
+    var audioEl=_createHiddenAudio(blobUrl);
+    audioEl.volume=voiceVol/100;
+    audioEl.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
+    _activePreviewAudios.push(audioEl);
+    currentVoiceUtter={_voiceId:id,_audioEl:audioEl};
+    audioEl.addEventListener('playing',function(){
+      if(myToken!==_previewToken)return;
+      showToast('璇曞惉: '+v.name);
+      renderVoices();
+      console.log('[PREVIEW] Playing via fetch proxy');
+    },{once:true});
+    audioEl.addEventListener('ended',function(){
+      if(myToken!==_previewToken)return;
+      if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){currentVoiceUtter=null;renderVoices()}
+      _removeAudioEl(audioEl);
+      try{URL.revokeObjectURL(blobUrl)}catch(e){}
+    },{once:true});
+    audioEl.addEventListener('error',function(){
+      console.log('[PREVIEW] Fetch proxy audio error, trying speechSynthesis');
+      _removeAudioEl(audioEl);
+      try{URL.revokeObjectURL(blobUrl)}catch(e){}
+      if(myToken===_previewToken)_previewVoiceSS(id,v);
+    },{once:true});
+    audioEl.play().catch(function(e){
+      console.log('[PREVIEW] Fetch proxy play() rejected:',e);
+      _removeAudioEl(audioEl);
+      try{URL.revokeObjectURL(blobUrl)}catch(e2){}
+      if(myToken===_previewToken)_previewVoiceSS(id,v);
+    });
+  }catch(e){
+    console.log('[PREVIEW] Fetch proxy audio error:',e);
+    try{URL.revokeObjectURL(blobUrl)}catch(e2){}
+    if(myToken===_previewToken)_previewVoiceSS(id,v);
+  }
+}
+
+// Play TTS via fetch proxy for speakText (fallback when direct Audio fails)
+async function _speakTextViaFetch(text,token){
+  if(token!==undefined&&token!==_speakTextToken)return;
+  var blobUrl=await _fetchTtsBlobUrl(text,1,1.0,1.0);
+  if(!blobUrl){
+    console.log('[speakText] Fetch proxy failed, trying speechSynthesis');
+    if(token===_speakTextToken||token===undefined)_speakTextFallback(text,{},token);
+    return;
+  }
+  if(token!==undefined&&token!==_speakTextToken){try{URL.revokeObjectURL(blobUrl)}catch(e){}return}
+  try{
+    var audioEl=_createHiddenAudio(blobUrl);
+    audioEl.volume=0.8;
+    _speakTextAudios.push(audioEl);
+    audioEl.addEventListener('playing',function(){
+      if(token!==undefined&&token!==_speakTextToken){_removeAudioEl(audioEl);return}
+      _voicePlaying=true;
+      _speakTtsAudio=audioEl;
+      console.log('[speakText] Playing via fetch proxy');
+    },{once:true});
+    audioEl.addEventListener('ended',function(){
+      _voicePlaying=false;
+      _removeAudioEl(audioEl);
+      try{URL.revokeObjectURL(blobUrl)}catch(e){}
+    },{once:true});
+    audioEl.addEventListener('error',function(){
+      console.log('[speakText] Fetch proxy audio error, trying speechSynthesis');
+      _removeAudioEl(audioEl);
+      try{URL.revokeObjectURL(blobUrl)}catch(e){}
+      if(token===_speakTextToken||token===undefined)_speakTextFallback(text,{},token);
+    },{once:true});
+    audioEl.play().catch(function(e){
+      console.log('[speakText] Fetch proxy play() rejected:',e);
+      _removeAudioEl(audioEl);
+      try{URL.revokeObjectURL(blobUrl)}catch(e2){}
+      if(token===_speakTextToken||token===undefined)_speakTextFallback(text,{},token);
+    });
+  }catch(e){
+    console.log('[speakText] Fetch proxy audio error:',e);
+    try{URL.revokeObjectURL(blobUrl)}catch(e2){}
+    if(token===_speakTextToken||token===undefined)_speakTextFallback(text,{},token);
+  }
+}
 // speechSynthesis fallback for voice preview
 function _previewVoiceSS(id,v){
   // ALWAYS try native Android TTS first (best option on mobile, offline, no CORS)
@@ -3929,8 +4063,8 @@ function _speakTextBaiduDirect(text,token){
     if(failedCount>=totalSources){
       if(ssTimer){clearTimeout(ssTimer);ssTimer=null}
       settled=true; // Mark as settled to prevent ssTimer from also triggering fallback
-      console.log('[speakText] All '+totalSources+' sources failed, trying speechSynthesis');
-      _speakTextFallback(text,{},token);
+      console.log('[speakText] All sources failed, trying fetch proxy');
+      _speakTextViaFetch(text,token);
       return true;
     }
     return false;
@@ -4004,8 +4138,8 @@ function _speakTextBaiduDirect(text,token){
   ssTimer=setTimeout(function(){
     if(settled||(token!==undefined&&token!==_speakTextToken))return;
     settled=true; // Mark as settled to prevent checkAllFailed from also triggering fallback
-    console.log('[speakText] Timeout — all sources slow, trying speechSynthesis');
-    _speakTextFallback(text,{},token);
+    console.log('[speakText] Timeout — all sources slow, trying fetch proxy');
+    _speakTextViaFetch(text,token);
   },3500);
 }
 
@@ -8649,7 +8783,7 @@ function _saveBlobToAlbum(blob,fileName,blobType,title){
 
 // Web-only save (no plus API) - desktop browser or non-HBuilderX WebView
 // GUARD: Never call this in HBuilderX environment (web APIs crash WebView)
-function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
+async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
   // Safety guard: if in HBuilderX, do NOT use web APIs
   if(_hasPlusAPI()){
     console.error('[SAVE] _saveBlobToAlbumWeb called in HBuilderX environment - aborting');
@@ -8725,6 +8859,27 @@ function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
       }
     }catch(fsErr){
       console.log('File System Access API error:',fsErr);
+    }
+    // ===== Tauri/PakePlus native save (if available) =====
+    if(typeof window.__TAURI__!=='undefined'){
+      try{
+        var tauri=window.__TAURI__;
+        console.log('[SAVE] Tauri API detected, attempting native save');
+        if(tauri.dialog&&tauri.fs){
+          var uint8=new Uint8Array(await blob.arrayBuffer());
+          var filePath=await tauri.dialog.save({
+            defaultPath:safeName,
+            filters:[{name:'Video',extensions:[ext.replace('.','')]}]
+          });
+          if(filePath){
+            await tauri.fs.writeFile(filePath,uint8);
+            showToast('视频已保存: '+filePath);
+            return;
+          }
+        }
+      }catch(tauriErr){
+        console.log('[SAVE] Tauri save failed:',tauriErr);
+      }
     }
     // ===== Method 3: <a download> + video overlay (fallback) =====
     _downloadBlobWeb(blob,safeName);
