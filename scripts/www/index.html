@@ -8982,21 +8982,34 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
 function _downloadBlobWebSafe(blob,fileName){
   console.log('[SAVE-WEB] _downloadBlobWebSafe: blob size=',blob.size,'type=',blob.type);
   var blobMB=(blob.size/1048576).toFixed(1);
-  // ===== WebView large blob protection =====
-  // PakePlus WebView crashes when URL.createObjectURL() is called with large blobs (>~50MB)
-  // This happens especially after template rewrite (longer text → longer TTS → larger video)
-  // Solution: Upload blob to server first, then download from server URL (avoids large blob URL)
-  if(_isWebView()&&blob.size>50*1048576){
-    console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB — checking server availability');
-    // Only use server relay if server is actually accessible
+  // ===== KEY FIX: Reuse existing _renderVideoUrl if available =====
+  // The video preview already created an object URL for this blob.
+  // Creating a second URL.createObjectURL() for the same blob doubles memory
+  // and crashes PakePlus WebView for blobs > 50MB.
+  var reuseUrl=null;
+  try{
+    // KEY FIX: Don't compare videoEl.src — WebView normalizes URLs differently.
+    // Just check if _renderVideoUrl exists; it was created from the same blob.
+    if(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl){
+      reuseUrl=_renderVideoUrl;
+      console.log('[SAVE-WEB] Reusing existing _renderVideoUrl, no new createObjectURL needed');
+    }
+  }catch(e){console.log('[SAVE-WEB] Reuse URL check failed:',e)}
+
+  // ===== WebView protection: if no reusable URL, avoid createObjectURL for large blobs =====
+  // KEY FIX: Removed Tauri Array.from(arr) path — it causes 8x memory explosion
+  // (100MB blob → 800MB JS array → WebView crash).
+  // For large blobs without reusable URL, use server upload or notify user.
+  if(!reuseUrl&&_isWebView()&&blob.size>30*1048576){
+    console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB and no reusable URL');
+    // Try server upload (avoids createObjectURL entirely)
     var serverBase=getApiBase();
     var serverOk=false;
-    if(serverBase){
-      // Quick sync check: if _serverAvailable is explicitly false, skip server
+    if(serverBase!==null){
       if(_serverAvailable===false){
-        console.log('[SAVE-WEB] Server already checked and unavailable, skipping server relay');
+        console.log('[SAVE-WEB] Server already checked and unavailable');
       }else{
-        serverOk=true;
+        serverOk=true; // null (not checked yet) or true
       }
     }
     if(serverOk){
@@ -9004,14 +9017,15 @@ function _downloadBlobWebSafe(blob,fileName){
       _tryServerSaveLargeBlob(blob,fileName);
       return;
     }
-    // No server or server unavailable: try direct download with memory cleanup
-    console.warn('[SAVE-WEB] No server available, attempting direct download with cleanup');
-    showToast('视频较大('+blobMB+'MB)，正在尝试保存...');
-    // Clear any remaining references to free memory before createObjectURL
-    try{if(typeof _lastRenderedBlob!=='undefined'&&_lastRenderedBlob!==blob){_lastRenderedBlob=null}}catch(e){}
+    // No server and no reusable URL: DO NOT call createObjectURL (it will crash WebView)
+    console.error('[SAVE-WEB] Cannot save large blob ('+blobMB+'MB) without reusable URL or server');
+    showToast('视频已保存在作品库中，请在作品库中查看');
+    _resetSaveButton();
+    return;
   }
+  // ===== For small blobs or when reusing URL: use <a download> =====
   try{
-    var url=URL.createObjectURL(blob);
+    var url=reuseUrl||URL.createObjectURL(blob);
     var a=document.createElement('a');
     a.href=url;
     a.download=fileName;
@@ -9028,10 +9042,17 @@ function _downloadBlobWebSafe(blob,fileName){
       }
       // Reset save button after download click
       if(typeof _resetSaveButton==='function'){try{_resetSaveButton()}catch(e){}}
-      setTimeout(function(){
-        try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
-        try{URL.revokeObjectURL(url)}catch(e){}
-      },5000);
+      // Only revoke if we created the URL (not if reusing _renderVideoUrl)
+      if(!reuseUrl){
+        setTimeout(function(){
+          try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
+          try{URL.revokeObjectURL(url)}catch(e){}
+        },5000);
+      }else{
+        setTimeout(function(){
+          try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
+        },5000);
+      }
     },100);
   }catch(e){
     console.error('Safe download error:',e);
@@ -9111,23 +9132,17 @@ function _tryServerSaveLargeBlob(blob,fileName){
     },100);
   };
   xhr.onerror=function(){
-    console.error('[SAVE-WEB] Upload network error, falling back to direct download');
-    showToast('服务器不可用，正在直接保存...');
+    console.error('[SAVE-WEB] Upload network error');
+    showToast('服务器不可用，视频已保存在作品库中');
     _resetSaveButton();
-    // Fall back to direct download (may crash for very large blobs, but better than nothing)
-    try{_directDownloadBlob(blob,fileName)}catch(e){
-      console.error('[SAVE-WEB] Fallback download also failed:',e);
-      showToast('保存失败，视频已保存在作品库中');
-    }
+    // KEY FIX: Do NOT call _directDownloadBlob — it uses createObjectURL which crashes WebView
+    // The video is already saved in the works library (作品库)
   };
   xhr.ontimeout=function(){
-    console.error('[SAVE-WEB] Upload timeout, falling back to direct download');
-    showToast('上传超时，正在直接保存...');
+    console.error('[SAVE-WEB] Upload timeout');
+    showToast('上传超时，视频已保存在作品库中');
     _resetSaveButton();
-    try{_directDownloadBlob(blob,fileName)}catch(e){
-      console.error('[SAVE-WEB] Fallback download also failed:',e);
-      showToast('保存失败，视频已保存在作品库中');
-    }
+    // KEY FIX: Do NOT call _directDownloadBlob — it uses createObjectURL which crashes WebView
   };
   // Send the blob directly — XHR handles large blobs without createObjectURL
   xhr.send(blob);
