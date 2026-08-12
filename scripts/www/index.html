@@ -3136,8 +3136,11 @@ function previewVoice(id){
   // so mobile autoplay policy allows it. No fetch() delay, no CORS proxy needed.
   // We try ONE source at a time with a short timeout, not racing multiple sources.
   // ===== WEBVIEW DETECTION: Skip external APIs (they all fail due to CORS), go directly to speechSynthesis =====
-  if(_isWebView()){
-    console.log('[PREVIEW] WebView detected, skipping external APIs, using speechSynthesis directly');
+  // CRITICAL FIX: Also check _hasPlusAPI() — in HBuilderX, _isWebView() returns false
+  // (because plus API exists and protocol is file:), but external TTS APIs still fail due to CORS.
+  // Without this check, previewVoice never calls _previewVoiceSS, so pre-generated audio is never played.
+  if(_isWebView()||_hasPlusAPI()){
+    console.log('[PREVIEW] WebView/HBuilderX detected, using _previewVoiceSS (pre-generated audio + Android TTS)');
     _previewVoiceSS(id,v);
     return;
   }
@@ -3460,7 +3463,12 @@ function _previewVoiceSS(id,v){
       console.log('[PREVIEW] Using pre-generated TTS audio for voice',id);
       try{
         stopAllAudio();
-        var pregAudio=new Audio(pregData);
+        // CRITICAL FIX: Use _createHiddenAudio (adds to DOM) instead of new Audio().
+        // Many Android WebViews (including PakePlus/MIUI) require <audio> elements
+        // to be in the DOM for playback. new Audio() without DOM attachment works
+        // for the first call but silently fails for subsequent calls — causing
+        // "only one voice can play" bug.
+        var pregAudio=_createHiddenAudio(pregData);
         pregAudio.volume=voiceVol/100;
         var speedMul=(voiceSpeed/100)*0.6+0.7;
         pregAudio.playbackRate=Math.max(0.7,Math.min(1.5,(v.rate||1.0)*speedMul));
@@ -5937,8 +5945,16 @@ function saveRenderToAlbum(){
     var fileName='AI智能成片_'+resTag+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+String(now.getSeconds()).padStart(2,'0')+'.'+ext;
     var blobType=_lastRenderedBlob.type||'video/webm';
     console.log('[SAVE-RENDER] Calling _saveBlobToAlbum, fileName:',fileName,'blobType:',blobType,'size:',_lastRenderedBlob.size,'_renderVideoUrl:',_renderVideoUrl?'exists':'NULL');
-    // ===== PakePlus/Tauri: use direct download path, skip server/share =====
-    if(typeof window.__TAURI__!=='undefined'){
+    // ===== NATIVE MediaStore API (via JavascriptInterface) — THE FIX for Android 13+ crash =====
+    // window.AndroidMediaStore is injected by MainActivity.java's addJavascriptInterface().
+    // Uses ContentResolver.insert() + MediaStore API — the ONLY stable way to save to
+    // gallery on Android 13+ where WRITE_EXTERNAL_STORAGE is deprecated.
+    if(typeof window.AndroidMediaStore!=='undefined'&&window.AndroidMediaStore&&(typeof window.AndroidMediaStore.saveVideo==='function'||typeof window.AndroidMediaStore.startChunkedSave==='function')){
+      console.log('[SAVE-RENDER] AndroidMediaStore bridge detected, using MediaStore API');
+      _saveViaAndroidMediaStore(_lastRenderedBlob,fileName,ext);
+    }
+    // ===== PakePlus/Tauri: use <a download> as fallback (no MediaStore bridge) =====
+    else if(typeof window.__TAURI__!=='undefined'){
       console.log('[SAVE-RENDER] PakePlus detected, using direct download path');
       _downloadBlobWebSafe(_lastRenderedBlob,fileName);
     }else{
@@ -7886,13 +7902,48 @@ function _saveToAlbumPlus(blob,fileName,title){
   showToast('正在保存到相册...');
 
   // ============================================================
+  // Strategy 0.1: plus.gallery.save with blob URL (SIMPLEST — no file I/O at all)
+  // Pass blob URL directly to plus.gallery.save. If supported, this is the
+  // safest approach: zero file writing, zero base64 conversion, zero crash risk.
+  // ============================================================
+  if(_hasPlusAPI()&&window.plus&&plus.gallery&&typeof plus.gallery.save==='function'){
+    try{
+      var galBlobUrl=URL.createObjectURL(blob);
+      console.log('[SAVE] Strategy 0.1: plus.gallery.save(blobUrl)',galBlobUrl);
+      plus.gallery.save(galBlobUrl,function(){
+        console.log('[SAVE] Strategy 0.1 ✅ gallery.save(blobUrl) success');
+        try{URL.revokeObjectURL(galBlobUrl)}catch(e){}
+        _ok('gallery-bloburl');
+      },function(galErr){
+        try{URL.revokeObjectURL(galBlobUrl)}catch(e){}
+        console.warn('[SAVE] Strategy 0.1 failed:',JSON.stringify(galErr),'trying next strategy');
+        _tryShareStrategies();
+      });
+      // Timeout fallback: if gallery.save doesn't respond in 30s, try next
+      setTimeout(function(){
+        if(!_done){
+          console.warn('[SAVE] Strategy 0.1 timeout, trying next');
+          _tryShareStrategies();
+        }
+      },30000);
+      return; // gallery.save is handling it
+    }catch(galEx){
+      console.warn('[SAVE] Strategy 0.1 exception:',galEx);
+      _tryShareStrategies();
+    }
+  }else{
+    _tryShareStrategies();
+  }
+
+  function _tryShareStrategies(){
+  // ============================================================
   // Strategy 0: navigator.share with files (SAFEST — no file I/O, no crash)
   // Opens Android system share sheet which includes "Save to gallery".
   // Delegates everything to the OS, bypassing WebView FileWriter entirely.
-  // This is the KEY fix: all other strategies use FileWriter.write(blob)
-  // or FileReader.readAsDataURL which can crash the WebView.
+  // SIZE GUARD: new File([blob]) duplicates blob in memory for blobs > 50MB,
+  // causing OOM crash. Skip for large blobs — they go to Strategy 0.5 instead.
   // ============================================================
-  if(navigator&&navigator.share&&typeof File!=='undefined'){
+  if(navigator&&navigator.share&&typeof File!=='undefined'&&blob.size<=50*1024*1024){
     var ext0='.webm';
     if(blob.type&&blob.type.indexOf('mp4')>=0)ext0='.mp4';
     else if(blob.type&&blob.type.indexOf('quicktime')>=0)ext0='.mov';
@@ -7934,6 +7985,157 @@ function _saveToAlbumPlus(blob,fileName,title){
   // ============================================================
   // Plus API strategies (may crash WebView — only used if share fails)
   // ============================================================
+  // Strategy 0.5: plus.downloader with blob URL (bypasses FileWriter entirely)
+  // The native download manager handles blob-to-file conversion internally,
+  // avoiding the WebView FileWriter crash that kills the app instantly.
+  // ============================================================
+  if(_hasPlusAPI()&&window.plus&&plus.downloader&&typeof plus.downloader.createDownload==='function'){
+    var extDl='.webm';
+    if(blob.type&&blob.type.indexOf('mp4')>=0)extDl='.mp4';
+    else if(blob.type&&blob.type.indexOf('quicktime')>=0)extDl='.mov';
+    var dlName='zhuge_'+Date.now()+extDl;
+    var dlDest='_doc/'+dlName;
+    console.log('[SAVE] Strategy 0.5: plus.downloader with blob URL (bypasses FileWriter)');
+    try{
+      var blobUrl0=URL.createObjectURL(blob);
+      console.log('[SAVE] Strategy 0.5: blobUrl=',blobUrl0,'dest=',dlDest);
+      var dlTask=plus.downloader.createDownload(blobUrl0,{filename:dlDest},function(d,status){
+        try{URL.revokeObjectURL(blobUrl0)}catch(e){}
+        if(status===200||status===0){
+          var dlPath=d.filename;
+          console.log('[SAVE] Strategy 0.5 ✅ downloaded to:',dlPath);
+          // Save to gallery via plus.gallery.save
+          if(plus.gallery&&typeof plus.gallery.save==='function'){
+            plus.gallery.save(dlPath,function(){
+              console.log('[SAVE] Strategy 0.5 ✅ gallery.save success');
+              try{plus.io.resolveLocalFileSystemURL(dlPath,function(en){en.remove(function(){},function(){})},function(){})}catch(e){}
+              _ok('downloader-bloburl-gallery');
+            },function(gErr){
+              console.warn('[SAVE] Strategy 0.5: gallery.save failed, trying openFile:',gErr);
+              if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+                plus.runtime.openFile(dlPath,{},function(){
+                  console.warn('[SAVE] Strategy 0.5: openFile also failed');
+                  _tryPlusStrategies();
+                });
+                showToast('已打开视频，请在系统应用中保存到相册');
+                _ok('downloader-bloburl-openfile');
+              }else{
+                _tryPlusStrategies();
+              }
+            });
+          }else if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+            plus.runtime.openFile(dlPath,{},function(){_tryPlusStrategies()});
+            showToast('已打开视频，请在系统应用中保存到相册');
+            _ok('downloader-bloburl-openfile2');
+          }else{
+            console.warn('[SAVE] Strategy 0.5: no gallery.save or openFile, trying next');
+            _tryPlusStrategies();
+          }
+        }else{
+          console.warn('[SAVE] Strategy 0.5: downloader status='+status+' (blob URL may not be supported), trying data URL');
+          _tryDataUrlDownload();
+        }
+      });
+      dlTask.start();
+      // Timeout: 60s base + 3s per MB
+      var dlTimeoutMs=Math.min(600000,60000+Math.ceil(blobMB)*3000);
+      setTimeout(function(){
+        try{dlTask.abort()}catch(e){}
+        try{URL.revokeObjectURL(blobUrl0)}catch(e){}
+        console.warn('[SAVE] Strategy 0.5: timeout, trying data URL strategy');
+        _tryDataUrlDownload();
+      },dlTimeoutMs);
+      return; // downloader is handling it
+    }catch(dlEx){
+      console.warn('[SAVE] Strategy 0.5 exception:',dlEx,'trying data URL');
+      try{_tryDataUrlDownload()}catch(e){_tryPlusStrategies()}
+    }
+  }
+
+  // Strategy 0.6: plus.downloader with data URL (for files < 30MB)
+  function _tryDataUrlDownload(){
+    if(blob.size>30*1024*1024){
+      console.log('[SAVE] Strategy 0.6: file too large for data URL ('+blobMB.toFixed(1)+'MB > 30MB), trying plus API');
+      _tryPlusStrategies();
+      return;
+    }
+    if(!_hasPlusAPI()||!window.plus||!plus.downloader){
+      console.log('[SAVE] Strategy 0.6: no plus.downloader, trying plus API');
+      _tryPlusStrategies();
+      return;
+    }
+    console.log('[SAVE] Strategy 0.6: Converting blob to data URL for downloader ('+blobMB.toFixed(1)+'MB)');
+    try{
+      var dr=new FileReader();
+      dr.onload=function(){
+        try{
+          var dataUrl=dr.result;
+          if(!dataUrl||typeof dataUrl!=='string'){
+            console.warn('[SAVE] Strategy 0.6: data URL is null, trying plus API');
+            _tryPlusStrategies();
+            return;
+          }
+          var extDu='.webm';
+          if(blob.type&&blob.type.indexOf('mp4')>=0)extDu='.mp4';
+          else if(blob.type&&blob.type.indexOf('quicktime')>=0)extDu='.mov';
+          var duName='zhuge_'+Date.now()+extDu;
+          var duDest='_doc/'+duName;
+          var duTask=plus.downloader.createDownload(dataUrl,{filename:duDest},function(d,status){
+            if(status===200||status===0){
+              var duPath=d.filename;
+              console.log('[SAVE] Strategy 0.6 ✅ downloaded to:',duPath);
+              if(plus.gallery&&typeof plus.gallery.save==='function'){
+                plus.gallery.save(duPath,function(){
+                  console.log('[SAVE] Strategy 0.6 ✅ gallery.save success');
+                  try{plus.io.resolveLocalFileSystemURL(duPath,function(en){en.remove(function(){},function(){})},function(){})}catch(e){}
+                  _ok('downloader-dataurl-gallery');
+                },function(gErr2){
+                  console.warn('[SAVE] Strategy 0.6: gallery.save failed, trying openFile');
+                  if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+                    plus.runtime.openFile(duPath,{},function(){_tryPlusStrategies()});
+                    showToast('已打开视频，请在系统应用中保存到相册');
+                    _ok('downloader-dataurl-openfile');
+                  }else{
+                    _tryPlusStrategies();
+                  }
+                });
+              }else if(plus.runtime&&typeof plus.runtime.openFile==='function'){
+                plus.runtime.openFile(duPath,{},function(){_tryPlusStrategies()});
+                showToast('已打开视频，请在系统应用中保存到相册');
+                _ok('downloader-dataurl-openfile2');
+              }else{
+                _tryPlusStrategies();
+              }
+            }else{
+              console.warn('[SAVE] Strategy 0.6: downloader status='+status+', trying plus API');
+              _tryPlusStrategies();
+            }
+          });
+          duTask.start();
+          var duTimeoutMs=Math.min(300000,60000+Math.ceil(blobMB)*5000);
+          setTimeout(function(){
+            try{duTask.abort()}catch(e){}
+            console.warn('[SAVE] Strategy 0.6: timeout, trying plus API');
+            _tryPlusStrategies();
+          },duTimeoutMs);
+        }catch(duInnerErr){
+          console.warn('[SAVE] Strategy 0.6 inner error:',duInnerErr);
+          _tryPlusStrategies();
+        }
+      };
+      dr.onerror=function(){
+        console.warn('[SAVE] Strategy 0.6: FileReader error, trying plus API');
+        _tryPlusStrategies();
+      };
+      dr.readAsDataURL(blob);
+    }catch(duErr){
+      console.warn('[SAVE] Strategy 0.6 error:',duErr);
+      _tryPlusStrategies();
+    }
+  }
+
+  // If we reach here, neither navigator.share nor plus.downloader is available
+  // Fall through to FileWriter-based strategies (may crash, but last resort)
   _tryPlusStrategies();
   function _tryPlusStrategies(){
   // ============================================================
@@ -8516,6 +8718,7 @@ function _saveToAlbumPlus(blob,fileName,title){
     xhr.send(blob);
   }
   } // close _tryPlusStrategies
+  } // close _tryShareStrategies
 }
 
 // Data URL download: convert blob to data URL, download via plus.downloader, then gallery.save
@@ -9136,6 +9339,222 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
 // Safe download function: uses <a download> only, no video overlay (prevents crash)
 var _downloadInProgress=false;
 var _downloadResetTimer=null;
+// ===== Native MediaStore save via JavascriptInterface (Android 13+ crash fix) =====
+// Converts blob to base64 and passes to window.AndroidMediaStore.saveVideo()
+// which uses ContentResolver.insert() + MediaStore API — NO FileOutputStream,
+// NO WRITE_EXTERNAL_STORAGE, NO crash on Android 13+.
+function _saveViaAndroidMediaStore(blob,fileName,ext){
+  var blobMB=blob.size/1048576;
+  console.log('[SAVE-MS] _saveViaAndroidMediaStore: blob='+blobMB.toFixed(1)+'MB, file='+fileName);
+
+  // Determine file name and MIME type
+  var msFileName=fileName||('AI_'+Date.now()+'.'+(ext||'mp4'));
+  if(!msFileName.match(/\.(mp4|webm|mov|avi)$/i)){
+    msFileName=msFileName+'.mp4';
+  }
+  var mimeType='video/mp4';
+  if(ext==='webm')mimeType='video/webm';
+  else if(ext==='mov')mimeType='video/quicktime';
+
+  // Size guard: for blobs > 200MB, use <a download> fallback
+  if(blob.size>200*1024*1024){
+    console.warn('[SAVE-MS] Blob too large ('+blobMB.toFixed(1)+'MB > 200MB), using <a download> fallback');
+    showToast('视频较大('+blobMB.toFixed(0)+'MB)，正在下载到Downloads文件夹...');
+    _downloadBlobWebSafe(blob,fileName);
+    return;
+  }
+
+  // For blobs >= 20MB, use chunked transfer to avoid OOM
+  // Chunked transfer: splits blob into 2MB chunks, sends each via appendChunk()
+  // This avoids creating a single massive base64 string that crashes the WebView
+  if(blob.size>=20*1024*1024&&typeof window.AndroidMediaStore.startChunkedSave==='function'){
+    console.log('[SAVE-MS] Using chunked transfer for large blob ('+blobMB.toFixed(1)+'MB)');
+    _saveViaMediaStoreChunked(blob,msFileName,mimeType);
+    return;
+  }
+
+  // For small blobs (< 20MB), use simple base64 approach
+  showToast('正在保存到相册...');
+  var saveToken=++_previewToken;
+
+  try{
+    var reader=new FileReader();
+    reader.onload=function(){
+      if(saveToken!==_previewToken)return;
+      try{
+        var dataUrl=reader.result;
+        if(!dataUrl||typeof dataUrl!=='string'){
+          showToast('保存失败：数据转换错误');
+          _resetSaveButton();
+          return;
+        }
+        var commaIdx=dataUrl.indexOf(',');
+        var base64Data=commaIdx>=0?dataUrl.substring(commaIdx+1):dataUrl;
+        console.log('[SAVE-MS] Base64 conversion done, length='+base64Data.length);
+
+        var success=false;
+        try{
+          success=window.AndroidMediaStore.saveVideo(base64Data,msFileName);
+        }catch(nativeErr){
+          console.error('[SAVE-MS] Native call error:',nativeErr);
+          success=false;
+        }
+
+        if(success){
+          console.log('[SAVE-MS] ✅ MediaStore save success');
+          showToast('✅ 视频已保存到相册');
+        }else{
+          console.error('[SAVE-MS] ❌ MediaStore save returned false');
+          showToast('相册保存失败，尝试下载到Downloads...');
+          _downloadBlobWebSafe(blob,fileName);
+          return;
+        }
+        _resetSaveButton();
+      }catch(e){
+        console.error('[SAVE-MS] Process error:',e);
+        showToast('保存失败：'+e.message);
+        _resetSaveButton();
+      }
+    };
+    reader.onerror=function(){
+      console.error('[SAVE-MS] FileReader error');
+      showToast('保存失败：文件读取错误');
+      _resetSaveButton();
+    };
+    reader.readAsDataURL(blob);
+  }catch(e){
+    console.error('[SAVE-MS] Init error:',e);
+    showToast('保存失败：'+e.message);
+    _resetSaveButton();
+  }
+}
+
+// ===== Chunked MediaStore Save (for large files >= 20MB) =====
+// Splits blob into 2MB chunks, sends each to native via appendChunk(),
+// then calls finalizeChunkedSave() to write to system gallery.
+// This is the ONLY way to save large videos without OOM crash on Android.
+function _saveViaMediaStoreChunked(blob,fileName,mimeType){
+  var blobMB=blob.size/1048576;
+  var CHUNK_SIZE=2*1024*1024; // 2MB per chunk — matches Kotlin CHUNK_SIZE
+  var totalChunks=Math.ceil(blob.size/CHUNK_SIZE);
+  var saveToken=++_previewToken;
+  var sessionId='';
+  var chunkIndex=0;
+
+  console.log('[SAVE-MS-CHUNK] START: blob='+blobMB.toFixed(1)+'MB, chunks='+totalChunks+', file='+fileName);
+  showToast('正在保存到相册（大文件模式）...');
+
+  // Step 1: Start chunked save session
+  try{
+    sessionId=window.AndroidMediaStore.startChunkedSave(fileName,mimeType);
+  }catch(e){
+    console.error('[SAVE-MS-CHUNK] startChunkedSave error:',e);
+    showToast('保存失败：无法启动保存会话');
+    _resetSaveButton();
+    return;
+  }
+  if(!sessionId){
+    console.error('[SAVE-MS-CHUNK] startChunkedSave returned empty sessionId');
+    showToast('保存失败：保存会话创建失败');
+    _downloadBlobWebSafe(blob,fileName);
+    return;
+  }
+  console.log('[SAVE-MS-CHUNK] sessionId='+sessionId);
+
+  // Step 2: Process chunks sequentially
+  function _processNextChunk(){
+    if(saveToken!==_previewToken){
+      console.warn('[SAVE-MS-CHUNK] Cancelled by token mismatch');
+      try{window.AndroidMediaStore.cancelChunkedSave(sessionId)}catch(e){}
+      _resetSaveButton();
+      return;
+    }
+
+    if(chunkIndex>=totalChunks){
+      // All chunks sent — finalize
+      _finalizeChunkedSave();
+      return;
+    }
+
+    var start=chunkIndex*CHUNK_SIZE;
+    var end=Math.min(start+CHUNK_SIZE,blob.size);
+    var chunkBlob=blob.slice(start,end);
+
+    var reader=new FileReader();
+    reader.onload=function(){
+      if(saveToken!==_previewToken)return;
+      try{
+        var dataUrl=reader.result;
+        var commaIdx=dataUrl.indexOf(',');
+        var base64Chunk=commaIdx>=0?dataUrl.substring(commaIdx+1):dataUrl;
+
+        var success=false;
+        try{
+          success=window.AndroidMediaStore.appendChunk(sessionId,base64Chunk);
+        }catch(e){
+          console.error('[SAVE-MS-CHUNK] appendChunk exception at chunk '+chunkIndex+':',e);
+        }
+
+        if(!success){
+          console.error('[SAVE-MS-CHUNK] appendChunk failed at chunk '+chunkIndex);
+          try{window.AndroidMediaStore.cancelChunkedSave(sessionId)}catch(e){}
+          showToast('保存失败：数据传输错误 (chunk '+(chunkIndex+1)+'/'+totalChunks+')');
+          _resetSaveButton();
+          return;
+        }
+
+        chunkIndex++;
+        var progress=Math.round((chunkIndex/totalChunks)*100);
+        if(chunkIndex%5===0||chunkIndex===totalChunks){
+          console.log('[SAVE-MS-CHUNK] Progress: '+progress+'% ('+chunkIndex+'/'+totalChunks+')');
+          showToast('保存中... '+progress+'%');
+        }
+
+        // Process next chunk with small delay to prevent UI freeze
+        setTimeout(_processNextChunk,10);
+      }catch(e){
+        console.error('[SAVE-MS-CHUNK] Process error:',e);
+        try{window.AndroidMediaStore.cancelChunkedSave(sessionId)}catch(e2){}
+        showToast('保存失败：'+e.message);
+        _resetSaveButton();
+      }
+    };
+    reader.onerror=function(){
+      console.error('[SAVE-MS-CHUNK] FileReader error at chunk '+chunkIndex);
+      try{window.AndroidMediaStore.cancelChunkedSave(sessionId)}catch(e){}
+      showToast('保存失败：文件读取错误');
+      _resetSaveButton();
+    };
+    reader.readAsDataURL(chunkBlob);
+  }
+
+  // Step 3: Finalize — write temp file to MediaStore system gallery
+  function _finalizeChunkedSave(){
+    if(saveToken!==_previewToken)return;
+    console.log('[SAVE-MS-CHUNK] Finalizing save...');
+    showToast('正在写入相册...');
+    try{
+      var success=window.AndroidMediaStore.finalizeChunkedSave(sessionId);
+      if(success){
+        console.log('[SAVE-MS-CHUNK] ✅ SUCCESS: '+fileName);
+        showToast('✅ 视频已保存到相册');
+      }else{
+        console.error('[SAVE-MS-CHUNK] ❌ finalizeChunkedSave returned false');
+        showToast('相册保存失败，尝试下载到Downloads...');
+        _downloadBlobWebSafe(blob,fileName);
+        return;
+      }
+    }catch(e){
+      console.error('[SAVE-MS-CHUNK] finalize error:',e);
+      showToast('保存失败：'+e.message);
+    }
+    _resetSaveButton();
+  }
+
+  // Start processing
+  _processNextChunk();
+}
+
 function _downloadBlobWebSafe(blob,fileName){
   // ===== CRITICAL GUARD: Prevent multiple simultaneous downloads =====
   // Each download creates a blob URL and triggers a native download dialog.
