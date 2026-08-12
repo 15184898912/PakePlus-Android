@@ -2844,7 +2844,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='6.2 (file-based-bgm + longpress-save + tts-predecode + louder-vol)';
+var _FIX_VERSION='7.0 (plus-android-mediaplayer + plus-android-mediastore-save + file-bgm + louder-vol)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -2929,6 +2929,8 @@ function stopAllAudio(){
   _previewToken++;
   _voicePlaying=false; // Reset playing flag
   if(typeof _speakTextFallbackCalled!=='undefined'){_speakTextFallbackCalled=false} // Reset fallback flag
+  // 0. Stop plus.android MediaPlayer if active
+  if(typeof _stopVoiceMediaPlayer==='function'){_stopVoiceMediaPlayer()}
   // 1. Stop all speakText audios (parallel array) — also remove from DOM
   for(var sti=0;sti<_speakTextAudios.length;sti++){
     _removeAudioEl(_speakTextAudios[sti]);
@@ -3623,8 +3625,93 @@ async function _speakTextViaFetch(text,token){
   }
 }
 // speechSynthesis fallback for voice preview
+// ===== plus.android MediaPlayer for voice preview =====
+// Bypasses ALL WebView audio restrictions — no mediaPlaybackRequiresUserGesture,
+// no shared audio element, no Blob URL conversion. Direct native playback.
+var _voiceMediaPlayer=null;
+function _stopVoiceMediaPlayer(){
+  if(_voiceMediaPlayer){
+    try{_voiceMediaPlayer.stop()}catch(e){}
+    try{_voiceMediaPlayer.release()}catch(e){}
+    _voiceMediaPlayer=null;
+  }
+}
+function _playVoiceViaPlusAndroid(dataUri,voiceId,voiceName){
+  if(!window.plus||!plus.android){
+    console.log('[VOICE-PLUS] plus.android not available');
+    return false;
+  }
+  try{
+    _stopVoiceMediaPlayer();
+    // Write base64 audio to temp file
+    var base64Data=dataUri.split(',')[1];
+    var main=plus.android.runtimeMainActivity();
+    var Base64=plus.android.importClass('android.util.Base64');
+    var File=plus.android.importClass('java.io.File');
+    var FileOutputStream=plus.android.importClass('java.io.FileOutputStream');
+    var MediaPlayer=plus.android.importClass('android.media.MediaPlayer');
+
+    var tempFile=new File(main.getCacheDir(),'voice_preview_'+voiceId+'.mp3');
+    var fos=new FileOutputStream(tempFile);
+    var decoded=Base64.decode(base64Data,0);
+    fos.write(decoded);
+    fos.flush();
+    fos.close();
+    console.log('[VOICE-PLUS] Temp file written:',tempFile.getAbsolutePath(),'size:',decoded.length);
+
+    // Play with MediaPlayer
+    _voiceMediaPlayer=new MediaPlayer();
+    _voiceMediaPlayer.setDataSource(tempFile.getAbsolutePath());
+    _voiceMediaPlayer.setOnCompletionListener(plus.android.implements('android.media.MediaPlayer$OnCompletionListener',{
+      onCompletion:function(mp){
+        console.log('[VOICE-PLUS] Playback completed for voice',voiceId);
+        _voicePlaying=false;
+        _stopVoiceMediaPlayer();
+        if(currentVoiceUtter&&currentVoiceUtter._voiceId===voiceId){
+          currentVoiceUtter=null;
+          renderVoices();
+        }
+      }
+    }));
+    _voiceMediaPlayer.setOnErrorListener(plus.android.implements('android.media.MediaPlayer$OnErrorListener',{
+      onError:function(mp,what,extra){
+        console.log('[VOICE-PLUS] Error: what='+what+' extra='+extra);
+        _voicePlaying=false;
+        _stopVoiceMediaPlayer();
+        return false;
+      }
+    }));
+    _voiceMediaPlayer.prepare();
+    _voiceMediaPlayer.setVolume(voiceVol/100,voiceVol/100);
+    _voiceMediaPlayer.start();
+    console.log('[VOICE-PLUS] Playback started for voice',voiceId,'-',voiceName);
+    return true;
+  }catch(e){
+    console.log('[VOICE-PLUS] Error:',e);
+    _stopVoiceMediaPlayer();
+    return false;
+  }
+}
+
 function _previewVoiceSS(id,v){
-  // ===== PRIORITY 1: Pre-generated TTS audio (unique per voice, offline) =====
+  // ===== PRIORITY 0: plus.android MediaPlayer (most reliable) =====
+  // Bypasses ALL WebView audio restrictions. Each voice gets distinct playback.
+  // This fixes: "only one voice plays", "delay", "sound disappears" issues.
+  if(typeof _getPregeneratedTts==='function'){
+    var pregData0=_getPregeneratedTts(id);
+    if(pregData0&&window.plus&&plus.android){
+      console.log('[PREVIEW] Trying plus.android MediaPlayer for voice',id);
+      if(_playVoiceViaPlusAndroid(pregData0,id,v.name)){
+        _voicePlaying=true;
+        currentVoiceUtter={_voiceId:id,_plusMediaPlayer:true};
+        renderVoices();
+        showToast('试听: '+v.name);
+        return;
+      }
+      console.log('[PREVIEW] plus.android MediaPlayer failed, trying WebView audio');
+    }
+  }
+  // ===== PRIORITY 1: Pre-generated TTS audio via shared audio element (fallback) =====
   // Must try BEFORE Android TTS — pre-generated audio has distinct voice
   // characteristics per voice id. Android TTS sounds the same for ALL voices.
   if(typeof _getPregeneratedTts==='function'){
@@ -9581,15 +9668,85 @@ function _safeSaveWebView(blob,fileName,blobType){
   console.log('[SAVE-SAFE] _safeSaveWebView: blob='+blobMB+'MB, file='+fileName);
   blobType=blobType||blob.type||'video/webm';
 
-  // ===== CRITICAL FIX: Use long-press save — the ONLY crash-free method in PakePlus WebView =====
-  // navigator.share crashes WebView (OOM), <a download> can also crash on some devices.
-  // Long-press save shows the video fullscreen and lets user long-press to save via Android
-  // context menu. This is 100% reliable and never crashes.
-  console.log('[SAVE-SAFE] Using long-press save (crash-free fallback)');
-  if(typeof _longPressSave==='function'){
-    _longPressSave(blob,fileName);
+  // ===== NEW: Use plus.android MediaStore API — bypasses WebView entirely =====
+  // plus.android is available in PakePlus and allows direct Android API calls.
+  // This is the most reliable method — no WebView crashes, no OOM, no long-press needed.
+  if(window.plus&&plus.android){
+    console.log('[SAVE-SAFE] Using plus.android MediaStore API');
+    _saveViaPlusAndroid(blob,fileName,blobType);
   }else{
-    // Fallback if _longPressSave not available
+    // Fallback: <a download> (last resort)
+    console.log('[SAVE-SAFE] plus.android not available, using <a download>');
+    _safeDownloadBlob(blob,fileName);
+  }
+}
+
+// ===== Save video to album via plus.android MediaStore API =====
+// Bypasses WebView entirely — no crash, no OOM, direct native save.
+function _saveViaPlusAndroid(blob,fileName,blobType){
+  var blobMB=blob.size/1048576;
+  var msFileName=fileName||('AI_'+Date.now()+'.mp4');
+  if(!msFileName.match(/\.(mp4|webm|mov)$/i))msFileName+='.mp4';
+  var mimeType=blobType||'video/mp4';
+  var isImage=mimeType.indexOf('image/')===0;
+
+  showToast('正在保存到相册...');
+  var saveToken=++_saveToken;
+
+  try{
+    var reader=new FileReader();
+    reader.onload=function(){
+      if(saveToken!==_saveToken)return;
+      try{
+        var dataUrl=reader.result;
+        var commaIdx=dataUrl.indexOf(',');
+        var base64Data=commaIdx>=0?dataUrl.substring(commaIdx+1):dataUrl;
+        console.log('[SAVE-PLUS] Base64 ready, length='+base64Data.length);
+
+        var main=plus.android.runtimeMainActivity();
+        var ContentValues=plus.android.importClass('android.content.ContentValues');
+        var Environment=plus.android.importClass('android.os.Environment');
+        var Base64=plus.android.importClass('android.util.Base64');
+        var MediaStore;
+
+        var values=new ContentValues();
+        values.put('_display_name',msFileName);
+        values.put('mime_type',mimeType);
+
+        var uri;
+        if(isImage){
+          MediaStore=plus.android.importClass('android.provider.MediaStore$Images$Media');
+          values.put('relative_path',Environment.DIRECTORY_PICTURES);
+          uri=main.getContentResolver().insert(MediaStore.EXTERNAL_CONTENT_URI,values);
+        }else{
+          MediaStore=plus.android.importClass('android.provider.MediaStore$Video$Media');
+          values.put('relative_path',Environment.DIRECTORY_MOVIES);
+          uri=main.getContentResolver().insert(MediaStore.EXTERNAL_CONTENT_URI,values);
+        }
+
+        var output=main.getContentResolver().openOutputStream(uri);
+        var decoded=Base64.decode(base64Data,0);
+        output.write(decoded);
+        output.flush();
+        output.close();
+
+        console.log('[SAVE-PLUS] Video saved to album successfully');
+        showToast('视频已保存到相册');
+        _resetSaveButton();
+      }catch(e){
+        console.error('[SAVE-PLUS] Error:',e);
+        showToast('保存失败，尝试下载方式...');
+        _safeDownloadBlob(blob,fileName);
+      }
+    };
+    reader.onerror=function(){
+      console.error('[SAVE-PLUS] FileReader error');
+      showToast('保存失败：数据读取错误');
+      _resetSaveButton();
+    };
+    reader.readAsDataURL(blob);
+  }catch(e){
+    console.error('[SAVE-PLUS] Init error:',e);
     _safeDownloadBlob(blob,fileName);
   }
 }
