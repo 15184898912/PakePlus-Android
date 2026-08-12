@@ -2828,6 +2828,88 @@ var _ttsPreviewCache={};
 // Call this before playing any new audio (speakText, previewVoice).
 // Incrementing tokens invalidates ALL pending async fallbacks from previous calls,
 // preventing the "src=''" error event from triggering unwanted Baidu fallbacks.
+// ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
+// 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
+// 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
+var _FIX_VERSION='4.0 (bridge-diagnostic + audio-load-fix)';
+function _checkFixVersion(){
+  console.log('========================================');
+  console.log('  修复版本: '+_FIX_VERSION);
+  console.log('  --- 原生桥检测 ---');
+  var ms=typeof window.AndroidMediaStore!=='undefined';
+  console.log('  window.AndroidMediaStore: '+(ms?'✅ 已定义':'❌ 未定义 — 这是保存闪退的根本原因！'));
+  if(ms){
+    console.log('  saveVideo: '+(typeof window.AndroidMediaStore.saveVideo==='function'?'✅':'❌'));
+    console.log('  startChunkedSave: '+(typeof window.AndroidMediaStore.startChunkedSave==='function'?'✅':'❌'));
+    console.log('  hasPermission: '+(typeof window.AndroidMediaStore.hasPermission==='function'?'✅':'❌'));
+    try{console.log('  权限状态: '+window.AndroidMediaStore.hasPermission())}catch(e){console.log('  权限检查失败:',e)}
+  }
+  console.log('  --- 音频检测 ---');
+  console.log('  共享音频元素: '+(typeof _getSharedAudio==='function'?'✅':'❌'));
+  console.log('  _sharedPreviewAudio: '+(_sharedPreviewAudio?'已创建':'未创建'));
+  console.log('  --- 保存函数检测 ---');
+  console.log('  _safeSaveWebView: '+(typeof _safeSaveWebView==='function'?'✅':'❌'));
+  console.log('  _longPressSave: '+(typeof _longPressSave==='function'?'✅':'❌'));
+  console.log('  _saveViaAndroidMediaStore: '+(typeof _saveViaAndroidMediaStore==='function'?'✅':'❌'));
+  console.log('  navigator.share: '+(typeof navigator.share==='function'?'✅':'❌'));
+  console.log('========================================');
+  if(!ms){
+    console.log('⚠️ 警告: AndroidMediaStore 桥未注册！请在 PakePlus fork 的 MainActivity.kt 中添加:');
+    console.log('   webView.addJavascriptInterface(MediaStoreSaver(this), "AndroidMediaStore")');
+    console.log('   位置: 在 webView.addJavascriptInterface(JsInterface(this), "JsBridge") 这行之后');
+  }
+  return _FIX_VERSION;
+}
+
+// ===== 长按保存：最可靠的保底方案 =====
+// 不依赖 navigator.share、不依赖 <a download>、不依赖原生桥
+// 直接全屏显示视频，提示用户长按选择"保存视频"
+// 这是 Android WebView 中保存视频最稳定的方法
+function _longPressSave(blob,fileName){
+  console.log('[SAVE-LONGPRESS] 启动长按保存模式');
+  showToast('请在视频上长按，选择"保存视频"');
+
+  // 创建全屏遮罩
+  var mask=document.createElement('div');
+  mask.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+  // 创建视频元素
+  var video=document.createElement('video');
+  video.style.cssText='max-width:95%;max-height:75%;border-radius:8px;';
+  video.controls=true;
+  var url=null;
+  try{
+    url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:URL.createObjectURL(blob);
+  }catch(e){
+    try{url=URL.createObjectURL(blob)}catch(e2){
+      showToast('视频加载失败');
+      return;
+    }
+  }
+  video.src=url;
+
+  // 提示文字
+  var tip=document.createElement('div');
+  tip.style.cssText='color:#fff;font-size:16px;margin-top:16px;text-align:center;padding:0 20px;';
+  tip.innerHTML='👆 请在视频上<span style="color:#4fc3f7;font-weight:bold">长按</span>，选择<span style="color:#4fc3f7;font-weight:bold">「保存视频」</span><br><span style="font-size:13px;color:#aaa;margin-top:8px;display:block">保存后视频将出现在手机相册中</span>';
+
+  // 关闭按钮
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='✕ 关闭';
+  closeBtn.style.cssText='margin-top:20px;padding:10px 30px;background:#333;color:#fff;border:1px solid #555;border-radius:8px;font-size:16px;cursor:pointer;';
+  closeBtn.onclick=function(){
+    if(mask.parentNode)mask.parentNode.removeChild(mask);
+    video.pause();
+    _resetSaveButton();
+  };
+
+  mask.appendChild(video);
+  mask.appendChild(tip);
+  mask.appendChild(closeBtn);
+  document.body.appendChild(mask);
+  _resetSaveButton();
+}
+
 function stopAllAudio(){
   // 0. Invalidate all pending async fallbacks (prevents race condition)
   _speakTextToken++;
@@ -2846,6 +2928,12 @@ function stopAllAudio(){
       _removeAudioEl(_activePreviewAudios[sai]);
     }
     _activePreviewAudios=[];
+  }
+  // 2b. Pause shared preview audio (DON'T remove from DOM — it's reused)
+  // Clear event handlers to prevent stale callbacks
+  if(_sharedPreviewAudio){
+    try{_sharedPreviewAudio.pause()}catch(e){}
+    try{_sharedPreviewAudio.onplaying=null;_sharedPreviewAudio.onended=null;_sharedPreviewAudio.onerror=null}catch(e){}
   }
   // 3. Stop welcome audio
   if(_welcomeAudio){_removeAudioEl(_welcomeAudio);_welcomeAudio=null}
@@ -2867,6 +2955,24 @@ function _createHiddenAudio(url){
   if(url)el.src=url;
   document.body.appendChild(el);
   return el;
+}
+
+// ===== Shared audio element for voice previews =====
+// CRITICAL FIX for "only one voice can play" bug in PakePlus/Android WebView.
+// Android WebView with mediaPlaybackRequiresUserGesture=true blocks play() on
+// NEW audio elements after the first one. By reusing the SAME element, once
+// it's "unlocked" by the first play() call (in user's click handler), all
+// subsequent play() calls work — even on different voice previews.
+var _sharedPreviewAudio=null;
+function _getSharedAudio(){
+  if(!_sharedPreviewAudio){
+    _sharedPreviewAudio=document.createElement('audio');
+    _sharedPreviewAudio.style.cssText='position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;';
+    _sharedPreviewAudio.preload='auto';
+    document.body.appendChild(_sharedPreviewAudio);
+    console.log('[AUDIO] Shared preview audio element created');
+  }
+  return _sharedPreviewAudio;
 }
 function _removeAudioEl(el){
   if(!el)return;
@@ -3060,22 +3166,28 @@ function previewVoice(id){
       return;
     }
     try{
-      var cloneAudio=_createHiddenAudio(URL.createObjectURL(clonedVoiceBlob));
+      var cloneAudio=_getSharedAudio();
+      cloneAudio.pause();
+      cloneAudio.onplaying=null;
+      cloneAudio.onended=null;
+      cloneAudio.onerror=null;
+      cloneAudio.src=URL.createObjectURL(clonedVoiceBlob);
+      try{cloneAudio.load()}catch(e){} // Force reload new src
       cloneAudio.volume=voiceVol/100;
       cloneAudio.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
-      _activePreviewAudios.push(cloneAudio);
+      _activePreviewAudios=[];
       var cloneToken=++_previewToken;
       currentVoiceUtter={_voiceId:id,_audioEl:cloneAudio};
-      cloneAudio.addEventListener('ended',function(){
+      cloneAudio.onended=function(){
         if(cloneToken!==_previewToken)return;
         if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
           currentVoiceUtter=null;
           renderVoices();
         }
-        _removeAudioEl(cloneAudio);
-      },{once:true});
+        cloneAudio.pause();
+      };
       cloneAudio.play().then(function(){
-        if(cloneToken!==_previewToken){_removeAudioEl(cloneAudio);return;}
+        if(cloneToken!==_previewToken){cloneAudio.pause();return;}
         showToast('试听: 克隆声音');
         renderVoices();
       }).catch(function(e){console.log('Clone preview error:',e)});
@@ -3100,29 +3212,35 @@ function previewVoice(id){
   var cacheKey='v'+id;
   if(_ttsPreviewCache[cacheKey]){
     try{
-      var cachedAudio=_createHiddenAudio(_ttsPreviewCache[cacheKey]);
+      var cachedAudio=_getSharedAudio();
+      cachedAudio.pause();
+      cachedAudio.onplaying=null;
+      cachedAudio.onended=null;
+      cachedAudio.onerror=null;
+      cachedAudio.src=_ttsPreviewCache[cacheKey];
+      try{cachedAudio.load()}catch(e){} // Force reload new src
       cachedAudio.volume=voiceVol/100;
       cachedAudio.playbackRate=Math.max(0.5,Math.min(2.0,voiceSpeed/100));
-      _activePreviewAudios.push(cachedAudio);
+      cachedAudio.currentTime=0;
+      _activePreviewAudios=[];
       currentVoiceUtter={_voiceId:id,_audioEl:cachedAudio};
-      cachedAudio.addEventListener('ended',function(){
+      cachedAudio.onended=function(){
         if(myToken!==_previewToken)return;
         if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
           currentVoiceUtter=null;
           renderVoices();
         }
-        _removeAudioEl(cachedAudio);
-      },{once:true});
+        cachedAudio.pause();
+      };
       cachedAudio.play().then(function(){
-        if(myToken!==_previewToken){_removeAudioEl(cachedAudio);return;}
+        if(myToken!==_previewToken){cachedAudio.pause();return;}
         showToast('试听: '+v.name);
         renderVoices();
       }).catch(function(e){
         if(myToken!==_previewToken)return;
-        console.log('[PREVIEW] Cached audio play failed, fetching fresh:',e);
-        _removeAudioEl(cachedAudio);
+        console.log('[PREVIEW] Cached audio play failed, using _previewVoiceSS:',e);
         delete _ttsPreviewCache[cacheKey];
-        _previewVoiceFast(id,v,myToken);
+        _previewVoiceSS(id,v);
       });
       return;
     }catch(cacheErr){
@@ -3462,41 +3580,48 @@ function _previewVoiceSS(id,v){
     if(pregData){
       console.log('[PREVIEW] Using pre-generated TTS audio for voice',id);
       try{
-        stopAllAudio();
-        // CRITICAL FIX: Use _createHiddenAudio (adds to DOM) instead of new Audio().
-        // Many Android WebViews (including PakePlus/MIUI) require <audio> elements
-        // to be in the DOM for playback. new Audio() without DOM attachment works
-        // for the first call but silently fails for subsequent calls — causing
-        // "only one voice can play" bug.
-        var pregAudio=_createHiddenAudio(pregData);
+        // CRITICAL FIX: Use shared audio element instead of creating new ones.
+        // Android WebView with mediaPlaybackRequiresUserGesture=true blocks play()
+        // on NEW audio elements after the first one. By reusing the same element,
+        // once it's "unlocked" by the first play() (in user's click handler),
+        // ALL subsequent play() calls work — fixing "only one voice can play" bug.
+        var pregAudio=_getSharedAudio();
+        pregAudio.pause();
+        // Clear old event handlers (on* properties avoid accumulating listeners)
+        pregAudio.onplaying=null;
+        pregAudio.onended=null;
+        pregAudio.onerror=null;
+        // Set new source and properties
+        pregAudio.src=pregData;
+        try{pregAudio.load()}catch(e){} // Force reload new src — fixes "second voice silent" in WebView
         pregAudio.volume=voiceVol/100;
         var speedMul=(voiceSpeed/100)*0.6+0.7;
         pregAudio.playbackRate=Math.max(0.7,Math.min(1.5,(v.rate||1.0)*speedMul));
-        _activePreviewAudios.push(pregAudio);
+        pregAudio.currentTime=0;
+        _activePreviewAudios=[]; // Shared element is handled separately in stopAllAudio
         currentVoiceUtter={_voiceId:id,_pregAudio:pregAudio};
         renderVoices();
         showToast('试听: '+v.name);
-        pregAudio.addEventListener('playing',function(){
+        pregAudio.onplaying=function(){
           _voicePlaying=true;
           console.log('[PREVIEW] Pre-generated audio playing for voice',id);
-        },{once:true});
-        pregAudio.addEventListener('ended',function(){
+        };
+        pregAudio.onended=function(){
           _voicePlaying=false;
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
             currentVoiceUtter=null;
             renderVoices();
           }
-        },{once:true});
+        };
         // If pre-generated audio fails, try Android TTS, then speechSynthesis
-        pregAudio.addEventListener('error',function(){
+        pregAudio.onerror=function(){
           _voicePlaying=false;
-          console.log('[PREVIEW] Pre-generated audio failed, trying Android TTS');
+          console.log('[PREVIEW] Pre-generated audio error, trying fallback');
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
             currentVoiceUtter=null;
             renderVoices();
           }
-          _removeAudioEl(pregAudio);
-          // Try Android TTS as second resort
+          pregAudio.pause();
           if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
             console.log('[PREVIEW] Using Android native TTS (pre-gen failed)');
             showToast('试听(设备语音): '+v.name);
@@ -3504,12 +3629,10 @@ function _previewVoiceSS(id,v){
             renderVoices();
             return;
           }
-          // Last resort: speechSynthesis
           _previewVoiceSSFallback(id,v);
-        },{once:true});
+        };
         pregAudio.play().catch(function(e){
-          console.log('[PREVIEW] Pre-generated play() failed, trying Android TTS:',e);
-          _removeAudioEl(pregAudio);
+          console.log('[PREVIEW] Pre-generated play() failed, trying fallback:',e);
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
             currentVoiceUtter=null;
             renderVoices();
@@ -5953,12 +6076,12 @@ function saveRenderToAlbum(){
       console.log('[SAVE-RENDER] AndroidMediaStore bridge detected, using MediaStore API');
       _saveViaAndroidMediaStore(_lastRenderedBlob,fileName,ext);
     }
-    // ===== PakePlus/Tauri: use <a download> as fallback (no MediaStore bridge) =====
-    else if(typeof window.__TAURI__!=='undefined'){
-      console.log('[SAVE-RENDER] PakePlus detected, using direct download path');
-      _downloadBlobWebSafe(_lastRenderedBlob,fileName);
-    }else{
-      _saveBlobToAlbum(_lastRenderedBlob,fileName,blobType,'AI智能成片');
+    // ===== PakePlus/WebView: SAFE save path (replaces crash-prone _saveBlobToAlbum) =====
+    // navigator.share with large blobs (>15MB) crashes PakePlus WebView.
+    // This safe path: share for small blobs (≤15MB), <a download> for large blobs.
+    else{
+      console.log('[SAVE-RENDER] Using safe WebView save path');
+      _safeSaveWebView(_lastRenderedBlob,fileName,blobType);
     }
     // Reset button after save starts (NOT after 3s — wait for callback)
     // The _saveBlobToAlbum chain calls _resetSaveButton on success/failure
@@ -9340,6 +9463,76 @@ async function _saveBlobToAlbumWeb(blob,fileName,blobType,title){
 var _downloadInProgress=false;
 var _downloadResetTimer=null;
 // ===== Native MediaStore save via JavascriptInterface (Android 13+ crash fix) =====
+// ===== Safe WebView Save (PakePlus, no native bridge required) =====
+// Replaces crash-prone _saveBlobToAlbum / _downloadBlobWebSafe paths.
+// navigator.share with files >15MB crashes PakePlus WebView (memory overflow).
+// This function: share for small blobs (user can save to gallery via share sheet),
+// <a download> for large blobs (saves to Downloads, NO crash).
+function _safeSaveWebView(blob,fileName,blobType){
+  var blobMB=(blob.size/1048576).toFixed(1);
+  console.log('[SAVE-SAFE] _safeSaveWebView: blob='+blobMB+'MB, file='+fileName);
+  blobType=blobType||blob.type||'video/webm';
+
+  // For small blobs (≤15MB): try navigator.share — user can save to gallery
+  if(navigator.share&&blob.size<=15*1048576){
+    console.log('[SAVE-SAFE] Small blob ('+blobMB+'MB), trying navigator.share');
+    try{
+      var shareFile=new File([blob],fileName,{type:blobType});
+      navigator.share({files:[shareFile],title:'AI智能成片'}).then(function(){
+        console.log('[SAVE-SAFE] navigator.share success');
+        showToast('✅ 视频已保存');
+        _resetSaveButton();
+      }).catch(function(e){
+        if(e.name!=='AbortError'){
+          console.log('[SAVE-SAFE] Share failed, falling back to download:',e);
+        }
+        _safeDownloadBlob(blob,fileName);
+      });
+    }catch(e){
+      console.error('[SAVE-SAFE] Share crashed, using download:',e);
+      _safeDownloadBlob(blob,fileName);
+    }
+  }else{
+    // Large blob (>15MB) or no share API: use <a download> — NO crash
+    console.log('[SAVE-SAFE] Using <a download> for blob ('+blobMB+'MB)');
+    _safeDownloadBlob(blob,fileName);
+  }
+}
+
+// Safe download via <a download> — reuses existing blob URL to avoid memory duplication
+function _safeDownloadBlob(blob,fileName){
+  try{
+    // Reuse existing _renderVideoUrl if available (avoids createObjectURL memory overhead)
+    var url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:null;
+    if(!url){
+      try{
+        url=URL.createObjectURL(blob);
+      }catch(e){
+        console.error('[SAVE-SAFE] createObjectURL failed:',e);
+        showToast('保存失败：视频过大，请缩短视频时长');
+        _resetSaveButton();
+        return;
+      }
+    }
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName;
+    a.style.display='none';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      if(a.parentNode)document.body.removeChild(a);
+    },5000);
+    showToast('✅ 视频已开始下载，请在下载管理器中查看');
+    _resetSaveButton();
+  }catch(e){
+    console.error('[SAVE-SAFE] Download failed:',e);
+    showToast('保存失败：'+e.message);
+    _resetSaveButton();
+  }
+}
+
 // Converts blob to base64 and passes to window.AndroidMediaStore.saveVideo()
 // which uses ContentResolver.insert() + MediaStore API — NO FileOutputStream,
 // NO WRITE_EXTERNAL_STORAGE, NO crash on Android 13+.
