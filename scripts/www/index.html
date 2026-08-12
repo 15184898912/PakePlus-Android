@@ -2847,7 +2847,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='8.0 (web-audio-api-voice + crash-proof-save + long-press-overlay + no-plus-android)';
+var _FIX_VERSION='8.1 (web-audio-api-voice + crash-proof-save-size-threshold + long-press-overlay + no-plus-android)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -6367,7 +6367,7 @@ function _longPressSaveFromRender(){
   else if(_lastRenderedBlob.type&&_lastRenderedBlob.type.indexOf('quicktime')>=0)ext='mov';
   var fileName='AI智能成片_'+resTag+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.'+ext;
   console.log('[SAVE-LP] Long-press save from render');
-  _showLongPressSaveOverlay(_lastRenderedBlob,fileName,_renderVideoUrl||null);
+  _showLongPressSaveOverlay(_lastRenderedBlob,fileName,_renderVideoUrl||null,_lastRenderedBlob.size);
 }
 
 function saveRenderToAlbum(){
@@ -9904,15 +9904,19 @@ function _saveViaPlusAndroid(blob,fileName,blobType){
 function _crashProofSave(blob,fileName,blobType){
   var blobMB=blob.size/1048576;
   console.log('[SAVE-V8] _crashProofSave: blob='+blobMB.toFixed(1)+'MB, file='+fileName);
+  // v8.1: Size threshold — <a download>.click() crashes PakePlus WebView for large blobs.
+  // Short videos (< 8MB): <a download> works fine (4-second videos save successfully).
+  // Long videos (>= 8MB): Skip <a download>, go directly to long-press overlay.
+  var SIZE_THRESHOLD=8*1048576; // 8MB
   try{
-    // Step 1: Try <a download> with blob URL (no memory overhead)
     var url=null;
     try{
       url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:URL.createObjectURL(blob);
     }catch(urlErr){
-      console.warn('[SAVE-V8] createObjectURL failed, skipping download:',urlErr);
+      console.warn('[SAVE-V8] createObjectURL failed:',urlErr);
     }
-    if(url){
+    // Only try <a download> for SMALL videos (prevents OOM crash on large videos)
+    if(url&&blob.size<SIZE_THRESHOLD){
       try{
         var a=document.createElement('a');
         a.href=url;
@@ -9922,27 +9926,30 @@ function _crashProofSave(blob,fileName,blobType){
         document.body.appendChild(a);
         a.click();
         setTimeout(function(){if(a.parentNode)document.body.removeChild(a)},5000);
-        console.log('[SAVE-V8] <a download> triggered');
+        console.log('[SAVE-V8] <a download> triggered (small video '+blobMB.toFixed(1)+'MB)');
       }catch(dlErr){
         console.warn('[SAVE-V8] <a download> failed:',dlErr);
       }
+    }else if(blob.size>=SIZE_THRESHOLD){
+      console.log('[SAVE-V8] Large video ('+blobMB.toFixed(1)+'MB >= 8MB), skipping <a download> to prevent crash');
     }
-    // Step 2: Show long-press overlay — user can long-press video to save to album
-    // This is the most reliable way to save to gallery in Android WebView
-    _showLongPressSaveOverlay(blob,fileName,url);
+    // Show long-press overlay (always — for large videos this is the PRIMARY save method)
+    _showLongPressSaveOverlay(blob,fileName,url,blob.size);
   }catch(e){
     console.error('[SAVE-V8] Error:',e);
-    // Last resort: still show long-press overlay
-    try{_showLongPressSaveOverlay(blob,fileName,null)}catch(e2){}
+    try{_showLongPressSaveOverlay(blob,fileName,null,blob.size)}catch(e2){}
   }
 }
 
 // Long-press save overlay: shows video full-screen, user long-presses to save
 // Also provides a "下载到手机" button for direct download
-function _showLongPressSaveOverlay(blob,fileName,existingUrl){
+function _showLongPressSaveOverlay(blob,fileName,existingUrl,blobSize){
   // Remove any existing overlay
   var old=document.getElementById('v8-save-overlay');
   if(old){old.parentNode.removeChild(old)}
+
+  var blobMB=((blobSize||blob.size)/1048576).toFixed(1);
+  var isLarge=(blobSize||blob.size)>=8*1048576;
 
   var url=existingUrl;
   if(!url){
@@ -9960,15 +9967,23 @@ function _showLongPressSaveOverlay(blob,fileName,existingUrl){
 
   // Title
   var title=document.createElement('div');
-  title.style.cssText='color:#fff;font-size:18px;font-weight:bold;margin-bottom:16px;text-align:center;';
+  title.style.cssText='color:#fff;font-size:18px;font-weight:bold;margin-bottom:8px;text-align:center;';
   title.textContent='保存视频到相册';
   overlay.appendChild(title);
 
-  // Video element
+  // Size info
+  var sizeInfo=document.createElement('div');
+  sizeInfo.style.cssText='color:#aaa;font-size:13px;margin-bottom:16px;text-align:center;';
+  sizeInfo.textContent='视频大小: '+blobMB+'MB';
+  overlay.appendChild(sizeInfo);
+
+  // Video element — use preload='metadata' to avoid loading entire video into memory
   var video=document.createElement('video');
-  video.style.cssText='max-width:100%;max-height:55vh;border-radius:12px;background:#000;';
+  video.style.cssText='max-width:100%;max-height:50vh;border-radius:12px;background:#000;';
   video.controls=true;
   video.playsInline=true;
+  video.setAttribute('webkit-playsinline','');
+  video.preload='metadata'; // Only load metadata, not full video — prevents OOM
   video.src=url;
   overlay.appendChild(video);
 
@@ -9978,25 +9993,27 @@ function _showLongPressSaveOverlay(blob,fileName,existingUrl){
   tip.innerHTML='👆 在视频画面上<strong>长按</strong>，选择<strong>「保存视频」</strong>或<strong>「保存到相册」</strong><br><span style="color:#aaa;font-size:13px">保存后视频将出现在手机相册中</span>';
   overlay.appendChild(tip);
 
-  // Download button (alternative method)
-  var dlBtn=document.createElement('button');
-  dlBtn.textContent='📥 下载到手机';
-  dlBtn.style.cssText='margin-top:16px;padding:12px 32px;background:rgba(48,209,88,0.3);color:#30D158;border:1px solid #30D158;border-radius:10px;font-size:15px;cursor:pointer;';
-  dlBtn.onclick=function(){
-    try{
-      var a2=document.createElement('a');
-      a2.href=url;
-      a2.download=fileName||('AI_'+Date.now()+'.webm');
-      a2.style.display='none';
-      document.body.appendChild(a2);
-      a2.click();
-      setTimeout(function(){if(a2.parentNode)document.body.removeChild(a2)},5000);
-      showToast('已开始下载，请在下载管理器中查看');
-    }catch(e){
-      showToast('下载失败，请长按视频保存');
-    }
-  };
-  overlay.appendChild(dlBtn);
+  // Download button — only for small videos (large videos crash via <a download>)
+  if(!isLarge){
+    var dlBtn=document.createElement('button');
+    dlBtn.textContent='📥 直接下载';
+    dlBtn.style.cssText='margin-top:16px;padding:12px 32px;background:rgba(48,209,88,0.3);color:#30D158;border:1px solid #30D158;border-radius:10px;font-size:15px;cursor:pointer;';
+    dlBtn.onclick=function(){
+      try{
+        var a2=document.createElement('a');
+        a2.href=url;
+        a2.download=fileName||('AI_'+Date.now()+'.webm');
+        a2.style.display='none';
+        document.body.appendChild(a2);
+        a2.click();
+        setTimeout(function(){if(a2.parentNode)document.body.removeChild(a2)},5000);
+        showToast('已开始下载');
+      }catch(e){
+        showToast('下载失败，请长按视频保存');
+      }
+    };
+    overlay.appendChild(dlBtn);
+  }
 
   // Close button
   var closeBtn=document.createElement('button');
@@ -10004,7 +10021,7 @@ function _showLongPressSaveOverlay(blob,fileName,existingUrl){
   closeBtn.style.cssText='margin-top:12px;padding:10px 28px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-size:14px;cursor:pointer;';
   closeBtn.onclick=function(){
     if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
-    try{video.pause()}catch(e){}
+    try{video.pause();video.src=''}catch(e){}
     _resetSaveButton();
   };
   overlay.appendChild(closeBtn);
@@ -10016,6 +10033,14 @@ function _showLongPressSaveOverlay(blob,fileName,existingUrl){
 
 function _safeDownloadBlob(blob,fileName){
   try{
+    var blobMB=blob.size/1048576;
+    // v8.1: Large videos crash PakePlus WebView via <a download>.click()
+    // Redirect to long-press overlay for large blobs
+    if(blob.size>=8*1048576){
+      console.log('[SAVE-SAFE] Large video ('+blobMB.toFixed(1)+'MB), redirecting to long-press overlay');
+      _showLongPressSaveOverlay(blob,fileName,null,blob.size);
+      return;
+    }
     // Reuse existing _renderVideoUrl if available (avoids createObjectURL memory overhead)
     var url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:null;
     if(!url){
