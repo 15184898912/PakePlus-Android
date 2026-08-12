@@ -1560,8 +1560,18 @@ a{color:inherit;text-decoration:none}
 </style>
 <!-- WebCodecs muxer library for near-lossless video encoding -->
 <script src="https://cdn.jsdelivr.net/npm/webm-muxer@5.1.3/build/webm-muxer.min.js" onerror="console.warn('[WebCodecs] webm-muxer library failed to load, will use MediaRecorder fallback')"></script>
-<script src="bgm-data.js"></script>
 <script src="tts-data.js" onerror="console.warn('[TTS] tts-data.js failed to load, will use speechSynthesis fallback')"></script>
+<script>
+// BGM tracks are loaded as separate MP3 files from bgm/ directory
+// No large base64 data file needed — each track is ~1MB, loaded on demand
+var BGM_BASE64 = {}; // kept for backward compatibility (empty)
+var _bgmDataLoaded = true; // always true — files are loaded on demand
+var _bgmDataLoading = false;
+function _loadBgmDataAsync(){ /* no-op — using file-based loading */ }
+function _getBgmUrl(id){
+  return 'bgm/' + id + '.mp3';
+}
+</script>
 </head>
 <body>
 <div id="app">
@@ -2516,7 +2526,7 @@ let BGM_TRACKS=[
   {id:14,name:'欢歌笑语',realName:'欢歌笑语',meta:'MP3 · 欢快/旅程 · 带货类',base64:true,duration:120},
 ];
 let selectedBgm=0;
-let bgmVol=30;
+let bgmVol=60;
 let bgmAudioEl=null;
 let bgmPlayingId=-1;
 let voiceVol=100; // 人声音量 (0-100)
@@ -2834,7 +2844,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='5.0 (remove-navshare + save-token + blob-url-audio)';
+var _FIX_VERSION='6.2 (file-based-bgm + longpress-save + tts-predecode + louder-vol)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -2976,6 +2986,46 @@ function _getSharedAudio(){
     console.log('[AUDIO] Shared preview audio element created');
   }
   return _sharedPreviewAudio;
+}
+
+// ===== PRE-DECODE CACHE: Eliminates voice switching delay =====
+// Converts all TTS_PREGENERATED base64 data to Blob URLs at page load time.
+// When switching voices, just set the pre-created Blob URL — no conversion delay.
+var _ttsBlobUrlCache={};
+function _initTtsBlobCache(){
+  if(typeof TTS_PREGENERATED==='undefined'||typeof _getPregeneratedTts!=='function'){
+    console.log('[TTS-CACHE] TTS_PREGENERATED not ready, will retry in 1s');
+    setTimeout(_initTtsBlobCache,1000);
+    return;
+  }
+  var count=0;
+  for(var id=1;id<=10;id++){
+    var pregData=_getPregeneratedTts(id);
+    if(pregData&&pregData.indexOf('data:')===0){
+      try{
+        var parts=pregData.split(',');
+        var mimeMatch=parts[0].match(/data:([^;]+)/);
+        var mime=mimeMatch?mimeMatch[1]:'audio/mp3';
+        var b64=parts[1]||'';
+        var byteStr=atob(b64);
+        var len=byteStr.length;
+        var arr=new Uint8Array(len);
+        for(var i=0;i<len;i++)arr[i]=byteStr.charCodeAt(i);
+        var blob=new Blob([arr],{type:mime});
+        _ttsBlobUrlCache[id]=URL.createObjectURL(blob);
+        count++;
+      }catch(e){
+        console.log('[TTS-CACHE] Failed to pre-decode voice',id,':',e);
+      }
+    }
+  }
+  console.log('[TTS-CACHE] Pre-decoded '+count+' voices to Blob URLs');
+}
+// Auto-init when DOM is ready
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_initTtsBlobCache,500)});
+}else{
+  setTimeout(_initTtsBlobCache,500);
 }
 function _removeAudioEl(el){
   if(!el)return;
@@ -3594,12 +3644,16 @@ function _previewVoiceSS(id,v){
         pregAudio.onplaying=null;
         pregAudio.onended=null;
         pregAudio.onerror=null;
-        // ===== FIX: Convert base64 data URI to Blob URL for faster loading =====
-        // Data URIs are slow because the browser must parse the entire base64 string
-        // synchronously. Blob URLs are lightweight references that load much faster,
-        // fixing the "other voices take a long time to play" issue.
-        var audioUrl=pregData;
-        if(pregData.indexOf('data:')===0){
+        // ===== FIX: Use pre-decoded Blob URL from cache (zero delay) =====
+        // Pre-decoding happens at page load via _initTtsBlobCache().
+        // If cache not ready yet, convert on-the-fly as fallback.
+        var audioUrl=null;
+        if(_ttsBlobUrlCache[id]){
+          // Cache hit — instant playback, no conversion needed
+          audioUrl=_ttsBlobUrlCache[id];
+          console.log('[PREVIEW] Using cached Blob URL for voice',id);
+        }else if(pregData.indexOf('data:')===0){
+          // Cache miss — convert on-the-fly (slower but works)
           try{
             var parts=pregData.split(',');
             var mimeMatch=parts[0].match(/data:([^;]+)/);
@@ -3610,16 +3664,19 @@ function _previewVoiceSS(id,v){
             var arr=new Uint8Array(len);
             for(var i=0;i<len;i++)arr[i]=byteStr.charCodeAt(i);
             var blob=new Blob([arr],{type:mime});
-            // Revoke previous object URL to prevent memory leak
             if(pregAudio._lastBlobUrl){
               try{URL.revokeObjectURL(pregAudio._lastBlobUrl)}catch(e){}
             }
             audioUrl=URL.createObjectURL(blob);
             pregAudio._lastBlobUrl=audioUrl;
-            console.log('[PREVIEW] Converted base64 to Blob URL, size='+len+' bytes, mime='+mime);
+            _ttsBlobUrlCache[id]=audioUrl; // Cache for next time
+            console.log('[PREVIEW] Converted base64 to Blob URL (cache miss), size='+len+' bytes');
           }catch(convErr){
             console.log('[PREVIEW] Blob conversion failed, using data URI directly:',convErr);
+            audioUrl=pregData;
           }
+        }else{
+          audioUrl=pregData;
         }
         // Set new source — do NOT call load(), changing src auto-triggers load
         // and explicit load() causes delays and can reset the unlocked state
@@ -5375,15 +5432,15 @@ function toggleBgmPlay(id,el){
   var audioUrl=null;
   if(track.custom&&track.file){
     audioUrl=track.file;
-  }else if(track.base64&&typeof BGM_BASE64!=='undefined'&&BGM_BASE64[id]){
-    audioUrl=BGM_BASE64[id];
+  }else if(track.base64){
+    audioUrl=_getBgmUrl(id);
   }
   if(audioUrl){
     _stopBgmPreview();
     try{
       bgmAudioEl=new Audio(audioUrl);
       bgmAudioEl.loop=true;
-      bgmAudioEl.volume=(bgmVol/100)*0.85;
+      bgmAudioEl.volume=Math.min(1.0,(bgmVol/100));
       bgmAudioEl.play().then(function(){
         console.log('[BGM] Track preview started:',track.name);
       }).catch(function(e){
@@ -5428,8 +5485,8 @@ function setBgmVolume(v){
   document.getElementById('bgm-vol-val').textContent=bgmVol;
   document.getElementById('bgm-vol-fill').style.width=bgmVol+'%';
   document.getElementById('bgm-vol-thumb').style.left=bgmVol+'%';
-  if(bgmAudioEl){bgmAudioEl.volume=(bgmVol/100)*0.85}
-  if(_bgmPreviewGain){_bgmPreviewGain.gain.value=(bgmVol/100)*0.85}
+  if(bgmAudioEl){bgmAudioEl.volume=Math.min(1.0,(bgmVol/100))}
+  if(_bgmPreviewGain){_bgmPreviewGain.gain.value=Math.min(1.0,(bgmVol/100))}
 }
 // Pointer-based smooth drag for BGM volume slider
 function initBgmSlider(){
@@ -5644,8 +5701,8 @@ function hideSliderModal(){
     if(bgmVolVal)bgmVolVal.textContent=bgmVol;
     if(bgmVolFill)bgmVolFill.style.width=bgmVol+'%';
     if(bgmVolThumb)bgmVolThumb.style.left=bgmVol+'%';
-    if(bgmAudioEl){bgmAudioEl.volume=(bgmVol/100)*0.85}
-    if(_bgmPreviewGain){_bgmPreviewGain.gain.value=(bgmVol/100)*0.85}
+    if(bgmAudioEl){bgmAudioEl.volume=Math.min(1.0,(bgmVol/100))}
+    if(_bgmPreviewGain){_bgmPreviewGain.gain.value=Math.min(1.0,(bgmVol/100))}
     showToast('背景音乐音量已设为'+val+'%');
   }
   document.getElementById('slider-modal-mask').classList.remove('show');
@@ -9524,13 +9581,17 @@ function _safeSaveWebView(blob,fileName,blobType){
   console.log('[SAVE-SAFE] _safeSaveWebView: blob='+blobMB+'MB, file='+fileName);
   blobType=blobType||blob.type||'video/webm';
 
-  // ===== CRITICAL FIX: NEVER use navigator.share in PakePlus WebView =====
-  // navigator.share with video blobs causes instant crash (OOM) in PakePlus WebView,
-  // regardless of blob size. Always use <a download> approach which is crash-free.
-  // If AndroidMediaStore bridge is available, _saveViaAndroidMediaStore is already
-  // called before this function. This is the FALLBACK when bridge is not available.
-  console.log('[SAVE-SAFE] Using <a download> for blob ('+blobMB+'MB) — navigator.share disabled to prevent crash');
-  _safeDownloadBlob(blob,fileName);
+  // ===== CRITICAL FIX: Use long-press save — the ONLY crash-free method in PakePlus WebView =====
+  // navigator.share crashes WebView (OOM), <a download> can also crash on some devices.
+  // Long-press save shows the video fullscreen and lets user long-press to save via Android
+  // context menu. This is 100% reliable and never crashes.
+  console.log('[SAVE-SAFE] Using long-press save (crash-free fallback)');
+  if(typeof _longPressSave==='function'){
+    _longPressSave(blob,fileName);
+  }else{
+    // Fallback if _longPressSave not available
+    _safeDownloadBlob(blob,fileName);
+  }
 }
 
 // Safe download via <a download> — reuses existing blob URL to avoid memory duplication
@@ -10963,7 +11024,7 @@ async function processVideoWithEffects(videoBlob){
   var actualBgmId=selectedBgm;
   // Create BGM gain node FIRST (before any MediaElementSource fallback)
   var bgmGain=audioCtx.createGain();
-  var effectiveBgmVol=Math.max(bgmVol,30)/100;
+  var effectiveBgmVol=Math.max(bgmVol,60)/100;
   bgmGain.gain.value=effectiveBgmVol;
   bgmGain.connect(dest);
   if(selectedBgm===0){
@@ -10981,8 +11042,8 @@ async function processVideoWithEffects(videoBlob){
     var bgmUrl=null;
     if(bgmTrack.custom&&bgmTrack.file){
       bgmUrl=bgmTrack.file;
-    }else if(bgmTrack.base64&&typeof BGM_BASE64!=='undefined'&&BGM_BASE64[actualBgmId]){
-      bgmUrl=BGM_BASE64[actualBgmId];
+    }else if(bgmTrack.base64){
+      bgmUrl=_getBgmUrl(actualBgmId);
     }
     if(bgmUrl){
       // Load from blob URL or base64 data URI
@@ -12391,14 +12452,14 @@ function playBgmForPreview(){
   var audioUrl=null;
   if(track.custom&&track.file){
     audioUrl=track.file;
-  }else if(track.base64&&typeof BGM_BASE64!=='undefined'&&BGM_BASE64[selectedBgm]){
-    audioUrl=BGM_BASE64[selectedBgm];
+  }else if(track.base64){
+    audioUrl=_getBgmUrl(selectedBgm);
   }
   if(audioUrl){
     try{
       bgmAudioEl=new Audio(audioUrl);
       bgmAudioEl.loop=true;
-      bgmAudioEl.volume=(bgmVol/100)*0.85;
+      bgmAudioEl.volume=Math.min(1.0,(bgmVol/100));
       bgmAudioEl.play().catch(function(e){console.log('[BGM] Preview error:',e)});
       bgmPlayingId=selectedBgm;
     }catch(e){console.log('[BGM] Preview error:',e)}
