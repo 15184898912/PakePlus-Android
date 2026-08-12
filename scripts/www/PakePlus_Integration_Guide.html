@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PakePlus 集成指南 — 修复保存闪退 + 配音音频问题</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans CJK SC',sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6;padding:20px;max-width:960px;margin:0 auto}
+  h1{color:#58a6ff;font-size:1.5em;margin:20px 0 10px;padding-bottom:8px;border-bottom:1px solid #30363d}
+  h2{color:#79c0ff;font-size:1.2em;margin:24px 0 8px}
+  h3{color:#d2a8ff;font-size:1.05em;margin:16px 0 6px}
+  p{margin:8px 0}
+  code{background:#161b22;padding:2px 6px;border-radius:4px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:0.9em;color:#e6edf3}
+  pre{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+  pre code{background:none;padding:0;font-size:0.85em;line-height:1.5}
+  .warn{background:#3d2b00;border:1px solid #9e6a03;border-radius:8px;padding:12px 16px;margin:12px 0}
+  .warn-title{color:#e3b341;font-weight:bold;margin-bottom:4px}
+  .ok{background:#0d2818;border:1px solid #238636;border-radius:8px;padding:12px 16px;margin:12px 0}
+  .ok-title{color:#3fb950;font-weight:bold;margin-bottom:4px}
+  .step{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin:12px 0}
+  .step-num{display:inline-block;background:#1f6feb;color:#fff;width:28px;height:28px;border-radius:50%;text-align:center;line-height:28px;font-weight:bold;margin-right:8px}
+  .file-path{color:#e6edf3;background:#1c2128;padding:4px 8px;border-radius:4px;font-family:monospace;font-size:0.9em;display:inline-block;margin:4px 0}
+  .keyword{color:#ff7b72}
+  .string{color:#a5d6ff}
+  .comment{color:#8b949e}
+  .type{color:#ffa657}
+  ul{margin:8px 0 8px 24px}
+  li{margin:4px 0}
+  .tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:bold;margin-right:4px}
+  .tag-kotlin{background:#7f52ff22;color:#c8a8ff}
+  .tag-xml{background:#e3793322;color:#ffb893}
+  .tag-js{background:#f7df1e22;color:#f7df1e}
+  .tag-json{background:#0000ff22;color:#a5b4ff}
+</style>
+</head>
+<body>
+
+<h1>PakePlus 集成指南</h1>
+<p>修复 <strong>保存视频到相册闪退</strong> + <strong>配音只有一个有声音</strong> 两大问题</p>
+<p>目标设备：Redmi K80 Ultra (澎湃OS 3.0, Android 14/15)</p>
+
+<div class="warn">
+  <div class="warn-title">⚠️ 核心问题诊断</div>
+  <p>之前的修复无效，原因是：<strong>Java 文件包名错误</strong>。PakePlus 的包名是 <code>com.app.pakeplus</code>，不是 <code>com.zsag.ai</code>。错误的包名导致 Kotlin 代码无法编译，<code>window.AndroidMediaStore</code> 桥梁从未注册成功。</p>
+  <p>因此 JS 代码中的 <code>if(typeof window.AndroidMediaStore!=='undefined')</code> 检测始终为 false，保存流程走了 <code>&lt;a download&gt;</code> 降级路径——这对大视频会导致 WebView 内存溢出闪退。</p>
+</div>
+
+<h1>文件清单</h1>
+<p>以下文件需要放入你的 PakePlus 项目（你的 GitHub fork 仓库）中：</p>
+
+<div class="step">
+  <p><span class="step-num">1</span><strong>新增</strong> <span class="tag tag-kotlin">Kotlin</span></p>
+  <span class="file-path">app/src/main/java/com/app/pakeplus/MediaStoreSaver.kt</span>
+  <p>已生成在当前工作目录的 <code>android/app/src/main/java/com/app/pakeplus/MediaStoreSaver.kt</code></p>
+  <p>功能：使用 MediaStore API 保存视频/图片到系统相册，支持小文件（base64直传）和大文件（2MB分块传输）</p>
+</div>
+
+<div class="step">
+  <p><span class="step-num">2</span><strong>替换</strong> <span class="tag tag-xml">XML</span></p>
+  <span class="file-path">app/src/main/AndroidManifest.xml</span>
+  <p>已生成在当前工作目录的 <code>AndroidManifest.xml</code></p>
+  <p>权限：READ_MEDIA_VIDEO, READ_MEDIA_IMAGES, READ_MEDIA_AUDIO (Android 13+), WRITE_EXTERNAL_STORAGE maxSdkVersion=28</p>
+</div>
+
+<div class="step">
+  <p><span class="step-num">3</span><strong>替换</strong> <span class="tag tag-json">JSON</span></p>
+  <span class="file-path">app/src/main/assets/app.json</span>
+  <p>已生成在当前工作目录的 <code>app.json</code></p>
+  <p>关键配置：<code>"download": true, "gallery": true, "camera": true, "microphone": true</code></p>
+</div>
+
+<div class="step">
+  <p><span class="step-num">4</span><strong>修改</strong> <span class="tag tag-kotlin">Kotlin</span></p>
+  <span class="file-path">app/src/main/java/com/app/pakeplus/MainActivity.kt</span>
+  <p>需要在现有文件中添加代码（见下方步骤）</p>
+</div>
+
+<div class="step">
+  <p><span class="step-num">5</span><strong>已修改</strong> <span class="tag tag-js">JS</span></p>
+  <span class="file-path">app/src/main/assets/index.html (或你的 web 应用 HTML)</span>
+  <p>已修改完成：新增分块传输函数 <code>_saveViaMediaStoreChunked</code>，大文件(≥20MB)自动使用分块模式</p>
+</div>
+
+<h1>MainActivity.kt 修改步骤</h1>
+
+<h2>步骤 A：添加 import</h2>
+<p>在 MainActivity.kt 文件顶部的 import 区域添加：</p>
+<pre><code><span class="keyword">import</span> android.webkit.JavascriptInterface
+<span class="keyword">import</span> android.provider.MediaStore
+<span class="keyword">import</span> android.content.ContentValues
+<span class="keyword">import</span> android.os.Environment
+<span class="keyword">import</span> android.util.Base64
+<span class="keyword">import</span> java.io.File
+<span class="keyword">import</span> java.io.FileOutputStream</code></pre>
+
+<h2>步骤 B：声明 MediaStoreSaver 变量</h2>
+<p>在 MainActivity 类的成员变量区域添加：</p>
+<pre><code><span class="keyword">class</span> <span class="type">MainActivity</span> : AppCompatActivity() {
+    <span class="comment">// ... 已有的变量 ...</span>
+    <span class="keyword">private</span> <span class="keyword">lateinit var</span> mediaStoreSaver: MediaStoreSaver  <span class="comment">// ← 添加这行</span></code></pre>
+
+<h2>步骤 C：在 onCreate 中初始化</h2>
+<p>在 <code>onCreate()</code> 方法中，WebView 创建之后添加：</p>
+<pre><code><span class="keyword">override fun</span> onCreate(savedInstanceState: Bundle?) {
+    <span class="keyword">super</span>.onCreate(savedInstanceState)
+    <span class="comment">// ... 已有的代码 ...</span>
+
+    <span class="comment">// ===== 初始化 MediaStoreSaver =====</span>
+    mediaStoreSaver = MediaStoreSaver(<span class="keyword">this</span>)  <span class="comment">// ← 添加这行</span>
+
+    <span class="comment">// ... WebView 初始化代码 ...</span>
+}</code></pre>
+
+<h2>步骤 D：配置 WebView（关键修改）</h2>
+<p>找到 WebView 的 Settings 配置代码（通常在 <code>initWebView()</code> 或 <code>setupWebView()</code> 方法中），添加两行关键代码：</p>
+<pre><code><span class="keyword">private fun</span> initWebView(webView: WebView) {
+    <span class="keyword">val</span> settings = webView.settings
+
+    <span class="comment">// ===== 关键修复 1: 允许无用户手势播放媒体 =====</span>
+    <span class="comment">// 解决"配音只有一个有声音"的问题</span>
+    <span class="comment">// WebView 默认 mediaPlaybackRequiresUserGesture=true，</span>
+    <span class="comment">// 导致第一次点击后后续 audio.play() 被阻止</span>
+    settings.mediaPlaybackRequiresUserGesture = <span class="keyword">false</span>  <span class="comment">// ← 添加这行</span>
+
+    <span class="comment">// ... 已有的 settings 配置 ...</span>
+    settings.javaScriptEnabled = <span class="keyword">true</span>
+    settings.domStorageEnabled = <span class="keyword">true</span>
+    <span class="comment">// ...</span>
+
+    <span class="comment">// ===== 关键修复 2: 注册 MediaStore JavascriptInterface =====</span>
+    <span class="comment">// JavaScript 通过 window.AndroidMediaStore.saveVideo() 调用原生 MediaStore API</span>
+    <span class="comment">// 这是 Android 13+ 保存到相册的唯一稳定方案</span>
+    webView.addJavascriptInterface(mediaStoreSaver, <span class="string">"AndroidMediaStore"</span>)  <span class="comment">// ← 添加这行</span>
+
+    <span class="comment">// ... 已有的 WebViewClient / WebChromeClient 配置 ...</span>
+}</code></pre>
+
+<div class="ok">
+  <div class="ok-title">✅ 验证方法</div>
+  <p>修改完成后，在 JS 控制台输入 <code>typeof window.AndroidMediaStore</code>，应返回 <code>"object"</code> 而非 <code>"undefined"</code>。</p>
+  <p>输入 <code>typeof window.AndroidMediaStore.saveVideo</code>，应返回 <code>"function"</code>。</p>
+</div>
+
+<h1>保存流程说明</h1>
+
+<h2>小文件（< 20MB）— 直接 base64 传输</h2>
+<pre><code>JS: FileReader.readAsDataURL(blob) → base64 字符串
+  → window.AndroidMediaStore.saveVideo(base64, fileName)
+Kotlin: Base64.decode → ContentResolver.insert(MediaStore.Video) → OutputStream.write</code></pre>
+
+<h2>大文件（≥ 20MB）— 分块传输（防 OOM）</h2>
+<pre><code>JS: blob.slice(0, 2MB) → base64 → appendChunk(sessionId, chunk1)
+    blob.slice(2MB, 4MB) → base64 → appendChunk(sessionId, chunk2)
+    ...
+    finalizeChunkedSave(sessionId)
+Kotlin: 每个 chunk 追加写入 cacheDir 临时文件
+        → finalizeChunkedSave: 临时文件 → ContentResolver → MediaStore → 删除临时文件</code></pre>
+
+<h2>超大文件（> 200MB）— 降级下载</h2>
+<pre><code>JS: &lt;a download&gt; → 保存到 Downloads 文件夹（非相册）</code></pre>
+
+<h1>音频问题修复说明</h1>
+
+<h2>根本原因</h2>
+<p>Android WebView 默认 <code>mediaPlaybackRequiresUserGesture = true</code>。这意味着：</p>
+<ul>
+  <li>第一次点击试听配音 → 有声音（因为点击就是 user gesture）</li>
+  <li>后续点击试听其他配音 → 无声音（如果 play() 不在用户手势的同步调用栈中）</li>
+</ul>
+<p>特别是在 <code>_previewVoiceSS</code> 中，预生成音频的 <code>play()</code> 调用可能在异步回调中执行（如 FileReader.onload 后），此时已脱离用户手势上下文。</p>
+
+<h2>修复方案</h2>
+<p>在 MainActivity.kt 中设置 <code>settings.mediaPlaybackRequiresUserGesture = false</code>（见上方步骤 D）。</p>
+<p>JS 侧已使用 <code>_createHiddenAudio()</code> 创建 DOM 挂载的 audio 元素，配合此设置即可正常播放多个音频。</p>
+
+<h1>PakePlus app.json 说明</h1>
+<p>PakePlus 的 <code>app.json</code> 不支持 <code>"permissions"</code> 字段（这不是 PakePlus 的标准格式）。权限由 <code>AndroidManifest.xml</code> 控制。app.json 中的字段是功能开关：</p>
+<table style="width:100%;border-collapse:collapse;margin:12px 0">
+  <tr style="background:#21262d">
+    <th style="padding:8px;text-align:left;border:1px solid #30363d">字段</th>
+    <th style="padding:8px;text-align:left;border:1px solid #30363d">值</th>
+    <th style="padding:8px;text-align:left;border:1px solid #30363d">说明</th>
+  </tr>
+  <tr><td style="padding:8px;border:1px solid #30363d"><code>download</code></td><td style="padding:8px;border:1px solid #30363d"><code>true</code></td><td style="padding:8px;border:1px solid #30363d">启用下载功能</td></tr>
+  <tr><td style="padding:8px;border:1px solid #30363d"><code>gallery</code></td><td style="padding:8px;border:1px solid #30363d"><code>true</code></td><td style="padding:8px;border:1px solid #30363d">启用相册访问</td></tr>
+  <tr><td style="padding:8px;border:1px solid #30363d"><code>camera</code></td><td style="padding:8px;border:1px solid #30363d"><code>true</code></td><td style="padding:8px;border:1px solid #30363d">启用摄像头（getUserMedia）</td></tr>
+  <tr><td style="padding:8px;border:1px solid #30363d"><code>microphone</code></td><td style="padding:8px;border:1px solid #30363d"><code>true</code></td><td style="padding:8px;border:1px solid #30363d">启用麦克风（录音）</td></tr>
+</table>
+
+<div class="warn">
+  <div class="warn-title">⚠️ 注意事项</div>
+  <ul>
+    <li>PakePlus 通过 GitHub Actions 云端编译，修改代码后需要 push 到你的 fork 仓库触发编译</li>
+    <li>MediaStoreSaver.kt 必须放在 <code>app/src/main/java/com/app/pakeplus/</code> 目录下（包名必须匹配）</li>
+    <li>如果 PakePlus 的包名不同（检查 <code>app/build.gradle.kts</code> 中的 <code>applicationId</code>），需要相应修改 MediaStoreSaver.kt 的 package 声明</li>
+    <li>修改 MainActivity.kt 时，不要删除已有代码，只添加新代码</li>
+  </ul>
+</div>
+
+</body>
+</html>
