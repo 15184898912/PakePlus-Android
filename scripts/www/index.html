@@ -3450,22 +3450,15 @@ async function _speakTextViaFetch(text,token){
 }
 // speechSynthesis fallback for voice preview
 function _previewVoiceSS(id,v){
-  // ALWAYS try native Android TTS first (best option on mobile, offline, no CORS)
-  if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
-    console.log('[PREVIEW] Using Android native TTS for voice preview');
-    showToast('试听(设备语音): '+v.name);
-    currentVoiceUtter={_voiceId:id,_androidTTS:true};
-    renderVoices();
-    return;
-  }
-  // ===== PRIORITY: Use pre-generated TTS audio (like BGM approach, works offline in WebView) =====
+  // ===== PRIORITY 1: Pre-generated TTS audio (unique per voice, offline) =====
+  // Must try BEFORE Android TTS — pre-generated audio has distinct voice
+  // characteristics per voice id. Android TTS sounds the same for ALL voices.
   if(typeof _getPregeneratedTts==='function'){
     var pregData=_getPregeneratedTts(id);
     console.log('[PREVIEW] Pre-generated TTS check: voice',id,'data exists:',!!pregData,'TTS_PREGENERATED available:',typeof TTS_PREGENERATED!=='undefined');
     if(pregData){
       console.log('[PREVIEW] Using pre-generated TTS audio for voice',id);
       try{
-        // Stop any existing preview audio
         stopAllAudio();
         var pregAudio=new Audio(pregData);
         pregAudio.volume=voiceVol/100;
@@ -3486,17 +3479,40 @@ function _previewVoiceSS(id,v){
             renderVoices();
           }
         },{once:true});
+        // If pre-generated audio fails, try Android TTS, then speechSynthesis
         pregAudio.addEventListener('error',function(){
           _voicePlaying=false;
-          console.log('[PREVIEW] Pre-generated audio failed, trying speechSynthesis');
+          console.log('[PREVIEW] Pre-generated audio failed, trying Android TTS');
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
             currentVoiceUtter=null;
             renderVoices();
           }
+          _removeAudioEl(pregAudio);
+          // Try Android TTS as second resort
+          if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
+            console.log('[PREVIEW] Using Android native TTS (pre-gen failed)');
+            showToast('试听(设备语音): '+v.name);
+            currentVoiceUtter={_voiceId:id,_androidTTS:true};
+            renderVoices();
+            return;
+          }
+          // Last resort: speechSynthesis
           _previewVoiceSSFallback(id,v);
         },{once:true});
         pregAudio.play().catch(function(e){
-          console.log('[PREVIEW] Pre-generated play() failed, trying speechSynthesis:',e);
+          console.log('[PREVIEW] Pre-generated play() failed, trying Android TTS:',e);
+          _removeAudioEl(pregAudio);
+          if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
+            currentVoiceUtter=null;
+            renderVoices();
+          }
+          if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
+            console.log('[PREVIEW] Using Android native TTS (pre-gen play failed)');
+            showToast('试听(设备语音): '+v.name);
+            currentVoiceUtter={_voiceId:id,_androidTTS:true};
+            renderVoices();
+            return;
+          }
           _previewVoiceSSFallback(id,v);
         });
         return;
@@ -3505,6 +3521,15 @@ function _previewVoiceSS(id,v){
       }
     }
   }
+  // ===== PRIORITY 2: Native Android TTS (offline, but same voice for all) =====
+  if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
+    console.log('[PREVIEW] Using Android native TTS for voice preview');
+    showToast('试听(设备语音): '+v.name);
+    currentVoiceUtter={_voiceId:id,_androidTTS:true};
+    renderVoices();
+    return;
+  }
+  // ===== PRIORITY 3: speechSynthesis fallback =====
   _previewVoiceSSFallback(id,v);
 }
 function _previewVoiceSSFallback(id,v){
@@ -4065,20 +4090,18 @@ function speakText(text,opts){
   }
 
   // ===== PATH SELECTION based on server availability =====
-  // ===== WEBVIEW: Try pre-generated audio first, then speechSynthesis =====
-  if(_isWebView()&&!_hasPlusAPI()){
-    // Try pre-generated TTS audio for known prompt texts
+  // ===== Try pre-generated audio first (ALL environments including HBuilderX) =====
+  // This ensures template rewrite prompts have voice even when Android TTS fails
+  {
     var promptKey=_matchPregeneratedPrompt(text);
-    console.log('[speakText] WebView: promptKey=',promptKey,'TTS_PREGENERATED available:',typeof TTS_PREGENERATED!=='undefined');
+    console.log('[speakText] promptKey=',promptKey,'TTS_PREGENERATED available:',typeof TTS_PREGENERATED!=='undefined');
     if(promptKey&&typeof _playPregeneratedPrompt==='function'){
-      console.log('[speakText] WebView: Using pre-generated audio for prompt:',promptKey);
+      console.log('[speakText] Using pre-generated audio for prompt:',promptKey);
       _voicePlaying=true;
       var pgAudio=_playPregeneratedPrompt(promptKey);
       if(pgAudio){
-        // CRITICAL: Track pgAudio in _speakTextAudios so stopAllAudio() can stop it
-        // Without this, stopAllAudio() cannot stop pre-generated audio → duplicate voices
         _speakTextAudios.push(pgAudio);
-        var _pgHandled=false; // Prevent duplicate error/ended handling
+        var _pgHandled=false;
         pgAudio.addEventListener('ended',function(){
           if(_pgHandled)return;_pgHandled=true;
           _voicePlaying=false;
@@ -4086,18 +4109,19 @@ function speakText(text,opts){
         pgAudio.addEventListener('error',function(){
           if(_pgHandled)return;_pgHandled=true;
           _voicePlaying=false;
-          // CRITICAL: Remove the failed audio and cancel speechSynthesis BEFORE fallback
-          // This prevents two voices playing simultaneously (pre-gen + speechSynthesis)
           _removeAudioEl(pgAudio);
           var pgIdx=_speakTextAudios.indexOf(pgAudio);
           if(pgIdx>=0)_speakTextAudios.splice(pgIdx,1);
           if(typeof speechSynthesis!=='undefined'){try{speechSynthesis.cancel()}catch(e){}}
-          console.log('[speakText] Pre-generated prompt failed, falling back to speechSynthesis');
-          _speakTextFallback(text,opts,myToken);
+          console.log('[speakText] Pre-generated prompt failed, falling back to external APIs');
+          _speakTextBaiduDirect(text,myToken);
         },{once:true});
         return;
       }
     }
+  }
+  // ===== WebView without plus: use speechSynthesis fallback =====
+  if(_isWebView()&&!_hasPlusAPI()){
     console.log('[speakText] WebView: No pre-generated match, using speechSynthesis');
     _speakTextFallback(text,opts,myToken);
     return;
@@ -7849,17 +7873,17 @@ function _saveToAlbumPlus(blob,fileName,title){
   // Handles Android 10+ via MediaStore. Requires plus.android (packaged APK).
   // ============================================================
   var hasPlusAndroid=_hasPlusAPI()&&window.plus&&window.plus.android;
-  // ===== CRASH FIX: Skip base64 + Java reflection for large files =====
-  // Strategy 1 uses FileReader.readAsDataURL + plus.android Base64.decode via
-  // Java reflection. For large videos this causes a native-layer OOM that
-  // kills the app instantly (no JS catch can trap it). Jump straight to
-  // Strategy 2b (chunked FileWriter + plus.gallery.save) for big blobs.
-  if(hasPlusAndroid&&blob.size<=8*1024*1024){
-    console.log('[SAVE] Strategy 1: Base64 + Java I/O → DCIM/Camera (blob '+(blob.size/1048576).toFixed(1)+'MB)');
+  // ===== CRASH FIX: Use chunked Base64 + Java I/O for ALL file sizes =====
+  // _saveViaBase64JavaIO processes in 5MB chunks via FileReader.readAsDataURL +
+  // Java FileOutputStream, preventing OOM even for 100MB+ videos.
+  // Previous 8MB threshold caused large videos to fall through to
+  // FileWriter.write(blob) which crashes the WebView instantly.
+  if(hasPlusAndroid){
+    console.log('[SAVE] Strategy 1: Chunked Base64 + Java I/O → DCIM/Camera (blob '+(blob.size/1048576).toFixed(1)+'MB)');
     _checkAndRequestStoragePermission(function(granted){
       if(!granted){
         console.warn('[SAVE] Strategy 1: Storage permission denied, trying next strategy');
-        _tryStrategy2();
+        _tryStrategy2b();
         return;
       }
       _saveViaBase64JavaIO(blob,title,function(result){
@@ -7867,12 +7891,12 @@ function _saveToAlbumPlus(blob,fileName,title){
         _ok('base64-java-io: '+result);
       },function(failMsg1){
         console.warn('[SAVE] Strategy 1 failed:',failMsg1);
-        _tryStrategy2();
+        _tryStrategy2b();
       });
     });
   }else{
-    console.log('[SAVE] Strategy 1 skipped ('+(hasPlusAndroid?('blob '+(blob.size/1048576).toFixed(1)+'MB > 8MB'):'no plus.android')+'), trying Strategy 2');
-    _tryStrategy2();
+    console.log('[SAVE] Strategy 1 skipped (no plus.android), trying chunked write directly');
+    _tryStrategy2b();
   }
 
   // ============================================================
@@ -7883,24 +7907,11 @@ function _saveToAlbumPlus(blob,fileName,title){
   // and go directly to Strategy 2b (chunked FileWriter).
   // ============================================================
   function _tryStrategy2(){
-    // For large files, _writeDirect's writer.write(blob) will throw an exception
-    // because HBuilderX FileWriter cannot handle large blobs in a single write().
-    // Skip directly to chunked writing to save ~13s of wasted fallback attempts.
-    if(blob.size>20*1024*1024){
-      console.log('[SAVE] Strategy 2: blob > 20MB ('+(blob.size/1024/1024).toFixed(1)+'MB), skipping _writeDirect, using chunked write directly');
-      _tryStrategy2b();
-      return;
-    }
-    console.log('[SAVE] Strategy 2: FileWriter + gallery.save (blob '+(blob.size/1024/1024).toFixed(1)+'MB)');
-    showToast('正在保存到相册...');
-
-    _saveToAlbumPlusGalleryOriginal(blob,fileName,title,function(okMsg){
-      console.log('[SAVE] Strategy 2 ✅',okMsg);
-      _ok(okMsg);
-    },function(failMsg2){
-      console.warn('[SAVE] Strategy 2 failed:',failMsg2);
-      _tryStrategy2b();
-    });
+    // CRASH FIX: Always use chunked write — writer.write(blob) crashes WebView
+    // for blobs of ANY size in HBuilderX debug base. The chunked approach
+    // (2MB slices via blob.slice()) is the only safe FileWriter method.
+    console.log('[SAVE] Strategy 2: Skipping direct write (crash-prone), using chunked write directly');
+    _tryStrategy2b();
   }
 
   // ============================================================
