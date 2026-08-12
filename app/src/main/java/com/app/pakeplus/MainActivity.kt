@@ -261,6 +261,10 @@ class MainActivity : AppCompatActivity() {
         // 为 blob: 链接下载注入 JS 接口
         webView.addJavascriptInterface(JsInterface(this), "JsBridge")
 
+        // ===== 关键修复：注册 MediaStore 桥，让 JS 能调用原生 API 保存视频到相册 =====
+        // 没有这行，window.AndroidMediaStore 始终为 undefined，保存视频会闪退
+        webView.addJavascriptInterface(MediaStoreSaver(this), "AndroidMediaStore")
+
         // inject js
         webView.webViewClient = MyWebViewClient(debug)
 
@@ -676,7 +680,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 判断一个 URL 是否是“常见文件类型”，用于自动触发下载
+     * 判断一个 URL 是否是"常见文件类型"，用于自动触发下载
      */
     private fun isDownloadableFileUrl(url: String): Boolean {
         val checkUrl = url.substringBefore("?").substringBefore("#").lowercase()
@@ -729,7 +733,7 @@ class MainActivity : AppCompatActivity() {
                     showTopToast(this@MainActivity, "已禁用拨打电话功能", Toast.LENGTH_SHORT)
                     return true
                 }
-                // Android 11+ 上 resolveActivity 可能因“包可见性”返回 null，即使系统存在拨号器；
+                // Android 11+ 上 resolveActivity 可能因"包可见性"返回 null，即使系统存在拨号器；
                 // 这里直接尝试启动并捕获异常更可靠。
                 return try {
                     val intent = Intent(Intent.ACTION_DIAL, fixedUrl.toUri())
@@ -796,7 +800,7 @@ class MainActivity : AppCompatActivity() {
                 // 如果是 Intent 但无法处理，继续执行下面的 Scheme 检查
             }
 
-            // 3. 检查是否是其他自定义 Scheme (e.g., weixin://, zhihu://, mailto://, sms://)
+            // 3. 检查是否是其他自定义 scheme (e.g., weixin://, zhihu://, mailto://, sms://)
             return try {
                 val intent = Intent(Intent.ACTION_VIEW, fixedUrl.toUri())
                 val pm = view?.context?.packageManager
