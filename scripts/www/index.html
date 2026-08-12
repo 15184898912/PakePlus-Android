@@ -2815,6 +2815,9 @@ var _speechSynthesisRetryCount=0; // Track retries for voice loading
 // Preview token: incremented each time a new preview starts.
 // When async fetch resolves, only play audio if token matches (prevents overlapping).
 var _previewToken=0;
+// Separate save token — MUST NOT share with _previewToken, otherwise voice preview
+// clicks will cancel in-progress video saves (and vice versa).
+var _saveToken=0;
 // Track all active Audio elements so we can stop them before starting a new preview
 var _activePreviewAudios=[];
 // Track all parallel speakText Audio elements (for stopAllAudio)
@@ -2831,7 +2834,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='4.0 (bridge-diagnostic + audio-load-fix)';
+var _FIX_VERSION='5.0 (remove-navshare + save-token + blob-url-audio)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -3591,22 +3594,68 @@ function _previewVoiceSS(id,v){
         pregAudio.onplaying=null;
         pregAudio.onended=null;
         pregAudio.onerror=null;
-        // Set new source and properties
-        pregAudio.src=pregData;
-        try{pregAudio.load()}catch(e){} // Force reload new src — fixes "second voice silent" in WebView
+        // ===== FIX: Convert base64 data URI to Blob URL for faster loading =====
+        // Data URIs are slow because the browser must parse the entire base64 string
+        // synchronously. Blob URLs are lightweight references that load much faster,
+        // fixing the "other voices take a long time to play" issue.
+        var audioUrl=pregData;
+        if(pregData.indexOf('data:')===0){
+          try{
+            var parts=pregData.split(',');
+            var mimeMatch=parts[0].match(/data:([^;]+)/);
+            var mime=mimeMatch?mimeMatch[1]:'audio/mp3';
+            var b64=parts[1]||'';
+            var byteStr=atob(b64);
+            var len=byteStr.length;
+            var arr=new Uint8Array(len);
+            for(var i=0;i<len;i++)arr[i]=byteStr.charCodeAt(i);
+            var blob=new Blob([arr],{type:mime});
+            // Revoke previous object URL to prevent memory leak
+            if(pregAudio._lastBlobUrl){
+              try{URL.revokeObjectURL(pregAudio._lastBlobUrl)}catch(e){}
+            }
+            audioUrl=URL.createObjectURL(blob);
+            pregAudio._lastBlobUrl=audioUrl;
+            console.log('[PREVIEW] Converted base64 to Blob URL, size='+len+' bytes, mime='+mime);
+          }catch(convErr){
+            console.log('[PREVIEW] Blob conversion failed, using data URI directly:',convErr);
+          }
+        }
+        // Set new source — do NOT call load(), changing src auto-triggers load
+        // and explicit load() causes delays and can reset the unlocked state
+        pregAudio.src=audioUrl;
         pregAudio.volume=voiceVol/100;
         var speedMul=(voiceSpeed/100)*0.6+0.7;
         pregAudio.playbackRate=Math.max(0.7,Math.min(1.5,(v.rate||1.0)*speedMul));
-        pregAudio.currentTime=0;
+        try{pregAudio.currentTime=0}catch(e){}
         _activePreviewAudios=[]; // Shared element is handled separately in stopAllAudio
         currentVoiceUtter={_voiceId:id,_pregAudio:pregAudio};
         renderVoices();
         showToast('试听: '+v.name);
+        // ===== FIX: Play timeout — if audio doesn't start in 3s, fall back =====
+        // This prevents the "takes forever then stops" issue
+        var playTimeout=setTimeout(function(){
+          if(!_voicePlaying&&currentVoiceUtter&&currentVoiceUtter._voiceId===id){
+            console.log('[PREVIEW] Play timeout (3s), falling back to Android TTS');
+            try{pregAudio.pause()}catch(e){}
+            currentVoiceUtter=null;
+            renderVoices();
+            if(_tryPlusSpeech(PREVIEW_TEXT,{volume:voiceVol/100})){
+              showToast('试听(设备语音): '+v.name);
+              currentVoiceUtter={_voiceId:id,_androidTTS:true};
+              renderVoices();
+            }else{
+              _previewVoiceSSFallback(id,v);
+            }
+          }
+        },3000);
         pregAudio.onplaying=function(){
+          clearTimeout(playTimeout);
           _voicePlaying=true;
           console.log('[PREVIEW] Pre-generated audio playing for voice',id);
         };
         pregAudio.onended=function(){
+          clearTimeout(playTimeout);
           _voicePlaying=false;
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
             currentVoiceUtter=null;
@@ -3615,6 +3664,7 @@ function _previewVoiceSS(id,v){
         };
         // If pre-generated audio fails, try Android TTS, then speechSynthesis
         pregAudio.onerror=function(){
+          clearTimeout(playTimeout);
           _voicePlaying=false;
           console.log('[PREVIEW] Pre-generated audio error, trying fallback');
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
@@ -3632,6 +3682,7 @@ function _previewVoiceSS(id,v){
           _previewVoiceSSFallback(id,v);
         };
         pregAudio.play().catch(function(e){
+          clearTimeout(playTimeout);
           console.log('[PREVIEW] Pre-generated play() failed, trying fallback:',e);
           if(currentVoiceUtter&&currentVoiceUtter._voiceId===id){
             currentVoiceUtter=null;
@@ -9473,30 +9524,13 @@ function _safeSaveWebView(blob,fileName,blobType){
   console.log('[SAVE-SAFE] _safeSaveWebView: blob='+blobMB+'MB, file='+fileName);
   blobType=blobType||blob.type||'video/webm';
 
-  // For small blobs (≤15MB): try navigator.share — user can save to gallery
-  if(navigator.share&&blob.size<=15*1048576){
-    console.log('[SAVE-SAFE] Small blob ('+blobMB+'MB), trying navigator.share');
-    try{
-      var shareFile=new File([blob],fileName,{type:blobType});
-      navigator.share({files:[shareFile],title:'AI智能成片'}).then(function(){
-        console.log('[SAVE-SAFE] navigator.share success');
-        showToast('✅ 视频已保存');
-        _resetSaveButton();
-      }).catch(function(e){
-        if(e.name!=='AbortError'){
-          console.log('[SAVE-SAFE] Share failed, falling back to download:',e);
-        }
-        _safeDownloadBlob(blob,fileName);
-      });
-    }catch(e){
-      console.error('[SAVE-SAFE] Share crashed, using download:',e);
-      _safeDownloadBlob(blob,fileName);
-    }
-  }else{
-    // Large blob (>15MB) or no share API: use <a download> — NO crash
-    console.log('[SAVE-SAFE] Using <a download> for blob ('+blobMB+'MB)');
-    _safeDownloadBlob(blob,fileName);
-  }
+  // ===== CRITICAL FIX: NEVER use navigator.share in PakePlus WebView =====
+  // navigator.share with video blobs causes instant crash (OOM) in PakePlus WebView,
+  // regardless of blob size. Always use <a download> approach which is crash-free.
+  // If AndroidMediaStore bridge is available, _saveViaAndroidMediaStore is already
+  // called before this function. This is the FALLBACK when bridge is not available.
+  console.log('[SAVE-SAFE] Using <a download> for blob ('+blobMB+'MB) — navigator.share disabled to prevent crash');
+  _safeDownloadBlob(blob,fileName);
 }
 
 // Safe download via <a download> — reuses existing blob URL to avoid memory duplication
@@ -9568,12 +9602,12 @@ function _saveViaAndroidMediaStore(blob,fileName,ext){
 
   // For small blobs (< 20MB), use simple base64 approach
   showToast('正在保存到相册...');
-  var saveToken=++_previewToken;
+  var saveToken=++_saveToken;
 
   try{
     var reader=new FileReader();
     reader.onload=function(){
-      if(saveToken!==_previewToken)return;
+      if(saveToken!==_saveToken)return;
       try{
         var dataUrl=reader.result;
         if(!dataUrl||typeof dataUrl!=='string'){
@@ -9630,7 +9664,7 @@ function _saveViaMediaStoreChunked(blob,fileName,mimeType){
   var blobMB=blob.size/1048576;
   var CHUNK_SIZE=2*1024*1024; // 2MB per chunk — matches Kotlin CHUNK_SIZE
   var totalChunks=Math.ceil(blob.size/CHUNK_SIZE);
-  var saveToken=++_previewToken;
+  var saveToken=++_saveToken;
   var sessionId='';
   var chunkIndex=0;
 
@@ -9656,7 +9690,7 @@ function _saveViaMediaStoreChunked(blob,fileName,mimeType){
 
   // Step 2: Process chunks sequentially
   function _processNextChunk(){
-    if(saveToken!==_previewToken){
+    if(saveToken!==_saveToken){
       console.warn('[SAVE-MS-CHUNK] Cancelled by token mismatch');
       try{window.AndroidMediaStore.cancelChunkedSave(sessionId)}catch(e){}
       _resetSaveButton();
@@ -9675,7 +9709,7 @@ function _saveViaMediaStoreChunked(blob,fileName,mimeType){
 
     var reader=new FileReader();
     reader.onload=function(){
-      if(saveToken!==_previewToken)return;
+      if(saveToken!==_saveToken)return;
       try{
         var dataUrl=reader.result;
         var commaIdx=dataUrl.indexOf(',');
@@ -9723,7 +9757,7 @@ function _saveViaMediaStoreChunked(blob,fileName,mimeType){
 
   // Step 3: Finalize — write temp file to MediaStore system gallery
   function _finalizeChunkedSave(){
-    if(saveToken!==_previewToken)return;
+    if(saveToken!==_saveToken)return;
     console.log('[SAVE-MS-CHUNK] Finalizing save...');
     showToast('正在写入相册...');
     try{
