@@ -4063,17 +4063,35 @@ function speakText(text,opts){
           console.log('[speakText] TTS became ready within timeout, no fallback needed');
           return;
         }
-        console.warn('[speakText] TTS init timeout (8s), falling back to external APIs');
-        _voicePlaying=false; // Reset so external API path can work
+        console.warn('[speakText] TTS init timeout (8s), trying pre-generated audio first');
+        _voicePlaying=false; // Reset so fallback path can work
         // Remove this text from the queue
         for(var qi=_androidTTSQueue.length-1;qi>=0;qi--){
           if(_androidTTSQueue[qi].text===text){
             _androidTTSQueue.splice(qi,1);
-            console.log('[speakText] Removed queued text, falling through to external APIs');
+            console.log('[speakText] Removed queued text from TTS queue');
             break;
           }
         }
-        // Now try external API path
+        // Try pre-generated audio FIRST (works offline, no CORS issues)
+        var fallbackPromptKey=_matchPregeneratedPrompt(text);
+        if(fallbackPromptKey&&typeof _playPregeneratedPrompt==='function'){
+          console.log('[speakText] TTS timeout: using pre-generated audio for:',fallbackPromptKey);
+          var fbAudio=_playPregeneratedPrompt(fallbackPromptKey);
+          if(fbAudio){
+            _speakTextAudios.push(fbAudio);
+            _voicePlaying=true;
+            fbAudio.addEventListener('ended',function(){_voicePlaying=false},{once:true});
+            fbAudio.addEventListener('error',function(){
+              _voicePlaying=false;
+              console.log('[speakText] Pre-generated fallback also failed, trying external APIs');
+              _speakTextBaiduDirect(text,myToken);
+            },{once:true});
+            return; // Pre-generated audio is playing
+          }
+        }
+        // No pre-generated match — try external API path
+        console.log('[speakText] No pre-generated match, trying external APIs');
         if(_serverAvailable===true){
           var ttsUrl2=apiUrl('/api/tts?text='+encodedText+'&voice=1&rate=100&pitch=1.0');
           _speakTtsAudio=_createHiddenAudio(ttsUrl2);
@@ -7868,6 +7886,57 @@ function _saveToAlbumPlus(blob,fileName,title){
   showToast('正在保存到相册...');
 
   // ============================================================
+  // Strategy 0: navigator.share with files (SAFEST — no file I/O, no crash)
+  // Opens Android system share sheet which includes "Save to gallery".
+  // Delegates everything to the OS, bypassing WebView FileWriter entirely.
+  // This is the KEY fix: all other strategies use FileWriter.write(blob)
+  // or FileReader.readAsDataURL which can crash the WebView.
+  // ============================================================
+  if(navigator&&navigator.share&&typeof File!=='undefined'){
+    var ext0='.webm';
+    if(blob.type&&blob.type.indexOf('mp4')>=0)ext0='.mp4';
+    else if(blob.type&&blob.type.indexOf('quicktime')>=0)ext0='.mov';
+    var shareName0='zhuge_'+Date.now()+ext0;
+    try{
+      var shareFile0=new File([blob],shareName0,{type:blob.type||'video/webm'});
+      var canShare0=true;
+      if(navigator.canShare){
+        canShare0=navigator.canShare({files:[shareFile0]});
+      }
+      if(canShare0){
+        console.log('[SAVE] Strategy 0: navigator.share with files (safest path, no file I/O)');
+        showToast('正在打开分享面板...');
+        navigator.share({
+          files:[shareFile0],
+          title:title||'AI智能成片',
+          text:'我用正商诸葛AI生成了一个视频'
+        }).then(function(){
+          console.log('[SAVE] Strategy 0 ✅ navigator.share success');
+          _ok('navigator.share');
+        }).catch(function(shareErr0){
+          if(shareErr0&&shareErr0.name==='AbortError'){
+            console.log('[SAVE] Strategy 0: user cancelled share');
+            _restoreBtn();
+          }else{
+            console.warn('[SAVE] Strategy 0 failed:',shareErr0,'trying plus API strategies');
+            _tryPlusStrategies();
+          }
+        });
+        return; // navigator.share is handling it — skip all other strategies
+      }else{
+        console.log('[SAVE] Strategy 0: navigator.canShare returned false, trying plus API');
+      }
+    }catch(shareEx0){
+      console.warn('[SAVE] Strategy 0 exception:',shareEx0,'trying plus API');
+    }
+  }
+
+  // ============================================================
+  // Plus API strategies (may crash WebView — only used if share fails)
+  // ============================================================
+  _tryPlusStrategies();
+  function _tryPlusStrategies(){
+  // ============================================================
   // Strategy 1: Base64 + Java I/O direct DCIM write (MOST RELIABLE)
   // Writes directly to DCIM/Camera via Java File I/O, no gallery API needed.
   // Handles Android 10+ via MediaStore. Requires plus.android (packaged APK).
@@ -8446,6 +8515,7 @@ function _saveToAlbumPlus(blob,fileName,title){
     xhr.ontimeout=function(){_fail('上传超时(5分钟)')};
     xhr.send(blob);
   }
+  } // close _tryPlusStrategies
 }
 
 // Data URL download: convert blob to data URL, download via plus.downloader, then gallery.save
