@@ -2847,7 +2847,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='8.4 (native-MediaStore-bridge + real-bgm-tracks + bgm-volume-boost + tauri-invoke-tts + skip-mic-capture + crash-proof-save)';
+var _FIX_VERSION='8.5 (real-bgm-tracks + bgm-volume-boost + tauri-fs-save + tts-data-js + tauri-invoke-tts + skip-mic-capture)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -9902,15 +9902,69 @@ function _saveViaPlusAndroid(blob,fileName,blobType){
 //   1. <a download> with blob URL (zero memory, instant)
 //   2. Show long-press overlay so user can long-press video → save to album
 //   3. Show "下载到手机" button in overlay for direct download
+// ===== v8.5: Tauri fs save (for PakePlus without AndroidMediaStore bridge) =====
+// Uses Tauri's file system plugin to write directly to Downloads folder.
+// Bypasses WebView entirely — no blob URL, no <video> element, no OOM.
+async function _saveViaTauri(blob,fileName){
+  if(typeof window.__TAURI__==='undefined'){return false}
+  var invoke=null;
+  if(window.__TAURI__.core&&window.__TAURI__.core.invoke){invoke=window.__TAURI__.core.invoke}
+  else if(typeof window.__TAURI__==='function'){invoke=window.__TAURI__}
+  if(!invoke){console.log('[SAVE-TAURI] No invoke available');return false}
+
+  var blobMB=blob.size/1048576;
+  console.log('[SAVE-TAURI] Attempting Tauri fs save: '+blobMB.toFixed(1)+'MB');
+
+  try{
+    // Step 1: Get save directory (try download_dir, then movie_dir, then document_dir)
+    var saveDir=null;
+    var dirNames=['plugin:path|download_dir','plugin:path|movie_dir','plugin:path|document_dir','plugin:path|app_data_dir'];
+    for(var di=0;di<dirNames.length&&!saveDir;di++){
+      try{
+        saveDir=await Promise.race([
+          invoke(dirNames[di]),
+          new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},3000)})
+        ]);
+        console.log('[SAVE-TAURI] Got dir from '+dirNames[di]+': '+saveDir);
+      }catch(e){console.log('[SAVE-TAURI] '+dirNames[di]+' not available')}
+    }
+    if(!saveDir){console.log('[SAVE-TAURI] No save directory available');return false}
+
+    // Step 2: Build file path
+    var sep=saveDir.indexOf('/')>=0&&saveDir.indexOf('\\')<0?'/':'\\';
+    if(!saveDir.endsWith(sep))saveDir+=sep;
+    var filePath=saveDir+(fileName||('AI_'+Date.now()+'.mp4'));
+    console.log('[SAVE-TAURI] Save path: '+filePath);
+
+    // Step 3: Convert blob to Uint8Array
+    showToast('正在保存视频(' + blobMB.toFixed(0) + 'MB)...');
+    var arrayBuffer=await blob.arrayBuffer();
+    var uint8=new Uint8Array(arrayBuffer);
+
+    // Step 4: Write file — try fs.writeFile (JS bindings) first, then invoke
+    if(window.__TAURI__.fs&&window.__TAURI__.fs.writeFile){
+      console.log('[SAVE-TAURI] Using fs.writeFile');
+      await window.__TAURI__.fs.writeFile(filePath,uint8);
+    }else{
+      console.log('[SAVE-TAURI] Using invoke plugin:fs|write_file');
+      await invoke('plugin:fs|write_file',{path:filePath,contents:uint8});
+    }
+
+    console.log('[SAVE-TAURI] ✅ File saved successfully');
+    showToast('✅ 视频已保存到 '+saveDir);
+    _resetSaveButton();
+    return true;
+  }catch(e){
+    console.error('[SAVE-TAURI] Save failed:',e.message||e);
+    return false;
+  }
+}
+
 function _crashProofSave(blob,fileName,blobType){
   var blobMB=blob.size/1048576;
   console.log('[SAVE-V8] _crashProofSave: blob='+blobMB.toFixed(1)+'MB, file='+fileName);
 
   // ===== v8.2: Use native MediaStore bridge if available (NO crash, NO OOM) =====
-  // If MainActivity.kt registered AndroidMediaStore via addJavascriptInterface,
-  // use the native MediaStore API to save directly to system gallery.
-  // This completely bypasses WebView — no blob URL, no <video> element, no OOM.
-  // _saveViaAndroidMediaStore auto-selects chunked transfer for blobs >= 20MB.
   if(typeof window.AndroidMediaStore!=='undefined'&&window.AndroidMediaStore&&typeof window.AndroidMediaStore.saveVideo==='function'){
     console.log('[SAVE-V8] ✅ window.AndroidMediaStore detected — using native MediaStore save');
     var _ext='mp4';
@@ -9919,8 +9973,30 @@ function _crashProofSave(blob,fileName,blobType){
     _saveViaAndroidMediaStore(blob,fileName,_ext);
     return;
   }
-  console.warn('[SAVE-V8] ⚠️ window.AndroidMediaStore not available — falling back to web save (may crash for large videos)');
-  console.warn('[SAVE-V8] ⚠️ Fix: add webView.addJavascriptInterface(MediaStoreSaver(this), "AndroidMediaStore") in MainActivity.kt');
+  console.warn('[SAVE-V8] ⚠️ window.AndroidMediaStore not available');
+
+  // ===== v8.5: Try Tauri fs save (PakePlus without native bridge) =====
+  if(typeof window.__TAURI__!=='undefined'){
+    console.log('[SAVE-V8] Trying Tauri fs save...');
+    _saveViaTauri(blob,fileName).then(function(ok){
+      if(ok){
+        console.log('[SAVE-V8] ✅ Tauri save succeeded');
+        return;
+      }
+      console.log('[SAVE-V8] Tauri save failed, falling back to web save');
+      _crashProofSaveFallback(blob,fileName,blobType,blobMB);
+    }).catch(function(e){
+      console.log('[SAVE-V8] Tauri save error:',e);
+      _crashProofSaveFallback(blob,fileName,blobType,blobMB);
+    });
+    return;
+  }
+
+  _crashProofSaveFallback(blob,fileName,blobType,blobMB);
+}
+
+function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
+  console.warn('[SAVE-V8] ⚠️ Falling back to web save (may crash for large videos)');
 
   // v8.1: Size threshold — <a download>.click() crashes PakePlus WebView for large blobs.
   // Short videos (< 8MB): <a download> works fine (4-second videos save successfully).
