@@ -2534,6 +2534,7 @@ let selectedBgm=0;
 let bgmVol=80;
 let bgmAudioEl=null;
 let bgmPlayingId=-1;
+let _allBgmAudioEls=[]; // v8.8: Track ALL Audio elements to force-stop them
 let voiceVol=100; // 人声音量 (0-100)
 let voiceSpeed=80; // 人声语速 (0-100, 100=正常)
 let clonedVoiceBlob=null; // 克隆声音录音blob
@@ -2849,7 +2850,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='8.7 (fix-bgm-switch-stop + tauri-internals-detect + remove-longpress-overlay + fix-download-crash)';
+var _FIX_VERSION='8.8 (force-stop-bgm-audio + remove-all-save-overlays + direct-download-everywhere)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -2871,52 +2872,24 @@ function _checkFixVersion(){
   return _FIX_VERSION;
 }
 
-// ===== 长按保存：最可靠的保底方案 =====
-// 不依赖 navigator.share、不依赖 <a download>、不依赖原生桥
-// 直接全屏显示视频，提示用户长按选择"保存视频"
-// 这是 Android WebView 中保存视频最稳定的方法
+// v8.8: Replaced long-press overlay with direct download
 function _longPressSave(blob,fileName){
-  console.log('[SAVE-LONGPRESS] 启动长按保存模式');
-  showToast('请在视频上长按，选择"保存视频"');
-
-  // 创建全屏遮罩
-  var mask=document.createElement('div');
-  mask.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;';
-
-  // 创建视频元素
-  var video=document.createElement('video');
-  video.style.cssText='max-width:95%;max-height:75%;border-radius:8px;';
-  video.controls=true;
-  var url=null;
+  console.log('[SAVE] v8.8: _longPressSave → direct download');
   try{
-    url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:URL.createObjectURL(blob);
+    var url=null;
+    try{url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:URL.createObjectURL(blob)}catch(e){}
+    if(!url){try{url=URL.createObjectURL(blob)}catch(e2){showToast('保存失败');_resetSaveButton();return}}
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName||('AI_'+Date.now()+'.webm');
+    a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){if(a.parentNode)document.body.removeChild(a)},5000);
+    showToast('✅ 视频已开始保存');
   }catch(e){
-    try{url=URL.createObjectURL(blob)}catch(e2){
-      showToast('视频加载失败');
-      return;
-    }
+    showToast('保存失败，请重试');
   }
-  video.src=url;
-
-  // 提示文字
-  var tip=document.createElement('div');
-  tip.style.cssText='color:#fff;font-size:16px;margin-top:16px;text-align:center;padding:0 20px;';
-  tip.innerHTML='👆 请在视频上<span style="color:#4fc3f7;font-weight:bold">长按</span>，选择<span style="color:#4fc3f7;font-weight:bold">「保存视频」</span><br><span style="font-size:13px;color:#aaa;margin-top:8px;display:block">保存后视频将出现在手机相册中</span>';
-
-  // 关闭按钮
-  var closeBtn=document.createElement('button');
-  closeBtn.textContent='✕ 关闭';
-  closeBtn.style.cssText='margin-top:20px;padding:10px 30px;background:#333;color:#fff;border:1px solid #555;border-radius:8px;font-size:16px;cursor:pointer;';
-  closeBtn.onclick=function(){
-    if(mask.parentNode)mask.parentNode.removeChild(mask);
-    video.pause();
-    _resetSaveButton();
-  };
-
-  mask.appendChild(video);
-  mask.appendChild(tip);
-  mask.appendChild(closeBtn);
-  document.body.appendChild(mask);
   _resetSaveButton();
 }
 
@@ -5662,6 +5635,35 @@ function _previewBgmSynth(trackId,vol){
   });
 }
 
+// v8.8: Force-stop ALL BGM Audio elements (pause() alone doesn't work in some WebViews)
+function _forceStopAllBgmAudio(){
+  // Stop the global bgmAudioEl
+  if(bgmAudioEl){
+    try{
+      bgmAudioEl.pause();
+      bgmAudioEl.currentTime=0;
+      bgmAudioEl.src='';
+      bgmAudioEl.removeAttribute('src');
+      bgmAudioEl.load();
+    }catch(e){console.log('[BGM] forceStop error:',e)}
+    bgmAudioEl=null;
+  }
+  // Also stop ALL tracked Audio elements (safety net)
+  for(var i=0;i<_allBgmAudioEls.length;i++){
+    try{
+      var el=_allBgmAudioEls[i];
+      if(el){
+        el.pause();
+        if('currentTime' in el)el.currentTime=0;
+        el.src='';
+        el.removeAttribute('src');
+        el.load();
+      }
+    }catch(e){}
+  }
+  _allBgmAudioEls=[];
+}
+
 function toggleBgmPlay(id,el){
   var track=BGM_TRACKS[id];
   if(!track||id===0){showToast('该曲目不支持试听');return}
@@ -5685,17 +5687,15 @@ function toggleBgmPlay(id,el){
     audioUrl=_getBgmUrl(id);
   }
   if(audioUrl){
-    // v8.7: MUST stop existing bgmAudioEl before creating new one
-    // _stopBgmPreview() only stops synth sources, NOT the Audio element
+    // v8.8: Force-stop ALL previous BGM Audio elements before creating new one
+    // pause() alone doesn't work in PakePlus WebView — must clear src + load()
     _stopBgmPreview();
-    if(bgmAudioEl){
-      try{bgmAudioEl.pause();bgmAudioEl.currentTime=0;}catch(e){}
-      bgmAudioEl=null;
-    }
+    _forceStopAllBgmAudio();
     try{
       bgmAudioEl=new Audio(audioUrl);
       bgmAudioEl.loop=true;
       bgmAudioEl.volume=Math.min(1.0,Math.max(bgmVol,70)/100);
+      _allBgmAudioEls.push(bgmAudioEl); // Track for force-stop
       bgmAudioEl.play().then(function(){
         console.log('[BGM] Track preview started:',track.name);
       }).catch(function(e){
@@ -5714,10 +5714,7 @@ function toggleBgmPlay(id,el){
 
 function stopBgm(){
   _stopBgmPreview();
-  if(bgmAudioEl){
-    try{bgmAudioEl.pause();}catch(e){}
-    bgmAudioEl=null;
-  }
+  _forceStopAllBgmAudio();
   bgmPlayingId=-1;
   document.querySelectorAll('.bgm-play').forEach(function(e){e.classList.remove('playing');e.textContent='▶ 播放'});
 }
@@ -10071,94 +10068,29 @@ function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
   }
 }
 
-// Long-press save overlay: shows video full-screen, user long-presses to save
-// Also provides a "下载到手机" button for direct download
+// v8.8: Replaced long-press overlay with direct download (overlay doesn't work in PakePlus WebView)
 function _showLongPressSaveOverlay(blob,fileName,existingUrl,blobSize){
-  // Remove any existing overlay
-  var old=document.getElementById('v8-save-overlay');
-  if(old){old.parentNode.removeChild(old)}
-
-  var blobMB=((blobSize||blob.size)/1048576).toFixed(1);
-  var isLarge=(blobSize||blob.size)>=8*1048576;
-
-  var url=existingUrl;
-  if(!url){
-    try{url=URL.createObjectURL(blob)}catch(e){url=null}
+  console.log('[SAVE-V8] v8.8: Direct download instead of overlay');
+  try{
+    var url=existingUrl;
+    if(!url){try{url=URL.createObjectURL(blob)}catch(e){url=null}}
+    if(url){
+      var a=document.createElement('a');
+      a.href=url;
+      a.download=fileName||('AI_'+Date.now()+'.webm');
+      a.style.display='none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){if(a.parentNode)document.body.removeChild(a)},5000);
+      showToast('✅ 视频已开始保存，请查看下载管理或文件管理器');
+    }else{
+      showToast('保存失败，请尝试使用分享功能');
+    }
+  }catch(e){
+    console.error('[SAVE-V8] Direct download error:',e);
+    showToast('保存失败，请重试');
   }
-  if(!url){
-    showToast('视频加载失败，请重试');
-    _resetSaveButton();
-    return;
-  }
-
-  var overlay=document.createElement('div');
-  overlay.id='v8-save-overlay';
-  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
-
-  // Title
-  var title=document.createElement('div');
-  title.style.cssText='color:#fff;font-size:18px;font-weight:bold;margin-bottom:8px;text-align:center;';
-  title.textContent='保存视频到相册';
-  overlay.appendChild(title);
-
-  // Size info
-  var sizeInfo=document.createElement('div');
-  sizeInfo.style.cssText='color:#aaa;font-size:13px;margin-bottom:16px;text-align:center;';
-  sizeInfo.textContent='视频大小: '+blobMB+'MB';
-  overlay.appendChild(sizeInfo);
-
-  // Video element — use preload='metadata' to avoid loading entire video into memory
-  var video=document.createElement('video');
-  video.style.cssText='max-width:100%;max-height:50vh;border-radius:12px;background:#000;';
-  video.controls=true;
-  video.playsInline=true;
-  video.setAttribute('webkit-playsinline','');
-  video.preload='metadata'; // Only load metadata, not full video — prevents OOM
-  video.src=url;
-  overlay.appendChild(video);
-
-  // Instructions
-  var tip=document.createElement('div');
-  tip.style.cssText='color:#4fc3f7;font-size:15px;margin-top:20px;text-align:center;line-height:1.8;';
-  tip.innerHTML='👆 在视频画面上<strong>长按</strong>，选择<strong>「保存视频」</strong>或<strong>「保存到相册」</strong><br><span style="color:#aaa;font-size:13px">保存后视频将出现在手机相册中</span>';
-  overlay.appendChild(tip);
-
-  // Download button — only for small videos (large videos crash via <a download>)
-  if(!isLarge){
-    var dlBtn=document.createElement('button');
-    dlBtn.textContent='📥 直接下载';
-    dlBtn.style.cssText='margin-top:16px;padding:12px 32px;background:rgba(48,209,88,0.3);color:#30D158;border:1px solid #30D158;border-radius:10px;font-size:15px;cursor:pointer;';
-    dlBtn.onclick=function(){
-      try{
-        var a2=document.createElement('a');
-        a2.href=url;
-        a2.download=fileName||('AI_'+Date.now()+'.webm');
-        a2.style.display='none';
-        document.body.appendChild(a2);
-        a2.click();
-        setTimeout(function(){if(a2.parentNode)document.body.removeChild(a2)},5000);
-        showToast('已开始下载');
-      }catch(e){
-        showToast('下载失败，请长按视频保存');
-      }
-    };
-    overlay.appendChild(dlBtn);
-  }
-
-  // Close button
-  var closeBtn=document.createElement('button');
-  closeBtn.textContent='✕ 关闭';
-  closeBtn.style.cssText='margin-top:12px;padding:10px 28px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-size:14px;cursor:pointer;';
-  closeBtn.onclick=function(){
-    if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
-    try{video.pause();video.src=''}catch(e){}
-    _resetSaveButton();
-  };
-  overlay.appendChild(closeBtn);
-
-  document.body.appendChild(overlay);
   _resetSaveButton();
-  console.log('[SAVE-V8] Long-press overlay shown');
 }
 
 function _safeDownloadBlob(blob,fileName){
@@ -10167,8 +10099,23 @@ function _safeDownloadBlob(blob,fileName){
     // v8.1: Large videos crash PakePlus WebView via <a download>.click()
     // Redirect to long-press overlay for large blobs
     if(blob.size>=8*1048576){
-      console.log('[SAVE-SAFE] Large video ('+blobMB.toFixed(1)+'MB), redirecting to long-press overlay');
-      _showLongPressSaveOverlay(blob,fileName,null,blob.size);
+      console.log('[SAVE-SAFE] Large video ('+blobMB.toFixed(1)+'MB), using direct download');
+      // v8.8: Don't show overlay — try direct <a download> instead
+      try{
+        var safeUrl=URL.createObjectURL(blob);
+        var safeA=document.createElement('a');
+        safeA.href=safeUrl;
+        safeA.download=fileName||('AI_'+Date.now()+'.webm');
+        safeA.style.display='none';
+        document.body.appendChild(safeA);
+        safeA.click();
+        setTimeout(function(){if(safeA.parentNode)document.body.removeChild(safeA)},5000);
+        showToast('✅ 视频已开始保存');
+        _resetSaveButton();
+      }catch(e){
+        showToast('保存失败，请尝试使用分享功能');
+        _resetSaveButton();
+      }
       return;
     }
     // Reuse existing _renderVideoUrl if available (avoids createObjectURL memory overhead)
@@ -10781,10 +10728,8 @@ function _downloadBlob(blob,fileName){
   }
 }
 
-// Web-only download (no plus API)
-// Mobile browsers: try <a download> first, then video overlay for long-press
+// v8.8: Web-only download — no overlay, just direct <a download>
 function _downloadBlobWeb(blob,fileName){
-  // ===== Try <a download> on all platforms (works on desktop + some mobile browsers) =====
   try{
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
@@ -10804,36 +10749,25 @@ function _downloadBlobWeb(blob,fileName){
         try{URL.revokeObjectURL(url)}catch(e){}
       },3000);
     },50);
-    // On mobile WebView, show video overlay for long-press save
-    // Wrap in try-catch: overlay may crash WebView with large blobs
-    if(_isMobileDevice()){
-      setTimeout(function(){
-        try{_showVideoSaveOverlay(blob)}catch(overlayErr){
-          console.error('[SAVE] Video overlay error:',overlayErr);
-        }
-      },800);
-      showToast('视频已开始下载，如未成功请长按视频画面保存');
-    }else{
-      showToast('视频已开始下载，请在下载管理中查看');
-    }
+    showToast('✅ 视频已开始保存');
   }catch(e){
     console.error('Web download error:',e);
-    try{_showVideoSaveOverlay(blob)}catch(e2){
-      console.error('[SAVE] Fallback overlay also failed:',e2);
-      showToast('保存失败，请尝试长按视频画面保存');
-    }
+    showToast('保存失败，请重试');
   }
 }
 
-// Mobile save dialog: simplified - show video overlay for long-press save
-// GUARD: In HBuilderX, skip this dialog (use native APIs only)
+// v8.8: Mobile save dialog replaced with direct download (no dialog, no overlay)
 function _showMobileSaveDialog(blob,fileName){
-  // Safety guard: if in HBuilderX, do NOT use window.open (crashes WebView)
   if(_hasPlusAPI()){
-    console.error('[SAVE] _showMobileSaveDialog called in HBuilderX - using native fallback');
     _saveToAlbumPlus(blob,fileName,'AI智能成片');
     return;
   }
+  // v8.8: Just do direct download, no dialog
+  _showVideoSaveOverlay(blob);
+}
+// v8.8: Old dialog code disabled — kept as comment to avoid breaking references
+/*
+function _showMobileSaveDialog_OLD(blob,fileName){
   try{
     var blobUrl=URL.createObjectURL(blob);
     // 创建模态对话框
@@ -10882,40 +10816,26 @@ function _showMobileSaveDialog(blob,fileName){
     _showVideoSaveOverlay(blob);
   }
 }
+*/
 
-// Last resort: show video in overlay with long-press save instructions
+// v8.8: Replaced video overlay with direct download (overlay doesn't work in PakePlus WebView)
 function _showVideoSaveOverlay(blob){
+  console.log('[SAVE] v8.8: Direct download instead of video overlay');
   try{
     var url=URL.createObjectURL(blob);
-    var overlay=document.createElement('div');
-    overlay.id='video-save-overlay';
-    overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
-    var titleDiv=document.createElement('div');
-    titleDiv.style.cssText='color:#fff;font-size:16px;font-weight:700;margin-bottom:12px';
-    titleDiv.textContent='长按视频可保存到相册';
-    var videoEl=document.createElement('video');
-    videoEl.src=url;
-    videoEl.controls=true;
-    videoEl.playsInline=true;
-    videoEl.style.cssText='max-width:100%;max-height:70vh;border-radius:12px;background:#000';
-    var tipDiv=document.createElement('div');
-    tipDiv.style.cssText='color:rgba(255,255,255,.6);font-size:13px;margin-top:16px;text-align:center';
-    tipDiv.textContent='如果无法自动下载，请长按视频画面选择"保存视频"或"保存到相册"';
-    var closeBtn=document.createElement('button');
-    closeBtn.style.cssText='margin-top:20px;padding:10px 32px;background:#F4DCAC;color:#1a1a2e;border:none;border-radius:24px;font-size:15px;font-weight:700;cursor:pointer';
-    closeBtn.textContent='关闭';
-    closeBtn.onclick=function(){
-      overlay.remove();
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='AI_'+Date.now()+'.webm';
+    a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      if(a.parentNode)document.body.removeChild(a);
       try{URL.revokeObjectURL(url)}catch(e){}
-    };
-    overlay.appendChild(titleDiv);
-    overlay.appendChild(videoEl);
-    overlay.appendChild(tipDiv);
-    overlay.appendChild(closeBtn);
-    document.body.appendChild(overlay);
-    showToast('请长按视频画面保存');
+    },5000);
+    showToast('✅ 视频已开始保存，请查看下载管理或文件管理器');
   }catch(e){
-    console.error('Video overlay error:',e);
+    console.error('Direct download error:',e);
     showToast('保存失败，视频已保存在作品库中');
   }
 }
@@ -13121,8 +13041,9 @@ function playBgmForPreview(){
   if(selectedBgm===0)return;
   var track=BGM_TRACKS[selectedBgm];
   if(!track)return;
+  // v8.8: Use force-stop to ensure previous audio is fully stopped
   _stopBgmPreview();
-  if(bgmAudioEl){try{bgmAudioEl.pause();}catch(e){}bgmAudioEl=null;}
+  _forceStopAllBgmAudio();
   // Get audio URL: custom track blob URL, or built-in base64 data
   var audioUrl=null;
   if(track.custom&&track.file){
@@ -13135,6 +13056,7 @@ function playBgmForPreview(){
       bgmAudioEl=new Audio(audioUrl);
       bgmAudioEl.loop=true;
       bgmAudioEl.volume=Math.min(1.0,Math.max(bgmVol,70)/100);
+      _allBgmAudioEls.push(bgmAudioEl);
       bgmAudioEl.play().catch(function(e){console.log('[BGM] Preview error:',e)});
       bgmPlayingId=selectedBgm;
     }catch(e){console.log('[BGM] Preview error:',e)}
