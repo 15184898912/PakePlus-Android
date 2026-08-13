@@ -1496,7 +1496,7 @@ a{color:inherit;text-decoration:none}
   justify-content:center;
 }
 .slider-modal-close{
-  flex:1;
+  flex:2;
   height:44px;
   background:linear-gradient(135deg,#55B6F2,#3B9EE6);
   border-radius:var(--radius-s,8px);
@@ -3328,7 +3328,7 @@ function _previewVoiceFast(id,v,myToken){
   if(id===2)per=1; if(id===3)per=5; if(id===4)per=3;
   if(id===5)per=3; if(id===6)per=4; if(id===7)per=4;
   if(id===8)per=3; if(id===10)per=1;
-  var speedMul=(voiceSpeed/100)*0.4+0.6;
+  var speedMul=(voiceSpeed/100)*0.6+0.7;
   var spd=Math.max(1,Math.min(9,Math.round(3+(v.rate||1.0)*speedMul*3)));
   var pit=Math.max(1,Math.min(9,Math.round(3+(v.pitch||1.0)*3)));
   var encodedText=encodeURIComponent(PREVIEW_TEXT);
@@ -3531,7 +3531,7 @@ async function _fetchTtsBlobUrl(text,voiceId,speedMul,pitchMul){
 async function _previewVoiceViaFetch(id,v,myToken){
   if(myToken!==_previewToken)return;
   showToast('姝ｅ湪鍔犺浇 '+v.name+' 璇曞惉...');
-  var speedMul=(voiceSpeed/100)*0.4+0.6;
+  var speedMul=(voiceSpeed/100)*0.6+0.7;
   var blobUrl=await _fetchTtsBlobUrl(PREVIEW_TEXT,id,(v.rate||1.0)*speedMul,v.pitch||1.0);
   if(!blobUrl){
     console.log('[PREVIEW] Fetch proxy failed, trying speechSynthesis');
@@ -3796,7 +3796,7 @@ function _playVoiceWebAudio(id,voiceName){
     var v=VOICES.find(function(x){return x.id===id});
     var rate=1.0;
     if(v&&v.rate)rate=v.rate;
-    var speedMul=(voiceSpeed/100)*0.4+0.6;
+    var speedMul=(voiceSpeed/100)*0.6+0.7;
     source.playbackRate.value=Math.max(0.5,Math.min(2.0,rate*speedMul));
     source.connect(gainNode);
     gainNode.connect(ctx.destination);
@@ -3927,7 +3927,7 @@ function _previewVoiceSSSharedAudio(id,v){
         // and explicit load() causes delays and can reset the unlocked state
         pregAudio.src=audioUrl;
         pregAudio.volume=voiceVol/100;
-        var speedMul=(voiceSpeed/100)*0.4+0.6;
+        var speedMul=(voiceSpeed/100)*0.6+0.7;
         pregAudio.playbackRate=Math.max(0.7,Math.min(1.5,(v.rate||1.0)*speedMul));
         try{pregAudio.currentTime=0}catch(e){}
         _activePreviewAudios=[]; // Shared element is handled separately in stopAllAudio
@@ -4029,7 +4029,7 @@ function _previewVoiceSSFallback(id,v){
   if(!voicesLoaded){loadVoices()}
   var u=new SpeechSynthesisUtterance(PREVIEW_TEXT);
   u.lang=v.lang||'zh-CN';
-  var speedMul=(voiceSpeed/100)*0.4+0.6;
+  var speedMul=(voiceSpeed/100)*0.6+0.7;
   u.rate=Math.max(0.7,Math.min(1.3,(v.rate||1.0)*speedMul));
   u.pitch=Math.max(0.5,Math.min(1.5,v.pitch||1.0));
   u.volume=voiceVol/100;
@@ -11015,7 +11015,7 @@ async function generateTTSAudio(audioCtx,text,voiceId){
         if(voiceId===2)per=1; if(voiceId===3)per=5; if(voiceId===4)per=3;
         if(voiceId===5)per=3; if(voiceId===6)per=4; if(voiceId===7)per=4;
         if(voiceId===8)per=3; if(voiceId===10)per=1;
-        var speedMultiplier=(voiceSpeed/100)*0.4+0.6;
+        var speedMultiplier=(voiceSpeed/100)*0.8+0.4;
         var spd=Math.round(3+(voice.rate||1.0)*speedMultiplier*3);
         spd=Math.max(1,Math.min(9,spd));
         var pit=Math.round(3+(voice.pitch||1.0)*3);
@@ -11075,7 +11075,7 @@ async function generateTTSAudio(audioCtx,text,voiceId){
       if(voiceId===2)perInv=1; if(voiceId===3)perInv=5; if(voiceId===4)perInv=3;
       if(voiceId===5)perInv=3; if(voiceId===6)perInv=4; if(voiceId===7)perInv=4;
       if(voiceId===8)perInv=3; if(voiceId===10)perInv=1;
-      var spdInv=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.4+0.6)*3);
+      var spdInv=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.8+0.4)*3);
       spdInv=Math.max(1,Math.min(9,spdInv));
       var invChunks=[];
       var invRemaining=text;
@@ -11174,7 +11174,7 @@ async function generateTTSAudio(audioCtx,text,voiceId){
   if(voiceId===9)per=0; // 度小美 (female, free)
   if(voiceId===10)per=1; // 度小宇 (male, free)
   // Apply user-set voice speed (voiceSpeed: 0-100, 100=normal)
-  var speedMultiplier=(voiceSpeed/100)*0.4+0.6; // Maps 0-100 to 0.4-1.2 multiplier
+  var speedMultiplier=(voiceSpeed/100)*0.8+0.4; // Maps 0-100 to 0.4-1.2 multiplier
   var spd=Math.round(3+(voice.rate||1.0)*speedMultiplier*3);
   spd=Math.max(1,Math.min(9,spd));
   var pit=Math.round(3+(voice.pitch||1.0)*3);
@@ -11335,7 +11335,7 @@ async function generateTtsViaSpeechCapture(audioCtx,text,voiceId){
       await new Promise(function(resolve){
         var u=new SpeechSynthesisUtterance(ttsChunks[ci2]);
         u.lang=voice.lang||'zh-CN';
-        var speedMul=(voiceSpeed/100)*0.4+0.6;
+        var speedMul=(voiceSpeed/100)*0.6+0.7;
         u.rate=Math.max(0.7,Math.min(1.3,(voice.rate||1.0)*speedMul));
         u.pitch=Math.max(0.5,Math.min(1.5,voice.pitch||1.0));
         u.volume=1.0;
@@ -11422,7 +11422,7 @@ async function loadTtsViaAudioEl(audioCtx,text,voiceId,ttsGain){
       if(voiceId===2)tPer=1; if(voiceId===3)tPer=5; if(voiceId===4)tPer=3;
       if(voiceId===5)tPer=3; if(voiceId===6)tPer=4; if(voiceId===7)tPer=4;
       if(voiceId===8)tPer=3; if(voiceId===10)tPer=1;
-      var tSpd=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.4+0.6)*3);
+      var tSpd=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.6+0.7)*3);
       tSpd=Math.max(1,Math.min(9,tSpd));
       var tChunkText=text.length>500?text.slice(0,500):text;
       var tUrl='https://fanyi.baidu.com/gettts?lan=zh&text='+encodeURIComponent(tChunkText)+'&spd='+tSpd+'&source=web';
@@ -11477,7 +11477,7 @@ async function loadTtsViaAudioEl(audioCtx,text,voiceId,ttsGain){
   if(voiceId===2)per=1; if(voiceId===3)per=5; if(voiceId===4)per=3;
   if(voiceId===5)per=3; if(voiceId===6)per=4; if(voiceId===7)per=4;
   if(voiceId===8)per=3; if(voiceId===10)per=1;
-  var speedMul=(voiceSpeed/100)*0.4+0.6;
+  var speedMul=(voiceSpeed/100)*0.6+0.7;
   var spd=Math.round(3+(voice.rate||1.0)*speedMul*3);
   spd=Math.max(1,Math.min(9,spd));
   var pit=Math.round(3+(voice.pitch||1.0)*3);
@@ -13077,7 +13077,7 @@ function playTTSForPreview(){
   speechSynthesis.cancel();
   var u=new SpeechSynthesisUtterance(text);
   u.lang=voice.lang||'zh-CN';
-  var speedMul=(voiceSpeed/100)*0.4+0.6;
+  var speedMul=(voiceSpeed/100)*0.6+0.7;
   u.rate=Math.max(0.7,Math.min(1.3,(voice.rate||1.0)*speedMul));
   u.pitch=Math.max(0.5,Math.min(1.5,voice.pitch||1.0));
   u.volume=voiceVol/100;
