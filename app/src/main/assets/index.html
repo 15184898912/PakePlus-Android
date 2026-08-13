@@ -2489,9 +2489,6 @@ function _getBgmUrl(id){
       <button id="render-save-btn" class="render-done-btn" style="flex:1;background:rgba(48,209,88,.2);color:#30D158;position:relative;z-index:10" onclick="saveRenderToAlbum()">📥 保存到相册</button>
       <button class="render-done-btn" id="render-done-btn" style="flex:1" onclick="finishRender()">✦ 查看作品</button>
     </div>
-    <div style="margin-top:12px;text-align:center">
-      <button id="render-longpress-btn" class="render-done-btn" style="width:100%;background:rgba(0,122,255,.15);color:#0A84FF;font-size:13px;padding:8px" onclick="_longPressSaveFromRender()">👆 长按视频保存到相册（如果上方按钮无效请点这里）</button>
-    </div>
   </div>
 </div>
 
@@ -2852,7 +2849,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='8.6 (center-confirm-btn + fix-speed-formula + real-bgm-only + utf8-encode-fix + reduce-audio-delay)';
+var _FIX_VERSION='8.7 (fix-bgm-switch-stop + tauri-internals-detect + remove-longpress-overlay + fix-download-crash)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -2867,6 +2864,8 @@ function _checkFixVersion(){
   console.log('  window.plus: '+(typeof window.plus!=='undefined'?'已定义':'未定义'));
   console.log('  plus.android: '+((typeof window.plus!=='undefined'&&window.plus&&window.plus.android)?'可用':'不可用 (PakePlus)'));
   console.log('  window.AndroidMediaStore: '+(typeof window.AndroidMediaStore!=='undefined'&&window.AndroidMediaStore?'✅ 已定义':'❌ 未定义 (MainActivity.kt 未注册桥)'));
+  console.log('  window.__TAURI__: '+(typeof window.__TAURI__!=='undefined'?'✅ 已定义':'❌ 未定义'));
+  console.log('  window.__TAURI_INTERNALS__: '+(typeof window.__TAURI_INTERNALS__!=='undefined'?'✅ 已定义':'❌ 未定义'));
   console.log('  AudioContext: '+(typeof window.AudioContext!=='undefined'||typeof window.webkitAudioContext!=='undefined'?'✅':'❌'));
   console.log('========================================');
   return _FIX_VERSION;
@@ -5686,7 +5685,13 @@ function toggleBgmPlay(id,el){
     audioUrl=_getBgmUrl(id);
   }
   if(audioUrl){
+    // v8.7: MUST stop existing bgmAudioEl before creating new one
+    // _stopBgmPreview() only stops synth sources, NOT the Audio element
     _stopBgmPreview();
+    if(bgmAudioEl){
+      try{bgmAudioEl.pause();bgmAudioEl.currentTime=0;}catch(e){}
+      bgmAudioEl=null;
+    }
     try{
       bgmAudioEl=new Audio(audioUrl);
       bgmAudioEl.loop=true;
@@ -9908,10 +9913,17 @@ function _saveViaPlusAndroid(blob,fileName,blobType){
 // Uses Tauri's file system plugin to write directly to Downloads folder.
 // Bypasses WebView entirely — no blob URL, no <video> element, no OOM.
 async function _saveViaTauri(blob,fileName){
-  if(typeof window.__TAURI__==='undefined'){return false}
   var invoke=null;
-  if(window.__TAURI__.core&&window.__TAURI__.core.invoke){invoke=window.__TAURI__.core.invoke}
-  else if(typeof window.__TAURI__==='function'){invoke=window.__TAURI__}
+  // Tauri v2: check __TAURI__.core.invoke first
+  if(typeof window.__TAURI__!=='undefined'){
+    if(window.__TAURI__.core&&window.__TAURI__.core.invoke){invoke=window.__TAURI__.core.invoke}
+    else if(typeof window.__TAURI__==='function'){invoke=window.__TAURI__}
+  }
+  // v8.7: Tauri v2 internal bridge (injected by Tauri even without @tauri-apps/api)
+  if(!invoke&&typeof window.__TAURI_INTERNALS__!=='undefined'&&window.__TAURI_INTERNALS__&&typeof window.__TAURI_INTERNALS__.invoke==='function'){
+    invoke=window.__TAURI_INTERNALS__.invoke;
+    console.log('[SAVE-TAURI] Using __TAURI_INTERNALS__.invoke');
+  }
   if(!invoke){console.log('[SAVE-TAURI] No invoke available');return false}
 
   var blobMB=blob.size/1048576;
@@ -9930,7 +9942,11 @@ async function _saveViaTauri(blob,fileName){
         console.log('[SAVE-TAURI] Got dir from '+dirNames[di]+': '+saveDir);
       }catch(e){console.log('[SAVE-TAURI] '+dirNames[di]+' not available')}
     }
-    if(!saveDir){console.log('[SAVE-TAURI] No save directory available');return false}
+    // v8.7: Fallback to hardcoded Android download path
+    if(!saveDir){
+      console.log('[SAVE-TAURI] No path plugin, trying hardcoded /storage/emulated/0/Download/');
+      saveDir='/storage/emulated/0/Download';
+    }
 
     // Step 2: Build file path
     var sep=saveDir.indexOf('/')>=0&&saveDir.indexOf('\\')<0?'/':'\\';
@@ -9944,9 +9960,10 @@ async function _saveViaTauri(blob,fileName){
     var uint8=new Uint8Array(arrayBuffer);
 
     // Step 4: Write file — try fs.writeFile (JS bindings) first, then invoke
-    if(window.__TAURI__.fs&&window.__TAURI__.fs.writeFile){
+    var _tauriObj=(typeof window.__TAURI__!=='undefined')?window.__TAURI__:null;
+    if(_tauriObj&&_tauriObj.fs&&_tauriObj.fs.writeFile){
       console.log('[SAVE-TAURI] Using fs.writeFile');
-      await window.__TAURI__.fs.writeFile(filePath,uint8);
+      await _tauriObj.fs.writeFile(filePath,uint8);
     }else{
       console.log('[SAVE-TAURI] Using invoke plugin:fs|write_file');
       await invoke('plugin:fs|write_file',{path:filePath,contents:uint8});
@@ -9958,6 +9975,23 @@ async function _saveViaTauri(blob,fileName){
     return true;
   }catch(e){
     console.error('[SAVE-TAURI] Save failed:',e.message||e);
+    // v8.7: Try Tauri dialog save as last resort
+    try{
+      console.log('[SAVE-TAURI] Trying plugin:dialog|save...');
+      var ext=fileName&&fileName.indexOf('.')>=0?fileName.substring(fileName.lastIndexOf('.')):'.mp4';
+      var savePath=await invoke('plugin:dialog|save',{defaultPath:fileName||('AI_'+Date.now()+ext)});
+      if(savePath){
+        var ab2=await blob.arrayBuffer();
+        var u82=new Uint8Array(ab2);
+        await invoke('plugin:fs|write_file',{path:savePath,contents:u82});
+        console.log('[SAVE-TAURI] ✅ File saved via dialog to: '+savePath);
+        showToast('✅ 视频已保存');
+        _resetSaveButton();
+        return true;
+      }
+    }catch(e2){
+      console.error('[SAVE-TAURI] Dialog save also failed:',e2.message||e2);
+    }
     return false;
   }
 }
@@ -9977,9 +10011,10 @@ function _crashProofSave(blob,fileName,blobType){
   }
   console.warn('[SAVE-V8] ⚠️ window.AndroidMediaStore not available');
 
-  // ===== v8.5: Try Tauri fs save (PakePlus without native bridge) =====
-  if(typeof window.__TAURI__!=='undefined'){
-    console.log('[SAVE-V8] Trying Tauri fs save...');
+  // ===== v8.7: Try Tauri fs save — check both __TAURI__ and __TAURI_INTERNALS__ =====
+  var _hasTauri=(typeof window.__TAURI__!=='undefined')||(typeof window.__TAURI_INTERNALS__!=='undefined');
+  if(_hasTauri){
+    console.log('[SAVE-V8] Trying Tauri fs save... (__TAURI__:'+typeof window.__TAURI__+', __TAURI_INTERNALS__:'+typeof window.__TAURI_INTERNALS__+')');
     _saveViaTauri(blob,fileName).then(function(ok){
       if(ok){
         console.log('[SAVE-V8] ✅ Tauri save succeeded');
@@ -9998,12 +10033,9 @@ function _crashProofSave(blob,fileName,blobType){
 }
 
 function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
-  console.warn('[SAVE-V8] ⚠️ Falling back to web save (may crash for large videos)');
+  console.warn('[SAVE-V8] ⚠️ Falling back to web save');
 
-  // v8.1: Size threshold — <a download>.click() crashes PakePlus WebView for large blobs.
-  // Short videos (< 8MB): <a download> works fine (4-second videos save successfully).
-  // Long videos (>= 8MB): Skip <a download>, go directly to long-press overlay.
-  var SIZE_THRESHOLD=8*1048576; // 8MB
+  // v8.7: Try <a download> for ALL sizes — long-press overlay doesn't work in PakePlus WebView
   try{
     var url=null;
     try{
@@ -10011,8 +10043,7 @@ function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
     }catch(urlErr){
       console.warn('[SAVE-V8] createObjectURL failed:',urlErr);
     }
-    // Only try <a download> for SMALL videos (prevents OOM crash on large videos)
-    if(url&&blob.size<SIZE_THRESHOLD){
+    if(url){
       try{
         var a=document.createElement('a');
         a.href=url;
@@ -10022,18 +10053,21 @@ function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
         document.body.appendChild(a);
         a.click();
         setTimeout(function(){if(a.parentNode)document.body.removeChild(a)},5000);
-        console.log('[SAVE-V8] <a download> triggered (small video '+blobMB.toFixed(1)+'MB)');
+        console.log('[SAVE-V8] <a download> triggered ('+blobMB.toFixed(1)+'MB)');
+        showToast('✅ 视频已开始保存，请查看下载管理或文件管理器');
+        _resetSaveButton();
+        return;
       }catch(dlErr){
         console.warn('[SAVE-V8] <a download> failed:',dlErr);
       }
-    }else if(blob.size>=SIZE_THRESHOLD){
-      console.log('[SAVE-V8] Large video ('+blobMB.toFixed(1)+'MB >= 8MB), skipping <a download> to prevent crash');
     }
-    // Show long-press overlay (always — for large videos this is the PRIMARY save method)
-    _showLongPressSaveOverlay(blob,fileName,url,blob.size);
+    // If <a download> failed, show a simple toast (NOT the long-press overlay which doesn't work)
+    showToast('保存失败，请尝试使用"分享"功能保存视频');
+    _resetSaveButton();
   }catch(e){
     console.error('[SAVE-V8] Error:',e);
-    try{_showLongPressSaveOverlay(blob,fileName,null,blob.size)}catch(e2){}
+    showToast('保存失败，请重试');
+    _resetSaveButton();
   }
 }
 
@@ -13666,7 +13700,11 @@ async function downloadWork(id){
     if(!(w.blob instanceof Blob)){showToast('该作品暂无视频文件');return}
     var ext=w.type&&w.type.indexOf('mp4')>=0?'.mp4':'.webm';
     var fileName=(w.name||'作品')+ext;
-    _downloadBlob(w.blob,fileName);
+    var blobType=w.type||'video/webm';
+    // v8.7: Use _crashProofSave instead of _downloadBlob to avoid OOM crash
+    // _downloadBlob calls URL.createObjectURL + <a download>.click() which crashes WebView for large videos
+    console.log('[DOWNLOAD] Using crash-proof save for: '+fileName+', size: '+(w.blob.size/1048576).toFixed(1)+'MB');
+    _crashProofSave(w.blob,fileName,blobType);
   }catch(e){
     console.error('downloadWork error:',e);
     showToast('下载失败，请重试');
