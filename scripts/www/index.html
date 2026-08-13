@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1496,7 +1497,7 @@ a{color:inherit;text-decoration:none}
   justify-content:center;
 }
 .slider-modal-close{
-  flex:2;
+  flex:1;
   height:44px;
   background:linear-gradient(135deg,#55B6F2,#3B9EE6);
   border-radius:var(--radius-s,8px);
@@ -1504,6 +1505,10 @@ a{color:inherit;text-decoration:none}
   font-weight:600;
   cursor:pointer;
   color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
 }
 
 /* ===== ABOUT PAGE ===== */
@@ -1679,7 +1684,7 @@ function _getBgmUrl(id){
           <span class="voice-title">配音</span>
           <div class="voice-controls">
             <div class="voice-pill" onclick="showSliderModal('voiceVolume','人声音量',100)">人声音量<span class="pill-val" id="vol-pill-val">100</span></div>
-            <div class="voice-pill" onclick="showSliderModal('voiceSpeed','人声语速',100)">人声语速<span class="pill-val" id="spd-pill-val">100</span></div>
+            <div class="voice-pill" onclick="showSliderModal('voiceSpeed','人声语速',100)">人声语速<span class="pill-val" id="spd-pill-val">80</span></div>
           </div>
         </div>
         <div class="voice-scroll" id="voice-scroll"></div>
@@ -2533,7 +2538,7 @@ let bgmVol=80;
 let bgmAudioEl=null;
 let bgmPlayingId=-1;
 let voiceVol=100; // 人声音量 (0-100)
-let voiceSpeed=100; // 人声语速 (0-100, 100=正常)
+let voiceSpeed=80; // 人声语速 (0-100, 100=正常)
 let clonedVoiceBlob=null; // 克隆声音录音blob
 let clonedVoiceName=''; // 克隆声音名称
 let selectedResolution='1080p'; // 导出分辨率: 1080p, 4K, 8K
@@ -2847,7 +2852,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='8.5 (real-bgm-tracks + bgm-volume-boost + tauri-fs-save + tts-data-js + tauri-invoke-tts + skip-mic-capture)';
+var _FIX_VERSION='8.6 (center-confirm-btn + fix-speed-formula + real-bgm-only + utf8-encode-fix + reduce-audio-delay)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -2991,8 +2996,8 @@ function _getSharedAudio(){
 var _ttsBlobUrlCache={};
 function _initTtsBlobCache(){
   if(typeof TTS_PREGENERATED==='undefined'||typeof _getPregeneratedTts!=='function'){
-    console.log('[TTS-CACHE] TTS_PREGENERATED not ready, will retry in 1s');
-    setTimeout(_initTtsBlobCache,1000);
+    console.log('[TTS-CACHE] TTS_PREGENERATED not ready, will retry in 500ms');
+    setTimeout(_initTtsBlobCache,500);
     return;
   }
   var count=0;
@@ -3018,11 +3023,11 @@ function _initTtsBlobCache(){
   }
   console.log('[TTS-CACHE] Pre-decoded '+count+' voices to Blob URLs');
 }
-// Auto-init when DOM is ready
+// Auto-init when DOM is ready - reduced delay for faster voice playback
 if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(_initTtsBlobCache,500)});
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_initTtsBlobCache,100)});
 }else{
-  setTimeout(_initTtsBlobCache,500);
+  setTimeout(_initTtsBlobCache,100);
 }
 function _removeAudioEl(el){
   if(!el)return;
@@ -3328,7 +3333,7 @@ function _previewVoiceFast(id,v,myToken){
   if(id===2)per=1; if(id===3)per=5; if(id===4)per=3;
   if(id===5)per=3; if(id===6)per=4; if(id===7)per=4;
   if(id===8)per=3; if(id===10)per=1;
-  var speedMul=(voiceSpeed/100)*0.6+0.7;
+  var speedMul=(voiceSpeed/100)*0.4+0.6;
   var spd=Math.max(1,Math.min(9,Math.round(3+(v.rate||1.0)*speedMul*3)));
   var pit=Math.max(1,Math.min(9,Math.round(3+(v.pitch||1.0)*3)));
   var encodedText=encodeURIComponent(PREVIEW_TEXT);
@@ -3531,7 +3536,7 @@ async function _fetchTtsBlobUrl(text,voiceId,speedMul,pitchMul){
 async function _previewVoiceViaFetch(id,v,myToken){
   if(myToken!==_previewToken)return;
   showToast('姝ｅ湪鍔犺浇 '+v.name+' 璇曞惉...');
-  var speedMul=(voiceSpeed/100)*0.6+0.7;
+  var speedMul=(voiceSpeed/100)*0.4+0.6;
   var blobUrl=await _fetchTtsBlobUrl(PREVIEW_TEXT,id,(v.rate||1.0)*speedMul,v.pitch||1.0);
   if(!blobUrl){
     console.log('[PREVIEW] Fetch proxy failed, trying speechSynthesis');
@@ -3796,7 +3801,7 @@ function _playVoiceWebAudio(id,voiceName){
     var v=VOICES.find(function(x){return x.id===id});
     var rate=1.0;
     if(v&&v.rate)rate=v.rate;
-    var speedMul=(voiceSpeed/100)*0.6+0.7;
+    var speedMul=(voiceSpeed/100)*0.4+0.6;
     source.playbackRate.value=Math.max(0.5,Math.min(2.0,rate*speedMul));
     source.connect(gainNode);
     gainNode.connect(ctx.destination);
@@ -3927,7 +3932,7 @@ function _previewVoiceSSSharedAudio(id,v){
         // and explicit load() causes delays and can reset the unlocked state
         pregAudio.src=audioUrl;
         pregAudio.volume=voiceVol/100;
-        var speedMul=(voiceSpeed/100)*0.6+0.7;
+        var speedMul=(voiceSpeed/100)*0.4+0.6;
         pregAudio.playbackRate=Math.max(0.7,Math.min(1.5,(v.rate||1.0)*speedMul));
         try{pregAudio.currentTime=0}catch(e){}
         _activePreviewAudios=[]; // Shared element is handled separately in stopAllAudio
@@ -4029,7 +4034,7 @@ function _previewVoiceSSFallback(id,v){
   if(!voicesLoaded){loadVoices()}
   var u=new SpeechSynthesisUtterance(PREVIEW_TEXT);
   u.lang=v.lang||'zh-CN';
-  var speedMul=(voiceSpeed/100)*0.6+0.7;
+  var speedMul=(voiceSpeed/100)*0.4+0.6;
   u.rate=Math.max(0.7,Math.min(1.3,(v.rate||1.0)*speedMul));
   u.pitch=Math.max(0.5,Math.min(1.5,v.pitch||1.0));
   u.volume=voiceVol/100;
@@ -5689,19 +5694,16 @@ function toggleBgmPlay(id,el){
       bgmAudioEl.play().then(function(){
         console.log('[BGM] Track preview started:',track.name);
       }).catch(function(e){
-        console.log('[BGM] Track preview error, trying synthesis:',e.message||e);
-        // Fallback: use synthesis when audio file not accessible (e.g. WebView/PakePlus)
-        _previewBgmSynth(id,bgmVol);
+        console.log('[BGM] Track preview error:',e.message||e);
       });
       bgmPlayingId=id;
     }catch(e){
-      console.error('[BGM] Track preview error, trying synthesis:',e);
-      _previewBgmSynth(id,bgmVol);
+      console.error('[BGM] Track preview error:',e);
     }
     return;
   }
-  // Fallback: use synthesis for tracks without base64 data
-  _previewBgmSynth(id,bgmVol);
+  // No synthesis fallback - only use real MP3 files
+  console.log('[BGM] No audio file available for preview');
   bgmPlayingId=id;
 }
 
@@ -11015,7 +11017,7 @@ async function generateTTSAudio(audioCtx,text,voiceId){
         if(voiceId===2)per=1; if(voiceId===3)per=5; if(voiceId===4)per=3;
         if(voiceId===5)per=3; if(voiceId===6)per=4; if(voiceId===7)per=4;
         if(voiceId===8)per=3; if(voiceId===10)per=1;
-        var speedMultiplier=(voiceSpeed/100)*0.8+0.4;
+        var speedMultiplier=(voiceSpeed/100)*0.4+0.6;
         var spd=Math.round(3+(voice.rate||1.0)*speedMultiplier*3);
         spd=Math.max(1,Math.min(9,spd));
         var pit=Math.round(3+(voice.pitch||1.0)*3);
@@ -11075,7 +11077,7 @@ async function generateTTSAudio(audioCtx,text,voiceId){
       if(voiceId===2)perInv=1; if(voiceId===3)perInv=5; if(voiceId===4)perInv=3;
       if(voiceId===5)perInv=3; if(voiceId===6)perInv=4; if(voiceId===7)perInv=4;
       if(voiceId===8)perInv=3; if(voiceId===10)perInv=1;
-      var spdInv=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.8+0.4)*3);
+      var spdInv=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.4+0.6)*3);
       spdInv=Math.max(1,Math.min(9,spdInv));
       var invChunks=[];
       var invRemaining=text;
@@ -11174,7 +11176,7 @@ async function generateTTSAudio(audioCtx,text,voiceId){
   if(voiceId===9)per=0; // 度小美 (female, free)
   if(voiceId===10)per=1; // 度小宇 (male, free)
   // Apply user-set voice speed (voiceSpeed: 0-100, 100=normal)
-  var speedMultiplier=(voiceSpeed/100)*0.8+0.4; // Maps 0-100 to 0.4-1.2 multiplier
+  var speedMultiplier=(voiceSpeed/100)*0.4+0.6; // Maps 0-100 to 0.4-1.2 multiplier
   var spd=Math.round(3+(voice.rate||1.0)*speedMultiplier*3);
   spd=Math.max(1,Math.min(9,spd));
   var pit=Math.round(3+(voice.pitch||1.0)*3);
@@ -11335,7 +11337,7 @@ async function generateTtsViaSpeechCapture(audioCtx,text,voiceId){
       await new Promise(function(resolve){
         var u=new SpeechSynthesisUtterance(ttsChunks[ci2]);
         u.lang=voice.lang||'zh-CN';
-        var speedMul=(voiceSpeed/100)*0.6+0.7;
+        var speedMul=(voiceSpeed/100)*0.4+0.6;
         u.rate=Math.max(0.7,Math.min(1.3,(voice.rate||1.0)*speedMul));
         u.pitch=Math.max(0.5,Math.min(1.5,voice.pitch||1.0));
         u.volume=1.0;
@@ -11422,7 +11424,7 @@ async function loadTtsViaAudioEl(audioCtx,text,voiceId,ttsGain){
       if(voiceId===2)tPer=1; if(voiceId===3)tPer=5; if(voiceId===4)tPer=3;
       if(voiceId===5)tPer=3; if(voiceId===6)tPer=4; if(voiceId===7)tPer=4;
       if(voiceId===8)tPer=3; if(voiceId===10)tPer=1;
-      var tSpd=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.6+0.7)*3);
+      var tSpd=Math.round(3+(voice.rate||1.0)*((voiceSpeed/100)*0.4+0.6)*3);
       tSpd=Math.max(1,Math.min(9,tSpd));
       var tChunkText=text.length>500?text.slice(0,500):text;
       var tUrl='https://fanyi.baidu.com/gettts?lan=zh&text='+encodeURIComponent(tChunkText)+'&spd='+tSpd+'&source=web';
@@ -11477,7 +11479,7 @@ async function loadTtsViaAudioEl(audioCtx,text,voiceId,ttsGain){
   if(voiceId===2)per=1; if(voiceId===3)per=5; if(voiceId===4)per=3;
   if(voiceId===5)per=3; if(voiceId===6)per=4; if(voiceId===7)per=4;
   if(voiceId===8)per=3; if(voiceId===10)per=1;
-  var speedMul=(voiceSpeed/100)*0.6+0.7;
+  var speedMul=(voiceSpeed/100)*0.4+0.6;
   var spd=Math.round(3+(voice.rate||1.0)*speedMul*3);
   spd=Math.max(1,Math.min(9,spd));
   var pit=Math.round(3+(voice.pitch||1.0)*3);
@@ -11701,30 +11703,20 @@ async function processVideoWithEffects(videoBlob){
       bgmUrl=_getBgmUrl(actualBgmId);
     }
     if(bgmUrl){
-      // Load from blob URL or base64 data URI
+      // Load from file URL - real MP3 files only, no synthesis fallback
       try{
         bgmBuffer=await loadAudioBuffer(audioCtx,bgmUrl);
       }catch(bgmErr){console.log('BGM load error:',bgmErr);bgmBuffer=null}
-      // Fallback: synthesize if file load failed (e.g. bgm/ folder not accessible in WebView)
       if(!bgmBuffer){
-        console.log('[BGM] File load failed ('+bgmUrl+'), trying synthesis fallback...');
-        try{
-          bgmBuffer=await _synthesizeBgmBuffer(audioCtx,actualBgmId,duration);
-          console.log('[BGM] Synthesis fallback successful');
-        }catch(bgmErr2){console.log('BGM synth error:',bgmErr2);bgmBuffer=null}
+        console.log('[BGM] File load failed ('+bgmUrl+'), skipping BGM (no synthesis)');
       }
-    }else{
-      // Fallback: synthesize
-      try{
-        bgmBuffer=await _synthesizeBgmBuffer(audioCtx,actualBgmId,duration);
-      }catch(bgmErr){console.log('BGM synth error:',bgmErr);bgmBuffer=null}
     }
     if(bgmBuffer){
       console.log('BGM ready:',bgmTrack.name,'duration:',bgmBuffer.duration.toFixed(2)+'s');
       videoGain.gain.value=0;
       console.log('原声音量: 0 (BGM已加载，自动关闭原声)');
     }else{
-      console.log('BGM failed to load/synthesize');
+      console.log('BGM not available - using video original audio');
     }
   }
 
@@ -12362,7 +12354,7 @@ async function processVideoWithEffects(videoBlob){
         try{
           var u=new SpeechSynthesisUtterance(ttsVoiceConfig.text);
           u.lang=ttsVoiceConfig.voice.lang||'zh-CN';
-          var speedMul=(ttsVoiceConfig.speed/100)*0.6+0.7;
+          var speedMul=(ttsVoiceConfig.speed/100)*0.4+0.6;
           u.rate=Math.max(0.7,Math.min(1.3,(ttsVoiceConfig.voice.rate||1.0)*speedMul));
           u.pitch=Math.max(0.5,Math.min(1.5,ttsVoiceConfig.voice.pitch||1.0));
           u.volume=Math.max(0.5,ttsVoiceConfig.vol/100);
@@ -13077,7 +13069,7 @@ function playTTSForPreview(){
   speechSynthesis.cancel();
   var u=new SpeechSynthesisUtterance(text);
   u.lang=voice.lang||'zh-CN';
-  var speedMul=(voiceSpeed/100)*0.6+0.7;
+  var speedMul=(voiceSpeed/100)*0.4+0.6;
   u.rate=Math.max(0.7,Math.min(1.3,(voice.rate||1.0)*speedMul));
   u.pitch=Math.max(0.5,Math.min(1.5,voice.pitch||1.0));
   u.volume=voiceVol/100;
@@ -13114,8 +13106,8 @@ function playBgmForPreview(){
     }catch(e){console.log('[BGM] Preview error:',e)}
     return;
   }
-  // Fallback: use synthesis
-  _previewBgmSynth(selectedBgm,bgmVol);
+  // No synthesis fallback - only use real MP3 files
+  console.log('[BGM] No audio file available for preview');
   bgmPlayingId=selectedBgm;
 }
 
