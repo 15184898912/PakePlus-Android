@@ -26,8 +26,6 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.GeolocationPermissions
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.MimeTypeMap
@@ -72,29 +70,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private var pendingPermissionRequest: PermissionRequest? = null
 
-    private lateinit var locationPermissionLauncher: ActivityResultLauncher<Array<String>>
-    private var pendingGeolocationOrigin: String? = null
-    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
-
     // 全屏视频相关
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var originalOrientation: Int = 0
-
-    /** 是否从配置启用了全屏（隐藏状态栏+导航栏） */
-    private var isFullScreenMode: Boolean = false
-
-    /** 当前主文档是否已出现加载错误；仅成功时隐藏启动遮罩 */
-    private var mainFrameLoadError: Boolean = false
-
-    /** app.json 中 launch 非空时才显示启动图遮罩 */
-    private var showLaunchSplash: Boolean = false
-
-    /** app.json 中 screenOn 为 true */
-    private var keepScreenOnFromConfig: Boolean = false
-
-    /** 仅当 app.json 中 callPhone 为 true 才允许跳转拨号器 */
-    private var allowCallPhoneFromConfig: Boolean = false
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,41 +128,15 @@ class MainActivity : AppCompatActivity() {
             pendingPermissionRequest = null
         }
 
-        // 网页 HTML5 定位（navigator.geolocation）
-        locationPermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { results ->
-            val origin = pendingGeolocationOrigin
-            val geoCallback = pendingGeolocationCallback
-            pendingGeolocationOrigin = null
-            pendingGeolocationCallback = null
-            if (origin != null && geoCallback != null) {
-                val fine = results[Manifest.permission.ACCESS_FINE_LOCATION] == true
-                val coarse = results[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-                geoCallback.invoke(origin, fine || coarse, false)
-            }
-        }
-
         // parseJsonWithNative
         val config = parseJsonWithNative(this, "app.json")
         val fullScreen = config?.get("fullScreen") as? Boolean ?: false
-        val gesture = config?.get("gesture") as? Boolean ?: false
         val debug = config?.get("debug") as? Boolean ?: false
         val userAgent = config?.get("userAgent") as? String ?: ""
         val webUrl = config?.get("webUrl") as? String ?: "https://pakeplus.com/"
-        val clearCache = config?.get("clearCache") as? Boolean ?: false
-        val setZoom = config?.get("setZoom") as? Boolean ?: false
-        allowCallPhoneFromConfig = config?.get("callPhone") as? Boolean ?: false
-        val launchCfg = config?.get("launch") as? String
-        showLaunchSplash = !launchCfg.isNullOrBlank()
-        keepScreenOnFromConfig = config?.get("screenOn") as? Boolean ?: false
-        if (keepScreenOnFromConfig) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
         // enable debug by chrome://inspect
         WebView.setWebContentsDebuggingEnabled(debug)
         // config fullscreen
-        isFullScreenMode = fullScreen
         if (fullScreen) {
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -199,10 +152,7 @@ class MainActivity : AppCompatActivity() {
                 lp.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
                 window.attributes = lp
-            }
-            // 低于 P 时在这里用旧 API 隐藏导航栏；P 及以上在 setContentView 后由 hideSystemUI() 统一处理
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                @Suppress("DEPRECATION")
+            } else {
                 window.decorView.systemUiVisibility = (
                         View.SYSTEM_UI_FLAG_FULLSCREEN or
                                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
@@ -216,25 +166,17 @@ class MainActivity : AppCompatActivity() {
         // 可以让内容视图的颜色延伸到屏幕边缘
         enableEdgeToEdge()
         setContentView(R.layout.single_main)
-        if (!showLaunchSplash) {
-            findViewById<View>(R.id.splash_overlay).visibility = View.GONE
-        }
         // set system safe area
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.ConstraintLayout))
         { view, insets ->
             val systemBar = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(systemBar.left, systemBar.top, systemBar.right, systemBar.bottom)
+            view.setPadding(systemBar.left, systemBar.top, systemBar.right, 0)
             insets
-        }
-        // 全屏模式下隐藏状态栏和底部导航栏（Android 9+ 必须在这里调用，window 已就绪）
-        if (isFullScreenMode) {
-            window.decorView.post { hideSystemUI() }
         }
         webView = findViewById<WebView>(R.id.webview)
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            setGeolocationEnabled(true)
             allowFileAccess = true
             useWideViewPort = true
             allowFileAccessFromFileURLs = true
@@ -251,18 +193,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.settings.loadWithOverviewMode = true
-        webView.settings.setSupportZoom(setZoom)
+        webView.settings.setSupportZoom(false)
 
         // clear cache
-        if (clearCache) {
-            webView.clearCache(true)
-        }
+        webView.clearCache(true)
 
         // 为 blob: 链接下载注入 JS 接口
-        webView.addJavascriptInterface(JsInterface(this), "JsBridge")
-
+        webView.addJavascriptInterface(BlobDownloadInterface(this), "BlobDownloader")
         // ===== 关键修复：注册 MediaStore 桥，让 JS 能调用原生 API 保存视频到相册 =====
-        // 没有这行，window.AndroidMediaStore 始终为 undefined，保存视频会闪退
         webView.addJavascriptInterface(MediaStoreSaver(this), "AndroidMediaStore")
 
         // inject js
@@ -314,9 +252,7 @@ class MainActivity : AppCompatActivity() {
 
         // Set touch listener for WebView
         webView.setOnTouchListener { _, event ->
-            if (gesture) {
-                gestureDetector.onTouchEvent(event)
-            }
+            gestureDetector.onTouchEvent(event)
             false
         }
 
@@ -366,14 +302,6 @@ class MainActivity : AppCompatActivity() {
         webView.resumeTimers()
     }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        // 全屏模式下窗口重新获得焦点时再次隐藏导航栏（用户从边缘滑出后会自动再隐藏）
-        if (hasFocus && isFullScreenMode && customView == null) {
-            hideSystemUI()
-        }
-    }
-
     override fun onDestroy() {
         // 清理全屏视图
         if (customView != null) {
@@ -408,8 +336,6 @@ class MainActivity : AppCompatActivity() {
 
         customView = view
         customViewCallback = callback
-
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 保存当前屏幕方向
         originalOrientation = requestedOrientation
@@ -469,10 +395,6 @@ class MainActivity : AppCompatActivity() {
 
         // 恢复屏幕方向
         requestedOrientation = originalOrientation
-
-        if (!keepScreenOnFromConfig) {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
     }
 
     // 隐藏系统UI（全屏模式）
@@ -523,25 +445,13 @@ class MainActivity : AppCompatActivity() {
             val debug = jsonObject.getBoolean("debug")
             val userAgent = jsonObject.getString("userAgent")
             val fullScreen = jsonObject.getBoolean("fullScreen")
-            val launch = jsonObject.getString("launch")
-            val screenOn = jsonObject.optBoolean("screenOn", false)
-            val gesture = jsonObject.optBoolean("gesture", false)
-            val clearCache = jsonObject.optBoolean("clearCache", false)
-            val setZoom = jsonObject.optBoolean("setZoom", false)
-            val callPhone = jsonObject.optBoolean("callPhone", false)
             // 返回键值对
             mapOf(
                 "name" to name,
                 "webUrl" to webUrl,
                 "debug" to debug,
                 "userAgent" to userAgent,
-                "fullScreen" to fullScreen,
-                "launch" to launch,
-                "screenOn" to screenOn,
-                "gesture" to gesture,
-                "clearCache" to clearCache,
-                "setZoom" to setZoom,
-                "callPhone" to callPhone
+                "fullScreen" to fullScreen
             )
         } catch (e: Exception) {
             e.printStackTrace()
@@ -550,11 +460,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * JS 调用的接口
+     * JS 调用的接口：接收 base64 数据并保存为文件
      */
-    inner class JsInterface(private val context: Context) {
+    inner class BlobDownloadInterface(private val context: Context) {
 
-        // 接收 base64 数据并保存为文件
         @JavascriptInterface
         fun downloadBase64File(base64Data: String, mimeType: String?, fileName: String?) {
             try {
@@ -587,25 +496,6 @@ class MainActivity : AppCompatActivity() {
                 Log.e("BlobDownload", "save error", e)
                 showTopToast(context, "保存失败: ${e.message}", Toast.LENGTH_LONG)
             }
-        }
-
-        // 接收一个url，用默认浏览器打开
-        @JavascriptInterface
-        fun openUrl(url: String) {
-            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-            context.startActivity(intent)
-        }
-
-        // 判断是不是安卓客户端
-        @JavascriptInterface
-        fun isAndroid(): Boolean {
-            return true
-        }
-
-        // is app
-        @JavascriptInterface
-        fun isApp(): Boolean {
-            return true
         }
     }
 
@@ -680,7 +570,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 判断一个 URL 是否是"常见文件类型"，用于自动触发下载
+     * 判断一个 URL 是否是“常见文件类型”，用于自动触发下载
      */
     private fun isDownloadableFileUrl(url: String): Boolean {
         val checkUrl = url.substringBefore("?").substringBefore("#").lowercase()
@@ -707,46 +597,12 @@ class MainActivity : AppCompatActivity() {
 //        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
 //    }
 
-    private fun hideSplashOverlay() {
-        if (!showLaunchSplash) return
-        val overlay = findViewById<View>(R.id.splash_overlay)
-        if (overlay.visibility != View.VISIBLE) return
-        overlay.animate()
-            .alpha(0f)
-            .setDuration(200L)
-            .withEndAction {
-                overlay.visibility = View.GONE
-                overlay.alpha = 1f
-            }
-            .start()
-    }
-
     inner class MyWebViewClient(val debug: Boolean) : WebViewClient() {
 
-        private fun handleOverrideUrl(view: WebView?, rawUrl: String?): Boolean {
-            if (rawUrl.isNullOrBlank()) return false
-            val fixedUrl = rawUrl.toString()
-
-            // tel: 用系统拨号器打开（ACTION_DIAL 不需要 CALL_PHONE 权限）
-            if (fixedUrl.startsWith("tel:", ignoreCase = true)) {
-                if (!allowCallPhoneFromConfig) {
-                    showTopToast(this@MainActivity, "已禁用拨打电话功能", Toast.LENGTH_SHORT)
-                    return true
-                }
-                // Android 11+ 上 resolveActivity 可能因"包可见性"返回 null，即使系统存在拨号器；
-                // 这里直接尝试启动并捕获异常更可靠。
-                return try {
-                    val intent = Intent(Intent.ACTION_DIAL, fixedUrl.toUri())
-                    view?.context?.startActivity(intent)
-                    true
-                } catch (e: ActivityNotFoundException) {
-                    showTopToast(this@MainActivity, "未找到可拨号的应用", Toast.LENGTH_SHORT)
-                    true
-                } catch (e: Exception) {
-                    Log.e("WebViewClient", "Error handling tel url: $fixedUrl", e)
-                    true
-                }
-            }
+        @Deprecated("Deprecated in Java", ReplaceWith("false"))
+        override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+            if (url == null) return false
+            val fixedUrl = url.toString()
 
             // 对常见文件类型的 HTTP/HTTPS 链接，直接拦截为下载，不在 WebView 内打开
             if (fixedUrl.startsWith("http://") || fixedUrl.startsWith("https://")) {
@@ -777,16 +633,16 @@ class MainActivity : AppCompatActivity() {
                     // 解析 Intent URI
                     val intent = Intent.parseUri(fixedUrl, Intent.URI_INTENT_SCHEME)
 
-                    val pm = view?.context?.packageManager
-                    if (pm != null && intent.resolveActivity(pm) != null) {
-                        view.context.startActivity(intent)
+                    // 检查设备上是否有应用可以处理此 Intent
+                    if (intent.resolveActivity(view?.context?.packageManager!!) != null) {
+                        view.context?.startActivity(intent)
                         return true // 已经处理，阻止 WebView 加载
                     }
 
                     // 如果找不到能处理的应用，可以尝试打开备用 URL (如果 Intent 中有定义 fallback URL)
                     val fallbackUrl = intent.getStringExtra("browser_fallback_url")
                     if (!fallbackUrl.isNullOrEmpty()) {
-                        view?.loadUrl(fallbackUrl)
+                        view.loadUrl(fallbackUrl)
                         return true // 加载备用 URL
                     }
 
@@ -796,38 +652,31 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: ActivityNotFoundException) {
                     // 找不到匹配的 Activity (外部应用未安装)，此情况通常在 `resolveActivity` 后捕获
                     Log.e("WebViewClient", "No activity found to handle Intent: $fixedUrl", e)
+                    // 您也可以在这里加载一个 "未安装应用" 的提示页面
                 }
-                // 如果是 Intent 但无法处理，继续执行下面的 Scheme 检查
+                // 如果是 Intent 但无法处理（例如未安装应用），您可以选择返回 false 让 WebView 尝试加载（通常会失败）
+                // 或者继续执行下面的 Scheme 检查
             }
 
-            // 3. 检查是否是其他自定义 scheme (e.g., weixin://, zhihu://, mailto://, sms://)
-            return try {
+
+            // 3. 检查是否是其他自定义 Scheme (e.g., weixin://, zhihu://)
+            // 注意：Intent URI 是更通用和推荐的方式，但有些应用可能直接使用 Scheme。
+            try {
                 val intent = Intent(Intent.ACTION_VIEW, fixedUrl.toUri())
-                val pm = view?.context?.packageManager
-                if (pm != null && intent.resolveActivity(pm) != null) {
-                    view.context.startActivity(intent)
-                    true // 已经处理，阻止 WebView 加载
+                // 必须检查是否有应用可以处理此 Intent，否则会导致崩溃
+                if (intent.resolveActivity(view?.context?.packageManager!!) != null) {
+                    view.context?.startActivity(intent)
+                    return true // 已经处理，阻止 WebView 加载
                 } else {
-                    Log.w("WebViewClient", "No activity to handle: $fixedUrl")
-                    // 拦截掉未知 scheme，避免 WebView 报 UNKNOWN_URL_SCHEME
-                    !fixedUrl.startsWith("about:", ignoreCase = true) &&
-                        !fixedUrl.startsWith("javascript:", ignoreCase = true)
+                    // 没有安装相应的应用
+                    Log.w("WebViewClient", "External app not installed for: $fixedUrl")
+                    // 可以添加逻辑提示用户下载应用或打开相应的应用商店链接
                 }
             } catch (e: Exception) {
                 Log.e("WebViewClient", "Error starting external app: $fixedUrl", e)
-                // 拦截掉异常的 scheme，避免 WebView 报 UNKNOWN_URL_SCHEME
-                true
             }
-        }
-
-        @Deprecated("Deprecated in Java", ReplaceWith("false"))
-        override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-            return handleOverrideUrl(view, url)
-        }
-
-        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-            val url = request?.url?.toString()
-            return handleOverrideUrl(view, url)
+            // 如果不是外部应用 Scheme，也不是 HTTP/HTTPS，则返回 false，让 WebView 处理
+            return false
         }
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
@@ -841,30 +690,11 @@ class MainActivity : AppCompatActivity() {
         ) {
             super.onReceivedError(view, request, error)
             println("webView onReceivedError: ${error?.description}")
-            if (showLaunchSplash && request?.isForMainFrame == true) {
-                mainFrameLoadError = true
-            }
-        }
-
-        override fun onReceivedHttpError(
-            view: WebView?,
-            request: WebResourceRequest?,
-            errorResponse: WebResourceResponse?
-        ) {
-            super.onReceivedHttpError(view, request, errorResponse)
-            if (showLaunchSplash && request?.isForMainFrame == true) {
-                val code = errorResponse?.statusCode ?: 0
-                if (code >= 400) mainFrameLoadError = true
-            }
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
-            // post 一次，尽量避免与 onReceivedError / onReceivedHttpError 的时序竞态
-            view?.post {
-                if (!mainFrameLoadError) hideSplashOverlay()
-            }
-            // 注入脚本，拦截 blob: 链接并通过 JsBridge 保存到本地
+            // 注入脚本，拦截 blob: 链接并通过 BlobDownloader 保存到本地
             val blobInterceptor = """
                 (function () {
                   if (window.__blobDownloadInjected) return;
@@ -899,10 +729,10 @@ class MainActivity : AppCompatActivity() {
                               var commaIndex = dataUrl.indexOf(',');
                               var base64 = commaIndex >= 0 ? dataUrl.substring(commaIndex + 1) : dataUrl;
                               var mime = blob.type || 'application/octet-stream';
-                              if (window.JsBridge && window.JsBridge.downloadBase64File) {
-                                window.JsBridge.downloadBase64File(base64, mime, fileName);
+                              if (window.BlobDownloader && window.BlobDownloader.downloadBase64File) {
+                                window.BlobDownloader.downloadBase64File(base64, mime, fileName);
                               } else {
-                                console.error('JsBridge not found on window');
+                                console.error('BlobDownloader not found on window');
                               }
                             } catch (err) {
                               console.error('Blob download convert error', err);
@@ -925,7 +755,6 @@ class MainActivity : AppCompatActivity() {
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
-            if (showLaunchSplash) mainFrameLoadError = false
             if (debug) {
                 // vConsole
                 val vConsole = assets.open("vConsole.js").bufferedReader().use { it.readText() }
@@ -991,42 +820,6 @@ class MainActivity : AppCompatActivity() {
             super.onPermissionRequestCanceled(request)
             if (activity.pendingPermissionRequest == request) {
                 activity.pendingPermissionRequest = null
-            }
-        }
-
-        override fun onGeolocationPermissionsShowPrompt(
-            origin: String?,
-            callback: GeolocationPermissions.Callback?
-        ) {
-            if (origin == null || callback == null) {
-                super.onGeolocationPermissionsShowPrompt(origin, callback)
-                return
-            }
-            activity.runOnUiThread {
-                val fineOk = ContextCompat.checkSelfPermission(
-                    activity,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-                val coarseOk = ContextCompat.checkSelfPermission(
-                    activity,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-                if (fineOk || coarseOk) {
-                    callback.invoke(origin, true, false)
-                    return@runOnUiThread
-                }
-                val need = buildList {
-                    if (!fineOk) add(Manifest.permission.ACCESS_FINE_LOCATION)
-                    if (!coarseOk) add(Manifest.permission.ACCESS_COARSE_LOCATION)
-                }.toTypedArray()
-                activity.pendingGeolocationCallback?.let { prevCb ->
-                    activity.pendingGeolocationOrigin?.let { prevOrigin ->
-                        prevCb.invoke(prevOrigin, false, false)
-                    }
-                }
-                activity.pendingGeolocationOrigin = origin
-                activity.pendingGeolocationCallback = callback
-                activity.locationPermissionLauncher.launch(need)
             }
         }
 

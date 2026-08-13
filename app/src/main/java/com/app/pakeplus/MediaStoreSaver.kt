@@ -1,6 +1,5 @@
 package com.app.pakeplus
 
-import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -8,342 +7,328 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
-import android.util.Log
 import android.webkit.JavascriptInterface
+import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * MediaStoreSaver — 使用 Android MediaStore API 将视频/图片保存到系统相册。
+ * MediaStoreSaver — Native JavaScript Bridge for saving videos to Android system gallery.
  *
- * 这是 Android 13+ (API 33+) 上保存媒体文件到相册的唯一稳定方案，
- * 因为 WRITE_EXTERNAL_STORAGE 在 Android 13+ 已被废弃。
+ * Registered in MainActivity.kt via:
+ *   webView.addJavascriptInterface(MediaStoreSaver(this), "AndroidMediaStore")
  *
- * JavaScript 调用方式：
+ * JavaScript calls:
+ *   - window.AndroidMediaStore.saveVideo(base64Data, fileName)          // small files < 20MB
+ *   - window.AndroidMediaStore.startChunkedSave(fileName, mimeType)      // returns sessionId
+ *   - window.AndroidMediaStore.appendChunk(sessionId, base64Chunk)       // returns boolean
+ *   - window.AndroidMediaStore.finalizeChunkedSave(sessionId)            // returns boolean
+ *   - window.AndroidMediaStore.cancelChunkedSave(sessionId)
  *
- * 方式一（小文件 < 20MB，直接 base64）：
- *   window.AndroidMediaStore.saveVideo(base64Data, "video_001.mp4")
- *
- * 方式二（大文件 >= 20MB，分块传输，避免 OOM）：
- *   var sessionId = window.AndroidMediaStore.startChunkedSave("video_001.mp4", "video/mp4")
- *   window.AndroidMediaStore.appendChunk(sessionId, base64Chunk1)
- *   window.AndroidMediaStore.appendChunk(sessionId, base64Chunk2)
- *   ...
- *   var success = window.AndroidMediaStore.finalizeChunkedSave(sessionId)
- *
- * base64Data 不应包含 "data:...;base64," 前缀。
+ * Uses Android MediaStore API — NO WRITE_EXTERNAL_STORAGE needed on Android 10+.
+ * Chunked transfer avoids OOM by splitting large blobs into 2MB pieces.
  */
 class MediaStoreSaver(private val context: Context) {
 
     companion object {
         private const val TAG = "MediaStoreSaver"
-        private const val CHUNK_SIZE = 2 * 1024 * 1024 // 2MB per chunk
+        private const val CHUNK_SIZE = 2 * 1024 * 1024 // 2MB — matches JavaScript CHUNK_SIZE
     }
 
-    // 分块传输会话
-    data class ChunkSession(
-        val tempFile: File,
+    // ===== Chunked save session management =====
+    private data class ChunkSession(
         val fileName: String,
         val mimeType: String,
-        val isImage: Boolean
+        val tempFile: File,
+        val outputStream: FileOutputStream
     )
 
-    private val sessions = mutableMapOf<String, ChunkSession>()
+    private val sessions = ConcurrentHashMap<String, ChunkSession>()
+
+    // ===== Simple save (for blobs < 20MB) =====
 
     /**
-     * 保存视频到系统相册（小文件方式，直接传 base64）。
-     * @param base64Data Base64 编码的视频数据（不含 data: 前缀）
-     * @param fileName 文件名（含扩展名，如 "video_001.mp4"）
-     * @return true 成功，false 失败
+     * Saves a base64-encoded video directly to the system gallery via MediaStore.
+     * Called by JavaScript for small files (< 20MB).
+     *
+     * @param base64Data Base64-encoded video data (with or without data URI prefix)
+     * @param fileName   Target file name, e.g. "AI_video_12345.mp4"
+     * @return true if saved successfully, false otherwise
      */
     @JavascriptInterface
     fun saveVideo(base64Data: String, fileName: String): Boolean {
-        return try {
-            saveMedia(base64Data, fileName, "video/mp4", false)
-        } catch (e: Exception) {
-            Log.e(TAG, "saveVideo error", e)
-            false
-        }
-    }
-
-    /**
-     * 保存图片到系统相册（小文件方式，直接传 base64）。
-     * @param base64Data Base64 编码的图片数据（不含 data: 前缀）
-     * @param fileName 文件名（含扩展名，如 "image_001.jpg"）
-     * @return true 成功，false 失败
-     */
-    @JavascriptInterface
-    fun saveImage(base64Data: String, fileName: String): Boolean {
-        return try {
-            var mimeType = "image/jpeg"
-            val lower = fileName.lowercase()
-            when {
-                lower.endsWith(".png") -> mimeType = "image/png"
-                lower.endsWith(".webp") -> mimeType = "image/webp"
+        try {
+            // Strip data URI prefix if present (e.g. "data:video/mp4;base64,AAAA...")
+            val cleanBase64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.indexOf(",") + 1)
+            } else {
+                base64Data
             }
-            saveMedia(base64Data, fileName, mimeType, true)
+
+            val videoBytes = Base64.decode(cleanBase64, Base64.NO_WRAP or Base64.URL_SAFE)
+            val sizeMB = videoBytes.size / (1024.0 * 1024.0)
+
+            android.util.Log.i(TAG, "saveVideo: $fileName, ${String.format("%.1f", sizeMB)}MB, ${videoBytes.size} bytes")
+
+            return writeToMediaStore(videoBytes, fileName, getMimeType(fileName))
         } catch (e: Exception) {
-            Log.e(TAG, "saveImage error", e)
-            false
+            android.util.Log.e(TAG, "saveVideo error: ${e.message}", e)
+            showToast("保存失败: ${e.message}")
+            return false
         }
     }
 
+    // ===== Chunked save (for blobs >= 20MB) =====
+
     /**
-     * 开始分块保存会话（用于大文件）。
-     * 在 JS 端将 blob 分成 2MB 的 chunk，逐个调用 appendChunk。
-     * @param fileName 文件名（含扩展名）
-     * @param mimeType MIME 类型（如 "video/mp4"）
-     * @return sessionId 会话 ID，失败返回空字符串
+     * Starts a chunked save session. Creates a temp file to accumulate chunks.
+     *
+     * @param fileName Target file name, e.g. "AI_video_12345.mp4"
+     * @param mimeType MIME type, e.g. "video/mp4"
+     * @return Session ID string, or empty string on failure
      */
     @JavascriptInterface
     fun startChunkedSave(fileName: String, mimeType: String): String {
-        return try {
-            val isImage = mimeType.startsWith("image/")
+        try {
             val sessionId = UUID.randomUUID().toString()
             val tempFile = File(context.cacheDir, "chunked_save_${sessionId}.tmp")
-            sessions[sessionId] = ChunkSession(tempFile, fileName, mimeType, isImage)
-            Log.i(TAG, "startChunkedSave: sessionId=$sessionId, file=$fileName, type=$mimeType")
-            sessionId
+            val outputStream = FileOutputStream(tempFile)
+
+            sessions[sessionId] = ChunkSession(
+                fileName = fileName,
+                mimeType = mimeType.ifEmpty { getMimeType(fileName) },
+                tempFile = tempFile,
+                outputStream = outputStream
+            )
+
+            android.util.Log.i(TAG, "startChunkedSave: session=$sessionId, file=$fileName, mime=$mimeType")
+            return sessionId
         } catch (e: Exception) {
-            Log.e(TAG, "startChunkedSave error", e)
-            ""
+            android.util.Log.e(TAG, "startChunkedSave error: ${e.message}", e)
+            return ""
         }
     }
 
     /**
-     * 追加分块数据到临时文件。
-     * @param sessionId startChunkedSave 返回的会话 ID
-     * @param base64Chunk Base64 编码的数据块（不含 data: 前缀）
-     * @return true 成功，false 失败
+     * Appends a base64-encoded chunk to the session's temp file.
+     *
+     * @param sessionId   Session ID from startChunkedSave()
+     * @param base64Chunk Base64-encoded chunk data (with or without data URI prefix)
+     * @return true if chunk was written successfully, false on error
      */
     @JavascriptInterface
     fun appendChunk(sessionId: String, base64Chunk: String): Boolean {
-        return try {
-            val session = sessions[sessionId] ?: run {
-                Log.e(TAG, "appendChunk: session not found: $sessionId")
-                return false
+        val session = sessions[sessionId] ?: run {
+            android.util.Log.e(TAG, "appendChunk: session not found: $sessionId")
+            return false
+        }
+
+        try {
+            // Strip data URI prefix if present
+            val cleanBase64 = if (base64Chunk.contains(",")) {
+                base64Chunk.substring(base64Chunk.indexOf(",") + 1)
+            } else {
+                base64Chunk
             }
-            val data = Base64.decode(base64Chunk, Base64.NO_WRAP)
-            FileOutputStream(session.tempFile, true).use { fos ->
-                fos.write(data)
-            }
-            Log.d(TAG, "appendChunk: +${data.size} bytes, total=${session.tempFile.length()}")
-            true
+
+            val chunkBytes = Base64.decode(cleanBase64, Base64.NO_WRAP or Base64.URL_SAFE)
+            session.outputStream.write(chunkBytes)
+            session.outputStream.flush()
+
+            android.util.Log.d(TAG, "appendChunk: session=$sessionId, ${chunkBytes.size} bytes")
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "appendChunk error", e)
-            false
+            android.util.Log.e(TAG, "appendChunk error: ${e.message}", e)
+            return false
         }
     }
 
     /**
-     * 完成分块保存：将临时文件写入 MediaStore 系统相册，然后删除临时文件。
-     * @param sessionId startChunkedSave 返回的会话 ID
-     * @return true 成功，false 失败
+     * Finalizes the chunked save: closes the temp file and writes it to MediaStore.
+     *
+     * @param sessionId Session ID from startChunkedSave()
+     * @return true if saved to gallery successfully, false on error
      */
     @JavascriptInterface
     fun finalizeChunkedSave(sessionId: String): Boolean {
-        return try {
-            val session = sessions.remove(sessionId) ?: run {
-                Log.e(TAG, "finalizeChunkedSave: session not found: $sessionId")
-                return false
-            }
-            if (!session.tempFile.exists() || session.tempFile.length() == 0L) {
-                Log.e(TAG, "finalizeChunkedSave: temp file is empty or missing")
-                session.tempFile.delete()
+        val session = sessions[sessionId] ?: run {
+            android.util.Log.e(TAG, "finalizeChunkedSave: session not found: $sessionId")
+            return false
+        }
+
+        try {
+            // Close the output stream
+            session.outputStream.flush()
+            session.outputStream.close()
+
+            val tempFile = session.tempFile
+            val sizeMB = tempFile.length() / (1024.0 * 1024.0)
+
+            android.util.Log.i(TAG, "finalizeChunkedSave: session=$sessionId, ${String.format("%.1f", sizeMB)}MB, file=${session.fileName}")
+
+            if (!tempFile.exists() || tempFile.length() == 0L) {
+                android.util.Log.e(TAG, "finalizeChunkedSave: temp file is empty or missing")
+                cleanupSession(sessionId)
                 return false
             }
 
-            Log.i(TAG, "finalizeChunkedSave: ${session.fileName}, size=${session.tempFile.length()}")
-            val success = saveFileToMediaStore(
-                session.tempFile,
-                session.fileName,
-                session.mimeType,
-                session.isImage
-            )
+            // Read temp file bytes and write to MediaStore
+            val videoBytes = tempFile.readBytes()
+            val success = writeToMediaStore(videoBytes, session.fileName, session.mimeType)
 
-            // 清理临时文件
-            session.tempFile.delete()
+            // Cleanup
+            cleanupSession(sessionId)
 
             if (success) {
-                Log.i(TAG, "✅ Chunked save success: ${session.fileName}")
+                android.util.Log.i(TAG, "finalizeChunkedSave: ✅ SUCCESS — ${session.fileName}")
             } else {
-                Log.e(TAG, "❌ Chunked save failed: ${session.fileName}")
+                android.util.Log.e(TAG, "finalizeChunkedSave: ❌ FAILED — ${session.fileName}")
             }
-            success
+
+            return success
         } catch (e: Exception) {
-            Log.e(TAG, "finalizeChunkedSave error", e)
-            false
+            android.util.Log.e(TAG, "finalizeChunkedSave error: ${e.message}", e)
+            cleanupSession(sessionId)
+            return false
         }
     }
 
     /**
-     * 取消分块保存会话，删除临时文件。
-     * @param sessionId startChunkedSave 返回的会话 ID
+     * Cancels a chunked save session and cleans up the temp file.
+     *
+     * @param sessionId Session ID from startChunkedSave()
      */
     @JavascriptInterface
     fun cancelChunkedSave(sessionId: String) {
+        android.util.Log.i(TAG, "cancelChunkedSave: session=$sessionId")
+        cleanupSession(sessionId)
+    }
+
+    // ===== Core MediaStore write logic =====
+
+    /**
+     * Writes video bytes to the Android system gallery using MediaStore API.
+     * Works on Android 10+ (scoped storage) and older versions.
+     *
+     * @param videoBytes Raw video byte array
+     * @param fileName   Target file name
+     * @param mimeType   MIME type (e.g. "video/mp4")
+     * @return true on success, false on failure
+     */
+    private fun writeToMediaStore(videoBytes: ByteArray, fileName: String, mimeType: String): Boolean {
+        var outputStream: OutputStream? = null
+
         try {
-            val session = sessions.remove(sessionId)
-            session?.tempFile?.delete()
-            Log.i(TAG, "cancelChunkedSave: $sessionId")
+            val resolver = context.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
+                put(MediaStore.Video.Media.MIME_TYPE, mimeType)
+                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/AI成片")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+
+            // Use MediaStore.Video.Media.EXTERNAL_CONTENT_URI for Android 10+
+            val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            } else {
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            }
+
+            val uri: Uri = resolver.insert(collection, values)
+                ?: run {
+                    android.util.Log.e(TAG, "writeToMediaStore: ContentResolver.insert returned null")
+                    return false
+                }
+
+            outputStream = resolver.openOutputStream(uri)
+            if (outputStream == null) {
+                android.util.Log.e(TAG, "writeToMediaStore: openOutputStream returned null")
+                resolver.delete(uri, null, null)
+                return false
+            }
+
+            outputStream.write(videoBytes)
+            outputStream.flush()
+
+            // Mark as completed
+            values.clear()
+            values.put(MediaStore.Video.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+
+            android.util.Log.i(TAG, "writeToMediaStore: ✅ Saved ${videoBytes.size} bytes to $uri")
+            showToast("✅ 视频已保存到相册: Movies/AI成片/$fileName")
+            return true
+
+        } catch (e: SecurityException) {
+            android.util.Log.e(TAG, "writeToMediaStore: SecurityException — ${e.message}", e)
+            showToast("保存失败: 需要存储权限")
+            return false
         } catch (e: Exception) {
-            Log.e(TAG, "cancelChunkedSave error", e)
+            android.util.Log.e(TAG, "writeToMediaStore error: ${e.message}", e)
+            showToast("保存失败: ${e.message}")
+            return false
+        } finally {
+            outputStream?.tryClose()
+        }
+    }
+
+    // ===== Utility methods =====
+
+    /**
+     * Extracts MIME type from file extension.
+     */
+    private fun getMimeType(fileName: String): String {
+        val ext = fileName.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "mp4" -> "video/mp4"
+            "webm" -> "video/webm"
+            "mov" -> "video/quicktime"
+            "avi" -> "video/x-msvideo"
+            "mkv" -> "video/x-matroska"
+            "3gp" -> "video/3gpp"
+            else -> "video/mp4"
         }
     }
 
     /**
-     * 检查是否有所需权限。
-     * Android 13+: 检查 READ_MEDIA_VIDEO / READ_MEDIA_IMAGES
-     * Android 6-12: 检查 WRITE_EXTERNAL_STORAGE
+     * Cleans up a chunked save session: closes stream, deletes temp file, removes from map.
      */
-    @JavascriptInterface
-    fun hasPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ (API 33+)
-            val videoPerm = context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_VIDEO)
-            val imagePerm = context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES)
-            videoPerm == android.content.pm.PackageManager.PERMISSION_GRANTED ||
-            imagePerm == android.content.pm.PackageManager.PERMISSION_GRANTED
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Android 6-12
-            val writePerm = context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            writePerm == android.content.pm.PackageManager.PERMISSION_GRANTED
-        } else {
-            // Android 5 及以下，安装时授权
-            true
+    private fun cleanupSession(sessionId: String) {
+        val session = sessions.remove(sessionId) ?: return
+        try {
+            session.outputStream.tryClose()
+        } catch (_: Exception) {
+        }
+        try {
+            if (session.tempFile.exists()) {
+                session.tempFile.delete()
+            }
+        } catch (_: Exception) {
         }
     }
 
-    // ===== 内部方法 =====
-
     /**
-     * 核心方法：将 base64 数据保存到系统相册。
+     * Shows a toast message on the UI thread.
      */
-    private fun saveMedia(base64Data: String, fileName: String, mimeType: String, isImage: Boolean): Boolean {
-        val data = Base64.decode(base64Data, Base64.NO_WRAP)
-        if (data.isEmpty()) {
-            Log.e(TAG, "Base64 decode failed or empty data")
-            return false
-        }
-        Log.i(TAG, "Saving media: $fileName, size=${data.size} bytes, type=$mimeType")
-
-        val resolver = context.contentResolver
-        val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val relativePath = if (isImage) {
-                    Environment.DIRECTORY_DCIM + "/Camera"
-                } else {
-                    Environment.DIRECTORY_DCIM + "/Camera"
-                }
-                put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
-                put(MediaStore.Video.Media.IS_PENDING, 1)
+    private fun showToast(message: String) {
+        try {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
+        } catch (_: Exception) {
         }
-
-        val uri = if (isImage) {
-            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-        } else {
-            resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-        } ?: run {
-            Log.e(TAG, "MediaStore.insert() returned null")
-            return false
-        }
-
-        Log.i(TAG, "MediaStore URI created: $uri")
-
-        resolver.openOutputStream(uri)?.use { os ->
-            // 分块写入，避免 OOM
-            var offset = 0
-            val chunkSize = 8192
-            while (offset < data.size) {
-                val len = minOf(chunkSize, data.size - offset)
-                os.write(data, offset, len)
-                offset += len
-            }
-            os.flush()
-        } ?: run {
-            Log.e(TAG, "openOutputStream returned null")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-            return false
-        }
-
-        // 标记为已完成，使文件在相册中可见
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            values.clear()
-            values.put(MediaStore.Video.Media.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-        }
-
-        Log.i(TAG, "✅ Media saved: $fileName (${data.size} bytes)")
-        return true
     }
 
     /**
-     * 将临时文件保存到 MediaStore 系统相册。
-     * 使用文件流复制，避免将整个文件读入内存。
+     * Extension to safely close an OutputStream.
      */
-    private fun saveFileToMediaStore(
-        tempFile: File,
-        fileName: String,
-        mimeType: String,
-        isImage: Boolean
-    ): Boolean {
-        val resolver = context.contentResolver
-        val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_DCIM + "/Camera")
-                put(MediaStore.Video.Media.IS_PENDING, 1)
-            }
+    private fun OutputStream.tryClose() {
+        try {
+            this.close()
+        } catch (_: Exception) {
         }
-
-        val uri = if (isImage) {
-            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-        } else {
-            resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-        } ?: run {
-            Log.e(TAG, "MediaStore.insert() returned null for chunked save")
-            return false
-        }
-
-        Log.i(TAG, "MediaStore URI created (chunked): $uri")
-
-        resolver.openOutputStream(uri)?.use { os ->
-            tempFile.inputStream().use { fis ->
-                val buffer = ByteArray(CHUNK_SIZE)
-                var bytesRead: Int
-                while (fis.read(buffer).also { bytesRead = it } > 0) {
-                    os.write(buffer, 0, bytesRead)
-                }
-                os.flush()
-            }
-        } ?: run {
-            Log.e(TAG, "openOutputStream returned null for chunked save")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-            return false
-        }
-
-        // 标记为已完成
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            values.clear()
-            values.put(MediaStore.Video.Media.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-        }
-
-        Log.i(TAG, "✅ Media saved (chunked): $fileName (${tempFile.length()} bytes)")
-        return true
     }
 }

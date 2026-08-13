@@ -1,59 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- 添加网络权限 -->
+
+    <!-- 硬件特性 -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-    <!-- 网页 Geolocation API（navigator.geolocation） -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 网络权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <!-- Android 9 及以下：下载文件保存到系统下载目录需要写存储权限 -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
+    <!-- ===== Android 13+ (API 33+) 细粒度媒体权限 ===== -->
+    <!-- 替代已废弃的 WRITE_EXTERNAL_STORAGE -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <!-- 摄像头 / 麦克风权限（配合 WebView getUserMedia 使用） -->
+
+    <!-- ===== Android 14+ (API 34+) 部分媒体访问 ===== -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+
+    <!-- ===== 旧版存储权限 (Android 12 及以下) ===== -->
+    <!-- maxSdkVersion=32 确保不在 Android 13+ 上生效 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"
+        tools:ignore="ScopedStorage" />
+
+    <!-- 摄像头/麦克风权限 (配合 WebView getUserMedia 使用) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- 定位权限 (网页 Geolocation API) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 其他权限 -->
     <uses-permission android:name="android.webkit.PermissionRequest" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <!-- 允许打开哪些外部应用   -->
-    <queries>
-        <!-- 允许查询并打开系统拨号器（Android 11+ 包可见性） -->
-        <intent>
-            <action android:name="android.intent.action.DIAL" />
-            <data android:scheme="tel" />
-        </intent>
 
-        <!-- 云盘 -->
-        <package android:name="com.baidu.netdisk" />
-        <package android:name="com.tencent.weiyun" />
-        <package android:name="com.google.android.apps.docs" />
-        <package android:name="com.dropbox.android" />
-        <package android:name="com.microsoft.skydrive" />
-
-        <!-- 社交/通讯 -->
-        <package android:name="com.tencent.mm" />
-        <package android:name="com.tencent.mobileqq" />
-        <package android:name="com.sina.weibo" />
-        <package android:name="com.whatsapp" />
-
-        <!-- 支付/电商 -->
-        <package android:name="com.eg.android.AlipayGphone" />
-        <package android:name="com.taobao.taobao" />
-        <package android:name="com.jingdong.app.mall" />
-        
-
-        <!-- 浏览器/地图/其他 -->
-        <package android:name="com.android.chrome" />
-        <package android:name="com.autonavi.minimap" />
-    </queries>
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -65,10 +53,12 @@
         android:theme="@style/Theme.PakePlus"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.PakePlus.NoActionBar"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>
