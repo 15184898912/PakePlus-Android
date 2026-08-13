@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1480,24 +1481,25 @@ a{color:inherit;text-decoration:none}
 }
 .slider-modal-buttons{
   display:flex;
-  gap:12px;
+  flex-direction:column;
+  gap:10px;
   margin-top:20px;
 }
 .slider-modal-reset{
-  flex:1;
-  height:44px;
+  width:100%;
+  height:40px;
   background:rgba(255,255,255,.06);
   border-radius:var(--radius-s,8px);
-  font-size:14px;
+  font-size:13px;
   cursor:pointer;
-  color:rgba(255,255,255,.7);
+  color:rgba(255,255,255,.5);
   display:flex;
   align-items:center;
   justify-content:center;
 }
 .slider-modal-close{
-  flex:1;
-  height:44px;
+  width:100%;
+  height:48px;
   background:linear-gradient(135deg,#55B6F2,#3B9EE6);
   border-radius:var(--radius-s,8px);
   font-size:14px;
@@ -2847,7 +2849,7 @@ var _ttsPreviewCache={};
 // ===== FIX VERSION MARKER — 用于验证最新修复代码是否已部署 =====
 // 在浏览器控制台输入 _checkFixVersion() 即可查看诊断信息
 // 如果显示 4.0 说明最新代码已生效；如果没有输出，说明代码未更新
-var _FIX_VERSION='8.5 (real-bgm-tracks + bgm-volume-boost + tauri-fs-save + tts-data-js + tauri-invoke-tts + skip-mic-capture)';
+var _FIX_VERSION='8.6 (center-confirm-btn + fix-speed-formula + real-bgm-only + utf8-encode-fix + reduce-audio-delay)';
 function _checkFixVersion(){
   console.log('========================================');
   console.log('  修复版本: '+_FIX_VERSION);
@@ -2991,8 +2993,8 @@ function _getSharedAudio(){
 var _ttsBlobUrlCache={};
 function _initTtsBlobCache(){
   if(typeof TTS_PREGENERATED==='undefined'||typeof _getPregeneratedTts!=='function'){
-    console.log('[TTS-CACHE] TTS_PREGENERATED not ready, will retry in 1s');
-    setTimeout(_initTtsBlobCache,1000);
+    console.log('[TTS-CACHE] TTS_PREGENERATED not ready, will retry in 500ms');
+    setTimeout(_initTtsBlobCache,500);
     return;
   }
   var count=0;
@@ -3018,11 +3020,11 @@ function _initTtsBlobCache(){
   }
   console.log('[TTS-CACHE] Pre-decoded '+count+' voices to Blob URLs');
 }
-// Auto-init when DOM is ready
+// Auto-init when DOM is ready - reduced delay for faster voice playback
 if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(_initTtsBlobCache,500)});
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_initTtsBlobCache,100)});
 }else{
-  setTimeout(_initTtsBlobCache,500);
+  setTimeout(_initTtsBlobCache,100);
 }
 function _removeAudioEl(el){
   if(!el)return;
@@ -5689,19 +5691,16 @@ function toggleBgmPlay(id,el){
       bgmAudioEl.play().then(function(){
         console.log('[BGM] Track preview started:',track.name);
       }).catch(function(e){
-        console.log('[BGM] Track preview error, trying synthesis:',e.message||e);
-        // Fallback: use synthesis when audio file not accessible (e.g. WebView/PakePlus)
-        _previewBgmSynth(id,bgmVol);
+        console.log('[BGM] Track preview error:',e.message||e);
       });
       bgmPlayingId=id;
     }catch(e){
-      console.error('[BGM] Track preview error, trying synthesis:',e);
-      _previewBgmSynth(id,bgmVol);
+      console.error('[BGM] Track preview error:',e);
     }
     return;
   }
-  // Fallback: use synthesis for tracks without base64 data
-  _previewBgmSynth(id,bgmVol);
+  // No synthesis fallback - only use real MP3 files
+  console.log('[BGM] No audio file available for preview');
   bgmPlayingId=id;
 }
 
@@ -11701,30 +11700,20 @@ async function processVideoWithEffects(videoBlob){
       bgmUrl=_getBgmUrl(actualBgmId);
     }
     if(bgmUrl){
-      // Load from blob URL or base64 data URI
+      // Load from file URL - real MP3 files only, no synthesis fallback
       try{
         bgmBuffer=await loadAudioBuffer(audioCtx,bgmUrl);
       }catch(bgmErr){console.log('BGM load error:',bgmErr);bgmBuffer=null}
-      // Fallback: synthesize if file load failed (e.g. bgm/ folder not accessible in WebView)
       if(!bgmBuffer){
-        console.log('[BGM] File load failed ('+bgmUrl+'), trying synthesis fallback...');
-        try{
-          bgmBuffer=await _synthesizeBgmBuffer(audioCtx,actualBgmId,duration);
-          console.log('[BGM] Synthesis fallback successful');
-        }catch(bgmErr2){console.log('BGM synth error:',bgmErr2);bgmBuffer=null}
+        console.log('[BGM] File load failed ('+bgmUrl+'), skipping BGM (no synthesis)');
       }
-    }else{
-      // Fallback: synthesize
-      try{
-        bgmBuffer=await _synthesizeBgmBuffer(audioCtx,actualBgmId,duration);
-      }catch(bgmErr){console.log('BGM synth error:',bgmErr);bgmBuffer=null}
     }
     if(bgmBuffer){
       console.log('BGM ready:',bgmTrack.name,'duration:',bgmBuffer.duration.toFixed(2)+'s');
       videoGain.gain.value=0;
       console.log('原声音量: 0 (BGM已加载，自动关闭原声)');
     }else{
-      console.log('BGM failed to load/synthesize');
+      console.log('BGM not available - using video original audio');
     }
   }
 
@@ -12362,7 +12351,7 @@ async function processVideoWithEffects(videoBlob){
         try{
           var u=new SpeechSynthesisUtterance(ttsVoiceConfig.text);
           u.lang=ttsVoiceConfig.voice.lang||'zh-CN';
-          var speedMul=(ttsVoiceConfig.speed/100)*0.6+0.7;
+          var speedMul=(ttsVoiceConfig.speed/100)*0.4+0.6;
           u.rate=Math.max(0.7,Math.min(1.3,(ttsVoiceConfig.voice.rate||1.0)*speedMul));
           u.pitch=Math.max(0.5,Math.min(1.5,ttsVoiceConfig.voice.pitch||1.0));
           u.volume=Math.max(0.5,ttsVoiceConfig.vol/100);
@@ -13114,8 +13103,8 @@ function playBgmForPreview(){
     }catch(e){console.log('[BGM] Preview error:',e)}
     return;
   }
-  // Fallback: use synthesis
-  _previewBgmSynth(selectedBgm,bgmVol);
+  // No synthesis fallback - only use real MP3 files
+  console.log('[BGM] No audio file available for preview');
   bgmPlayingId=selectedBgm;
 }
 
