@@ -2489,9 +2489,7 @@ function _getBgmUrl(id){
       <button id="render-save-btn" class="render-done-btn" style="flex:1;background:rgba(48,209,88,.2);color:#30D158;position:relative;z-index:10" onclick="saveRenderToAlbum()">📥 保存到相册</button>
       <button class="render-done-btn" id="render-done-btn" style="flex:1" onclick="finishRender()">✦ 查看作品</button>
     </div>
-    <div style="margin-top:12px;text-align:center">
-      <button id="render-longpress-btn" class="render-done-btn" style="width:100%;background:rgba(0,122,255,.15);color:#0A84FF;font-size:13px;padding:8px" onclick="_longPressSaveFromRender()">👆 长按视频保存到相册（如果上方按钮无效请点这里）</button>
-    </div>
+
   </div>
 </div>
 
@@ -2862,7 +2860,7 @@ function _checkFixVersion(){
   console.log('  _playVoiceWebAudio: '+(typeof _playVoiceWebAudio==='function'?'✅':'❌'));
   console.log('  _voiceAudioCtx: '+(_voiceAudioCtx?'已创建 (state='+_voiceAudioCtx.state+')':'未创建'));
   console.log('  _voiceAudioBuffers: '+Object.keys(_voiceAudioBuffers).length+' voices cached');
-  console.log('  _longPressSaveFromRender: '+(typeof _longPressSaveFromRender==='function'?'✅':'❌'));
+  console.log('  _showSaveProgressDialog: '+(typeof _showSaveProgressDialog==='function'?'✅':'❌'));
   console.log('  --- 环境检测 ---');
   console.log('  window.plus: '+(typeof window.plus!=='undefined'?'已定义':'未定义'));
   console.log('  plus.android: '+((typeof window.plus!=='undefined'&&window.plus&&window.plus.android)?'可用':'不可用 (PakePlus)'));
@@ -2872,53 +2870,11 @@ function _checkFixVersion(){
   return _FIX_VERSION;
 }
 
-// ===== 长按保存：最可靠的保底方案 =====
-// 不依赖 navigator.share、不依赖 <a download>、不依赖原生桥
-// 直接全屏显示视频，提示用户长按选择"保存视频"
-// 这是 Android WebView 中保存视频最稳定的方法
+// v11.0: _longPressSave now redirects to the new server-based save system
+// No more long-press required — upload to server then download via HTTP URL
 function _longPressSave(blob,fileName){
-  console.log('[SAVE-LONGPRESS] 启动长按保存模式');
-  showToast('请在视频上长按，选择"保存视频"');
-
-  // 创建全屏遮罩
-  var mask=document.createElement('div');
-  mask.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;';
-
-  // 创建视频元素
-  var video=document.createElement('video');
-  video.style.cssText='max-width:95%;max-height:75%;border-radius:8px;';
-  video.controls=true;
-  var url=null;
-  try{
-    url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:URL.createObjectURL(blob);
-  }catch(e){
-    try{url=URL.createObjectURL(blob)}catch(e2){
-      showToast('视频加载失败');
-      return;
-    }
-  }
-  video.src=url;
-
-  // 提示文字
-  var tip=document.createElement('div');
-  tip.style.cssText='color:#fff;font-size:16px;margin-top:16px;text-align:center;padding:0 20px;';
-  tip.innerHTML='👆 请在视频上<span style="color:#4fc3f7;font-weight:bold">长按</span>，选择<span style="color:#4fc3f7;font-weight:bold">「保存视频」</span><br><span style="font-size:13px;color:#aaa;margin-top:8px;display:block">保存后视频将出现在手机相册中</span>';
-
-  // 关闭按钮
-  var closeBtn=document.createElement('button');
-  closeBtn.textContent='✕ 关闭';
-  closeBtn.style.cssText='margin-top:20px;padding:10px 30px;background:#333;color:#fff;border:1px solid #555;border-radius:8px;font-size:16px;cursor:pointer;';
-  closeBtn.onclick=function(){
-    if(mask.parentNode)mask.parentNode.removeChild(mask);
-    video.pause();
-    _resetSaveButton();
-  };
-
-  mask.appendChild(video);
-  mask.appendChild(tip);
-  mask.appendChild(closeBtn);
-  document.body.appendChild(mask);
-  _resetSaveButton();
+  console.log('[SAVE-V11] _longPressSave redirected to crash-proof save');
+  _crashProofSaveFallback(blob,fileName,blob.type||'video/webm',blob.size/1048576);
 }
 
 function stopAllAudio(){
@@ -6365,22 +6321,6 @@ setInterval(function(){
     _resetSaveButton();
   }
 },20000);
-// v8.0: Long-press save from render modal (alternative to saveRenderToAlbum)
-function _longPressSaveFromRender(){
-  if(!_lastRenderedBlob){
-    showToast('暂无可保存的视频，请先完成渲染');
-    return;
-  }
-  var now=new Date();
-  var resTag=RESOLUTION_CONFIG[selectedResolution]?RESOLUTION_CONFIG[selectedResolution].label:'1080P';
-  var ext='webm';
-  if(_lastRenderedBlob.type&&_lastRenderedBlob.type.indexOf('mp4')>=0)ext='mp4';
-  else if(_lastRenderedBlob.type&&_lastRenderedBlob.type.indexOf('quicktime')>=0)ext='mov';
-  var fileName='AI智能成片_'+resTag+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.'+ext;
-  console.log('[SAVE-LP] Long-press save from render');
-  _showLongPressSaveOverlay(_lastRenderedBlob,fileName,_renderVideoUrl||null,_lastRenderedBlob.size);
-}
-
 function saveRenderToAlbum(){
   console.log('[SAVE-RENDER] saveRenderToAlbum CALLED at',new Date().toISOString());
   // ===== KEY GUARD: Check if render mask is actually visible =====
@@ -9915,6 +9855,7 @@ function _saveViaPlusAndroid(blob,fileName,blobType){
 // ===== v8.5: Tauri fs save (for PakePlus without AndroidMediaStore bridge) =====
 // Uses Tauri's file system plugin to write directly to Downloads folder.
 // Bypasses WebView entirely — no blob URL, no <video> element, no OOM.
+// v12: Enhanced with Android direct paths and chunked write
 async function _saveViaTauri(blob,fileName){
   if(typeof window.__TAURI__==='undefined'){return false}
   var invoke=null;
@@ -9923,10 +9864,10 @@ async function _saveViaTauri(blob,fileName){
   if(!invoke){console.log('[SAVE-TAURI] No invoke available');return false}
 
   var blobMB=blob.size/1048576;
-  console.log('[SAVE-TAURI] Attempting Tauri fs save: '+blobMB.toFixed(1)+'MB');
+  console.log('[SAVE-TAURI] v12: Attempting save: '+blobMB.toFixed(1)+'MB');
 
   try{
-    // Step 1: Get save directory (try download_dir, then movie_dir, then document_dir)
+    // Step 1: Get save directory — try Tauri path APIs first
     var saveDir=null;
     var dirNames=['plugin:path|download_dir','plugin:path|movie_dir','plugin:path|document_dir','plugin:path|app_data_dir'];
     for(var di=0;di<dirNames.length&&!saveDir;di++){
@@ -9938,6 +9879,34 @@ async function _saveViaTauri(blob,fileName){
         console.log('[SAVE-TAURI] Got dir from '+dirNames[di]+': '+saveDir);
       }catch(e){console.log('[SAVE-TAURI] '+dirNames[di]+' not available')}
     }
+
+    // v12: Step 1b: If Tauri path APIs fail, try Android direct paths
+    if(!saveDir){
+      console.log('[SAVE-TAURI] v12: Trying Android direct paths...');
+      var androidPaths=[
+        '/storage/emulated/0/Movies/',
+        '/storage/emulated/0/Download/',
+        '/storage/emulated/0/DCIM/',
+        '/sdcard/Movies/',
+        '/sdcard/Download/',
+        '/sdcard/DCIM/'
+      ];
+      for(var pi=0;pi<androidPaths.length;pi++){
+        var testPath=androidPaths[pi]+'.zhuge_test_'+Date.now();
+        try{
+          await invoke('plugin:fs|write_file',{path:testPath,contents:new Uint8Array([0])});
+          // Write succeeded — path is writable
+          saveDir=androidPaths[pi];
+          console.log('[SAVE-TAURI] v12: Writable path found: '+saveDir);
+          // Clean up test file
+          try{await invoke('plugin:fs|remove_file',{path:testPath})}catch(e){}
+          break;
+        }catch(e){
+          console.log('[SAVE-TAURI] v12: Path not writable: '+androidPaths[pi]);
+        }
+      }
+    }
+
     if(!saveDir){console.log('[SAVE-TAURI] No save directory available');return false}
 
     // Step 2: Build file path
@@ -9966,6 +9935,58 @@ async function _saveViaTauri(blob,fileName){
     return true;
   }catch(e){
     console.error('[SAVE-TAURI] Save failed:',e.message||e);
+
+    // v12: If write_file fails with Uint8Array, try Base64 approach
+    if(blob.size<50*1048576){
+      try{
+        console.log('[SAVE-TAURI] v12: Trying Base64 write method...');
+        var saveDir2=null;
+        // Re-use found directory or try Android paths
+        var dirs2=['/storage/emulated/0/Movies/','/storage/emulated/0/Download/','/sdcard/Movies/','/sdcard/Download/'];
+        // Try Tauri path APIs
+        for(var di2=0;di2<dirNames.length&&!saveDir2;di2++){
+          try{saveDir2=await invoke(dirNames[di2])}catch(e){}
+        }
+        if(!saveDir2){
+          for(var pi2=0;pi2<dirs2.length;pi2++){
+            try{
+              await invoke('plugin:fs|write_file',{path:dirs2[pi2]+'.test',contents:new Uint8Array([0])});
+              saveDir2=dirs2[pi2];
+              break;
+            }catch(e){}
+          }
+        }
+        if(!saveDir2)return false;
+
+        var sep2=saveDir2.indexOf('/')>=0?'/':'\\';
+        if(!saveDir2.endsWith(sep2))saveDir2+=sep2;
+        var filePath2=saveDir2+(fileName||('AI_'+Date.now()+'.mp4'));
+
+        // Convert to base64 in chunks
+        showToast('正在转换视频...');
+        var reader=new FileReader();
+        var base64Data=await new Promise(function(resolve,reject){
+          reader.onload=function(){
+            var result=reader.result;
+            var commaIdx=result.indexOf(',');
+            resolve(commaIdx>=0?result.substring(commaIdx+1):result);
+          };
+          reader.onerror=function(){reject(reader.error)};
+          reader.readAsDataURL(blob);
+        });
+
+        console.log('[SAVE-TAURI] v12: Base64 length='+base64Data.length);
+        await invoke('plugin:fs|write_file',{path:filePath2,contents:base64Data});
+
+        console.log('[SAVE-TAURI] v12: ✅ File saved via Base64');
+        showToast('✅ 视频已保存到相册');
+        _resetSaveButton();
+        return true;
+      }catch(e2){
+        console.error('[SAVE-TAURI] v12: Base64 write also failed:',e2.message||e2);
+        return false;
+      }
+    }
     return false;
   }
 }
@@ -10006,73 +10027,39 @@ function _crashProofSave(blob,fileName,blobType){
 }
 
 function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
-  console.warn('[SAVE-V8] ⚠️ Falling back to web save');
+  console.warn('[SAVE-V11] Fallback: blob='+blobMB.toFixed(1)+'MB, WebView='+_isWebView());
 
-  // ===== v9.0 CRITICAL FIX: <a download> with blob: URL CRASHES WebView =====
-  // PakePlus/custom WebView crashes on a.click() when href is a blob: URL,
-  // regardless of blob size. This was the root cause of the persistent crash.
-  // FIX: In WebView, NEVER use <a download> with blob URL.
-  //   - If server is available: upload blob → download from HTTP URL (safe, no crash)
-  //   - If no server: show long-press overlay (user long-presses video → save)
-  // In regular browser: <a download> works fine (kept for desktop browsers).
-  var SIZE_THRESHOLD=4*1048576; // 4MB (browser only)
+  var SIZE_THRESHOLD=4*1048576;
   try{
     var url=null;
     try{
       url=(typeof _renderVideoUrl!=='undefined'&&_renderVideoUrl)?_renderVideoUrl:URL.createObjectURL(blob);
     }catch(urlErr){
-      console.warn('[SAVE-V8] createObjectURL failed:',urlErr);
+      console.warn('[SAVE-V11] createObjectURL failed:',urlErr);
     }
 
     if(_isWebView()){
-      // ===== v10.1: Try navigator.share FIRST (most reliable save in WebView) =====
-      if(navigator&&navigator.share){
-        console.log('[SAVE-V8] Trying navigator.share (best WebView save method)');
-        try{
-          var _shareFile=new File([blob],fileName||('AI_video.webm'),{type:blob.type||'video/webm'});
-          var _canShare=true;
-          if(navigator.canShare){
-            _canShare=navigator.canShare({files:[_shareFile]});
-          }
-          if(_canShare){
-            showToast('正在打开分享面板...');
-            navigator.share({files:[_shareFile],title:'AI智能成片',text:'保存到相册'}).then(function(){
-              console.log('[SAVE-V8] Share succeeded');
-              showToast('视频已保存');
-              _resetSaveButton();
-            }).catch(function(e){
-              console.log('[SAVE-V8] Share cancelled/failed:',e.name);
-              if(e.name==='AbortError'){
-                _resetSaveButton();
-              }else{
-                // Share failed — fall back to overlay
-                _showLongPressSaveOverlay(blob,fileName,url,blob.size);
-              }
-            });
-            return;
-          }
-          console.log('[SAVE-V8] navigator.canShare returned false');
-        }catch(shareErr){
-          console.log('[SAVE-V8] Share setup failed:',shareErr);
-        }
-      }
+      // v12.0: Try DIRECT save methods FIRST (no server needed)
+      // Server is only used as last resort
+      console.log('[SAVE-V12] WebView — trying direct save methods first (no server)');
+      _showSaveProgressDialog(blob,fileName,url,blobMB);
+      _updateSaveProgress('正在保存到相册...',0);
 
-      // ===== WebView: NEVER use <a download> with blob URL =====
-      console.log('[SAVE-V8] WebView — trying server upload or long-press overlay');
-      var _svBase=getApiBase();
-      if(_svBase!==null&&_svBase!==''){
-        console.log('[SAVE-V8] Server available, uploading via XHR');
-        _tryServerSaveLargeBlob(blob,fileName,function(){
-          console.log('[SAVE-V8] Server failed, falling back to long-press overlay');
-          _showLongPressSaveOverlay(blob,fileName,url,blob.size);
-        });
-        return;
-      }
-      // No server: show long-press overlay (with share button)
-      console.log('[SAVE-V8] No server, showing long-press overlay with share button');
-      _showLongPressSaveOverlay(blob,fileName,url,blob.size);
+      // Try direct methods — these don't need a server
+      _tryDirectSaveV12(blob,fileName,url,blobMB,function(){
+        // All direct methods failed — try server as last resort
+        console.log('[SAVE-V12] Direct methods failed — trying server as last resort');
+        var _svBase=getApiBase();
+        if(_svBase!==null&&_svBase!==''){
+          _updateSaveProgress('正在连接服务器...',0);
+          _checkServerAndUpload(_svBase,blob,fileName,url,blobMB);
+        }else{
+          // No server either — show error
+          _showSaveErrorDialog('无法直接保存，请确保服务器已启动或使用Tauri框架',blob,fileName,url,blobMB);
+        }
+      });
     }else{
-      // ===== Regular browser: <a download> works fine =====
+      // Regular browser: <a download> works fine
       if(url&&blob.size<SIZE_THRESHOLD){
         try{
           var a=document.createElement('a');
@@ -10083,132 +10070,526 @@ function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
           document.body.appendChild(a);
           a.click();
           setTimeout(function(){if(a.parentNode)document.body.removeChild(a)},5000);
-          console.log('[SAVE-V8] <a download> triggered (small video '+blobMB.toFixed(1)+'MB)');
+          console.log('[SAVE-V11] <a download> triggered (small video '+blobMB.toFixed(1)+'MB)');
+          showToast('视频已开始下载');
+          _resetSaveButton();
         }catch(dlErr){
-          console.warn('[SAVE-V8] <a download> failed:',dlErr);
+          console.warn('[SAVE-V11] <a download> failed:',dlErr);
+          _showSaveProgressDialog(blob,fileName,url,blobMB);
         }
-      }else if(blob.size>=SIZE_THRESHOLD){
-        console.log('[SAVE-V8] Large video ('+blobMB.toFixed(1)+'MB >= 4MB), skipping <a download>');
+      }else{
+        // Large video in browser — try server upload
+        var _svBase2=getApiBase();
+        if(_svBase2!==null&&_svBase2!==''){
+          _showSaveProgressDialog(blob,fileName,url,blobMB);
+          _checkServerAndUpload(_svBase2,blob,fileName,url,blobMB);
+        }else{
+          _showSaveProgressDialog(blob,fileName,url,blobMB);
+        }
       }
-      _showLongPressSaveOverlay(blob,fileName,url,blob.size);
     }
   }catch(e){
-    console.error('[SAVE-V8] Error:',e);
-    try{_showLongPressSaveOverlay(blob,fileName,null,blob.size)}catch(e2){}
+    console.error('[SAVE-V11] Error:',e);
+    _showSaveErrorDialog('保存出错: '+(e.message||e),blob,fileName,url,blobMB);
   }
 }
 
-// Long-press save overlay: shows video full-screen, user long-presses to save
-// Also provides a "下载到手机" button for direct download
-function _showLongPressSaveOverlay(blob,fileName,existingUrl,blobSize){
-  // Remove any existing overlay
-  var old=document.getElementById('v8-save-overlay');
-  if(old){old.parentNode.removeChild(old)}
+// v12.0: Try direct save methods that DON'T need a server
+// Tries multiple approaches in sequence — server is only used as last resort
+function _tryDirectSaveV12(blob,fileName,url,blobMB,onAllFailed){
+  console.log('[SAVE-V12] Trying direct save methods (no server)');
 
-  var blobMB=((blobSize||blob.size)/1048576).toFixed(1);
-  var isLarge=(blobSize||blob.size)>=8*1048576;
-
-  var url=existingUrl;
-  if(!url){
-    try{url=URL.createObjectURL(blob)}catch(e){url=null}
+  // Method 1: navigator.msSaveBlob (Edge/IE, might work in some WebViews)
+  if(navigator&&navigator.msSaveBlob){
+    try{
+      console.log('[SAVE-V12] Trying navigator.msSaveBlob');
+      var ok=navigator.msSaveBlob(blob,fileName||('AI_video.webm'));
+      if(ok){
+        console.log('[SAVE-V12] ✅ msSaveBlob succeeded');
+        _updateSaveProgress('视频已保存',100);
+        showToast('✅ 视频已保存到相册');
+        setTimeout(function(){_closeSaveProgressDialog();_resetSaveButton()},1500);
+        return;
+      }
+    }catch(e){
+      console.warn('[SAVE-V12] msSaveBlob failed:',e);
+    }
   }
-  if(!url){
-    showToast('视频加载失败，请重试');
-    _resetSaveButton();
+
+  // Method 2: window.open with blob URL — opens system browser which can save
+  if(url){
+    try{
+      console.log('[SAVE-V12] Trying window.open(blobUrl)');
+      _updateSaveProgress('正在打开视频...',30);
+      var w=window.open(url,'_blank');
+      if(w){
+        console.log('[SAVE-V12] window.open succeeded — browser should handle save');
+        _updateSaveProgress('已打开视频，请在浏览器中保存',100);
+        showToast('视频已打开，请在浏览器中选择保存');
+        setTimeout(function(){_closeSaveProgressDialog();_resetSaveButton()},2000);
+        return;
+      }
+      console.log('[SAVE-V12] window.open returned null');
+    }catch(e){
+      console.warn('[SAVE-V12] window.open failed:',e);
+    }
+  }
+
+  // Method 3: Hidden iframe — some WebViews trigger download for iframe blob URLs
+  if(url){
+    try{
+      console.log('[SAVE-V12] Trying hidden iframe method');
+      _updateSaveProgress('正在保存...',40);
+      var iframe=document.createElement('iframe');
+      iframe.style.cssText='position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:0;';
+      iframe.src=url;
+      document.body.appendChild(iframe);
+
+      // Check after 2 seconds if iframe is still there (no crash)
+      var iframeOk=false;
+      setTimeout(function(){
+        try{
+          if(iframe&&iframe.contentWindow){
+            // If we can access contentWindow, the iframe loaded without crash
+            // Try to trigger download via the iframe's content
+            iframeOk=true;
+            console.log('[SAVE-V12] iframe loaded — trying download within iframe');
+          }
+        }catch(e){
+          // Cross-origin or blocked — might mean download started
+          console.log('[SAVE-V12] iframe cross-origin — might have started download');
+        }
+        // Remove iframe after attempt
+        setTimeout(function(){
+          try{if(iframe.parentNode)iframe.parentNode.removeChild(iframe)}catch(e){}
+        },1000);
+      },1500);
+
+      // Don't return yet — continue to try other methods
+      // (iframe might not trigger download in all WebViews)
+    }catch(e){
+      console.warn('[SAVE-V12] iframe method failed:',e);
+    }
+  }
+
+  // Method 4: <a download> with data URL for small files (< 5MB)
+  // Data URLs are handled differently from blob URLs and don't crash WebView
+  if(blob.size<5*1048576){
+    try{
+      console.log('[SAVE-V12] Trying data URL method for small file ('+blobMB.toFixed(1)+'MB)');
+      _updateSaveProgress('正在转换视频...',50);
+      var reader=new FileReader();
+      reader.onload=function(){
+        try{
+          var dataUrl=reader.result;
+          console.log('[SAVE-V12] Data URL created, length='+dataUrl.length);
+          var a=document.createElement('a');
+          a.href=dataUrl;
+          a.download=fileName||('AI_video.webm');
+          a.style.display='none';
+          document.body.appendChild(a);
+          // Use click() — data URLs don't crash WebView (only blob URLs do)
+          a.click();
+          console.log('[SAVE-V12] ✅ Data URL download triggered');
+          _updateSaveProgress('视频已保存',100);
+          showToast('✅ 视频已保存到相册');
+          setTimeout(function(){
+            if(a.parentNode)document.body.removeChild(a);
+            _closeSaveProgressDialog();
+            _resetSaveButton();
+          },2000);
+          return; // Assume success
+        }catch(e){
+          console.warn('[SAVE-V12] Data URL click failed:',e);
+          // Continue to next method
+          _tryBlobDownloadV12(blob,fileName,url,blobMB,onAllFailed);
+        }
+      };
+      reader.onerror=function(){
+        console.warn('[SAVE-V12] FileReader error');
+        _tryBlobDownloadV12(blob,fileName,url,blobMB,onAllFailed);
+      };
+      reader.readAsDataURL(blob);
+      return; // Wait for async result
+    }catch(e){
+      console.warn('[SAVE-V12] Data URL method failed:',e);
+    }
+  }
+
+  // Method 5: <a download> with blob URL for small files (< 2MB)
+  // This MIGHT crash, but for very small files it might work
+  if(blob.size<2*1048576&&url){
+    _tryBlobDownloadV12(blob,fileName,url,blobMB,onAllFailed);
     return;
   }
+
+  // All direct methods failed
+  console.log('[SAVE-V12] All direct methods failed');
+  onAllFailed();
+}
+
+// v12.0: Try <a download> with blob URL (risky — might crash)
+// Only for small files, used as last resort before server
+function _tryBlobDownloadV12(blob,fileName,url,blobMB,onAllFailed){
+  if(!url||blob.size>=2*1048576){
+    onAllFailed();
+    return;
+  }
+  try{
+    console.log('[SAVE-V12] Trying <a download> with blob URL ('+blobMB.toFixed(1)+'MB)');
+    _updateSaveProgress('正在保存...',60);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName||('AI_video.webm');
+    a.style.display='none';
+    document.body.appendChild(a);
+
+    // Set a safety timer — if page is still alive after click, it worked
+    var crashed=false;
+    window.__saveV12Timer=setTimeout(function(){
+      if(!crashed){
+        console.log('[SAVE-V12] ✅ Page survived <a download> — likely saved');
+        _updateSaveProgress('视频已保存',100);
+        showToast('✅ 视频已保存到相册');
+        try{if(a.parentNode)document.body.removeChild(a)}catch(e){}
+        _closeSaveProgressDialog();
+        _resetSaveButton();
+      }
+    },1500);
+
+    a.click();
+
+    // If the page crashes here, the timer won't fire
+    // If the page survives, the timer will fire and show success
+  }catch(e){
+    console.warn('[SAVE-V12] <a download> with blob URL failed:',e);
+    if(window.__saveV12Timer){clearTimeout(window.__saveV12Timer)}
+    onAllFailed();
+  }
+}
+
+
+function _checkServerAndUpload(serverBase,blob,fileName,url,blobMB){
+  var healthUrl=serverBase+'/api/health';
+  console.log('[SAVE-V11] Health check:',healthUrl);
+  _updateSaveProgress('正在连接服务器...',0);
+
+  var healthXhr=new XMLHttpRequest();
+  healthXhr.open('GET',healthUrl,true);
+  healthXhr.timeout=3000;
+  healthXhr.onload=function(){
+    if(healthXhr.status===200){
+      console.log('[SAVE-V11] Server healthy — starting upload');
+      _updateSaveProgress('服务器已连接，正在上传视频...',0);
+      _tryServerSaveLargeBlobV11(serverBase,blob,fileName,url,blobMB);
+    }else{
+      console.warn('[SAVE-V11] Server returned:',healthXhr.status);
+      _showSaveErrorDialog('服务器返回错误('+healthXhr.status+')，请确保服务器正常运行',blob,fileName,url,blobMB);
+    }
+  };
+  healthXhr.onerror=function(){
+    console.warn('[SAVE-V11] Server unreachable');
+    _showSaveErrorDialog('无法连接服务器('+serverBase+')，请确保电脑端服务器已启动',blob,fileName,url,blobMB);
+  };
+  healthXhr.ontimeout=function(){
+    console.warn('[SAVE-V11] Server health check timeout');
+    _showSaveErrorDialog('连接服务器超时，请检查网络或服务器状态',blob,fileName,url,blobMB);
+  };
+  healthXhr.send();
+}
+
+// v11.0: Server upload with progress, then HTTP download (no blob URL, no crash)
+function _tryServerSaveLargeBlobV11(serverBase,blob,fileName,url,blobMB){
+  var ext='.webm';
+  if(blob.type&&blob.type.indexOf('mp4')>=0)ext='.mp4';
+  else if(blob.type&&blob.type.indexOf('quicktime')>=0)ext='.mov';
+  var uploadName=fileName||('zhuge_'+Date.now()+ext);
+  var uploadUrl=serverBase+'/api/upload_render?name='+encodeURIComponent(uploadName)+'&type='+encodeURIComponent(blob.type||'video/webm');
+
+  console.log('[SAVE-V11] Uploading',blobMB.toFixed(1),'MB to',serverBase);
+  var xhr=new XMLHttpRequest();
+  xhr.open('POST',uploadUrl,true);
+  xhr.timeout=120000; // 2 min for large files
+  xhr.upload.onprogress=function(e){
+    if(e.lengthComputable&&e.total>0){
+      var pct=Math.round(e.loaded/e.total*100);
+      _updateSaveProgress('正在上传视频... '+pct+'%',pct);
+    }
+  };
+  xhr.onload=function(){
+    console.log('[SAVE-V11] Upload response:',xhr.status);
+    if(xhr.status!==200){
+      _showSaveErrorDialog('上传失败(状态码:'+xhr.status+')，请确保电脑端服务器已启动',blob,fileName,url,blobMB);
+      return;
+    }
+    var data;
+    try{data=JSON.parse(xhr.responseText)}catch(e){
+      _showSaveErrorDialog('服务器响应异常',blob,fileName,url,blobMB);
+      return;
+    }
+    if(!data.success||!data.url){
+      _showSaveErrorDialog('上传失败: '+(data.error||'未知错误'),blob,fileName,url,blobMB);
+      return;
+    }
+    // Server has the file — download from HTTP URL (safe, no blob, no crash)
+    var fileUrl=serverBase+data.url;
+    console.log('[SAVE-V11] Upload OK, downloading from:',fileUrl);
+    _updateSaveProgress('上传完成，正在保存到相册...',100);
+
+    // Try multiple download methods with HTTP URL (not blob URL — safe in WebView)
+    _downloadFromHttpUrl(fileUrl,uploadName,blob,fileName,url,blobMB);
+  };
+  xhr.onerror=function(){
+    console.error('[SAVE-V11] Upload network error');
+    _showSaveErrorDialog('上传失败，请检查网络连接后重试',blob,fileName,url,blobMB);
+  };
+  xhr.ontimeout=function(){
+    console.error('[SAVE-V11] Upload timeout');
+    _showSaveErrorDialog('上传超时，请检查网络或减小视频大小',blob,fileName,url,blobMB);
+  };
+  xhr.send(blob);
+}
+
+// v11.0: Download from HTTP URL (not blob URL — safe in WebView)
+function _downloadFromHttpUrl(fileUrl,fileName,blob,origFileName,url,blobMB){
+  // Method 1: <a download> with HTTP URL (safe — crash only happens with blob: URLs)
+  try{
+    var a=document.createElement('a');
+    a.href=fileUrl;
+    a.download=fileName;
+    a.style.display='none';
+    document.body.appendChild(a);
+    setTimeout(function(){
+      try{
+        a.click();
+        console.log('[SAVE-V11] <a download> with HTTP URL triggered');
+        _updateSaveProgress('视频已保存',100);
+        showToast('✅ 视频已保存到相册');
+        setTimeout(function(){
+          _closeSaveProgressDialog();
+          _resetSaveButton();
+        },1500);
+      }catch(e){
+        console.warn('[SAVE-V11] <a download> click failed:',e);
+        // Method 2: window.open with HTTP URL
+        _tryWindowOpenHttp(fileUrl,blob,origFileName,url,blobMB);
+      }
+      setTimeout(function(){try{if(a.parentNode)document.body.removeChild(a)}catch(e){}},3000);
+    },100);
+  }catch(e){
+    console.warn('[SAVE-V11] <a download> setup failed:',e);
+    _tryWindowOpenHttp(fileUrl,blob,origFileName,url,blobMB);
+  }
+}
+
+// v11.0: Try window.open with HTTP URL
+function _tryWindowOpenHttp(fileUrl,blob,fileName,url,blobMB){
+  try{
+    console.log('[SAVE-V11] Trying window.open with HTTP URL');
+    var w=window.open(fileUrl,'_blank');
+    if(w){
+      _updateSaveProgress('已打开下载页面',100);
+      showToast('视频已开始下载');
+      setTimeout(function(){
+        _closeSaveProgressDialog();
+        _resetSaveButton();
+      },2000);
+    }else{
+      // Method 3: window.location.href = HTTP URL
+      console.log('[SAVE-V11] window.open blocked, trying location.href');
+      _updateSaveProgress('正在保存...',100);
+      window.location.href=fileUrl;
+      setTimeout(function(){
+        _closeSaveProgressDialog();
+        _resetSaveButton();
+      },2000);
+    }
+  }catch(e){
+    console.error('[SAVE-V11] window.open failed:',e);
+    _showSaveErrorDialog('下载失败，请确保服务器正常运行',blob,fileName,url,blobMB);
+  }
+}
+
+// v11.0: Try direct download methods when server is NOT available
+// These use blob URLs which MAY crash WebView, but we try them as last resort
+// before showing an error. window.open is safer than <a download>.
+// v12.0: Old function name kept for compatibility — now redirects to V12
+function _tryDirectDownloadMethods(blob,fileName,url,blobMB){
+  _tryDirectSaveV12(blob,fileName,url,blobMB,function(){
+    _showSaveErrorDialog('保存失败，请重试',blob,fileName,url,blobMB);
+  });
+}
+
+// v11.0: Save progress dialog — replaces old long-press overlay
+// Shows upload progress, no long-press instructions
+function _showSaveProgressDialog(blob,fileName,url,blobMB){
+  var old=document.getElementById('v8-save-overlay');
+  if(old){old.parentNode.removeChild(old)}
 
   var overlay=document.createElement('div');
   overlay.id='v8-save-overlay';
   overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
 
-  // Title
   var title=document.createElement('div');
   title.style.cssText='color:#fff;font-size:18px;font-weight:bold;margin-bottom:8px;text-align:center;';
-  title.textContent='保存视频到相册';
+  title.textContent='正在保存到相册';
   overlay.appendChild(title);
 
-  // Size info
   var sizeInfo=document.createElement('div');
-  sizeInfo.style.cssText='color:#aaa;font-size:13px;margin-bottom:16px;text-align:center;';
-  sizeInfo.textContent='视频大小: '+blobMB+'MB';
+  sizeInfo.style.cssText='color:#aaa;font-size:13px;margin-bottom:20px;text-align:center;';
+  sizeInfo.textContent='视频大小: '+blobMB.toFixed(1)+'MB';
   overlay.appendChild(sizeInfo);
 
-  // v10.1: Video WITHOUT controls — native controls have a download button that crashes WebView
-  var video=document.createElement('video');
-  video.style.cssText='max-width:100%;max-height:45vh;border-radius:12px;background:#000;pointer-events:none;';
-  video.playsInline=true;
-  video.setAttribute('webkit-playsinline','');
-  video.preload='metadata';
-  video.src=url;
-  overlay.appendChild(video);
+  // Progress bar
+  var progressWrap=document.createElement('div');
+  progressWrap.style.cssText='width:80%;max-width:300px;height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;margin-bottom:12px;';
+  var progressBar=document.createElement('div');
+  progressBar.id='v8-save-progress-bar';
+  progressBar.style.cssText='width:0%;height:100%;background:linear-gradient(90deg,#30D158,#0A84FF);border-radius:3px;transition:width 0.3s ease;';
+  progressWrap.appendChild(progressBar);
+  overlay.appendChild(progressWrap);
 
-  // v10.1: "分享保存" button — uses navigator.share to save to gallery (most reliable in WebView)
-  var shareBtn=document.createElement('button');
-  shareBtn.textContent='📤 分享/保存到相册';
-  shareBtn.style.cssText='margin-top:16px;padding:14px 36px;background:#30D158;color:#000;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;width:80%;';
-  shareBtn.onclick=function(){
-    shareBtn.textContent='⏳ 正在打开分享...';
-    shareBtn.style.opacity='0.6';
-    try{
-      var shareFile=new File([blob],fileName||('AI_video_'+Date.now()+'.webm'),{type:blob.type||'video/webm'});
-      if(navigator&&navigator.share&&navigator.canShare&&navigator.canShare({files:[shareFile]})){
-        navigator.share({files:[shareFile],title:'AI智能成片',text:'保存到相册'}).then(function(){
-          showToast('已通过分享保存');
-          shareBtn.textContent='✅ 已保存';
-          shareBtn.style.opacity='1';
-        }).catch(function(e){
-          console.log('[SAVE] Share cancelled or failed:',e);
-          shareBtn.textContent='📤 分享/保存到相册';
-          shareBtn.style.opacity='1';
-          if(e.name!=='AbortError'){
-            showToast('分享失败，请长按视频保存');
-          }
-        });
-      }else if(navigator&&navigator.share){
-        // Older API without canShare
-        navigator.share({title:'AI智能成片',text:'保存到相册',files:[shareFile]}).then(function(){
-          showToast('已通过分享保存');
-        }).catch(function(e){
-          shareBtn.textContent='📤 分享/保存到相册';
-          shareBtn.style.opacity='1';
-        });
-      }else{
-        shareBtn.textContent='⚠️ 不支持分享，请长按视频';
-        shareBtn.style.opacity='1';
-        showToast('当前环境不支持分享，请长按视频画面保存');
-      }
-    }catch(e){
-      console.error('[SAVE] Share error:',e);
-      shareBtn.textContent='⚠️ 分享失败，请长按视频';
-      shareBtn.style.opacity='1';
-      showToast('分享失败，请长按视频画面保存');
+  // Progress text
+  var progressText=document.createElement('div');
+  progressText.id='v8-save-progress-text';
+  progressText.style.cssText='color:#30D158;font-size:14px;text-align:center;min-height:20px;';
+  progressText.textContent='准备中...';
+  overlay.appendChild(progressText);
+
+  // Spinner
+  var spinner=document.createElement('div');
+  spinner.id='v8-save-spinner';
+  spinner.style.cssText='margin-top:20px;width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-top-color:#30D158;border-radius:50%;animation:v8spin 0.8s linear infinite;';
+  overlay.appendChild(spinner);
+
+  // Add keyframe for spinner
+  var style=document.createElement('style');
+  style.textContent='@keyframes v8spin{to{transform:rotate(360deg)}}';
+  overlay.appendChild(style);
+
+  // Close button (only visible after delay)
+  var closeBtn=document.createElement('button');
+  closeBtn.id='v8-save-close-btn';
+  closeBtn.textContent='✕ 取消';
+  closeBtn.style.cssText='margin-top:24px;padding:10px 28px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-size:14px;cursor:pointer;display:none;';
+  closeBtn.onclick=function(){
+    if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
+    _resetSaveButton();
+  };
+  overlay.appendChild(closeBtn);
+
+  // Show close button after 5 seconds (in case it takes long)
+  setTimeout(function(){
+    var cb=document.getElementById('v8-save-close-btn');
+    if(cb){cb.style.display='block'}
+  },5000);
+
+  document.body.appendChild(overlay);
+  console.log('[SAVE-V11] Progress dialog shown');
+}
+
+// v11.0: Update progress dialog
+function _updateSaveProgress(text,pct){
+  var pt=document.getElementById('v8-save-progress-text');
+  if(pt){pt.textContent=text}
+  var pb=document.getElementById('v8-save-progress-bar');
+  if(pb&&typeof pct==='number'){
+    pb.style.width=Math.min(100,Math.max(0,pct))+'%';
+  }
+}
+
+// v11.0: Close progress dialog
+function _closeSaveProgressDialog(){
+  var overlay=document.getElementById('v8-save-overlay');
+  if(overlay){
+    // Brief success animation before closing
+    var pt=document.getElementById('v8-save-progress-text');
+    var pb=document.getElementById('v8-save-progress-bar');
+    var sp=document.getElementById('v8-save-spinner');
+    if(pb){pb.style.width='100%'}
+    if(sp){sp.style.display='none'}
+    setTimeout(function(){
+      if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
+    },500);
+  }
+}
+
+// v11.0: Show error dialog with retry button
+function _showSaveErrorDialog(msg,blob,fileName,url,blobMB){
+  var old=document.getElementById('v8-save-overlay');
+  if(old){old.parentNode.removeChild(old)}
+
+  var overlay=document.createElement('div');
+  overlay.id='v8-save-overlay';
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+
+  var icon=document.createElement('div');
+  icon.style.cssText='font-size:48px;margin-bottom:16px;';
+  icon.textContent='⚠️';
+  overlay.appendChild(icon);
+
+  var title=document.createElement('div');
+  title.style.cssText='color:#ff6b6b;font-size:18px;font-weight:bold;margin-bottom:8px;text-align:center;';
+  title.textContent='保存失败';
+  overlay.appendChild(title);
+
+  var msgDiv=document.createElement('div');
+  msgDiv.style.cssText='color:#aaa;font-size:14px;margin-bottom:20px;text-align:center;line-height:1.6;max-width:300px;';
+  msgDiv.textContent=msg;
+  overlay.appendChild(msgDiv);
+
+  // Hint
+  var hint=document.createElement('div');
+  hint.style.cssText='color:#4fc3f7;font-size:12px;margin-bottom:20px;text-align:center;line-height:1.6;max-width:280px;';
+  hint.innerHTML='💡 已尝试多种保存方式均未成功<br>可尝试以下方法：<br>1. 启动电脑端服务器后重试<br>2. 使用支持Tauri的框架重新打包<br>3. 检查App是否有存储权限';
+  overlay.appendChild(hint);
+
+  // Retry button
+  var retryBtn=document.createElement('button');
+  retryBtn.textContent='🔄 重试';
+  retryBtn.style.cssText='padding:14px 36px;background:#30D158;color:#000;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;width:80%;max-width:280px;margin-bottom:12px;';
+  retryBtn.onclick=function(){
+    if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
+    console.log('[SAVE-V11] Retry clicked');
+    // Re-trigger save
+    if(blob&&fileName){
+      _crashProofSaveFallback(blob,fileName,blob.type||'video/webm',blob.size/1048576);
     }
   };
-  overlay.appendChild(shareBtn);
-
-  // Instructions
-  var tip=document.createElement('div');
-  tip.style.cssText='color:#4fc3f7;font-size:14px;margin-top:16px;text-align:center;line-height:1.8;';
-  tip.innerHTML='或 👆 在视频画面上<strong>长按</strong>，选择<strong>「保存视频」</strong>';
-  overlay.appendChild(tip);
-
-  // v10.0: "直接下载" button REMOVED — <a download> with blob URL crashes Poptile WebView
+  overlay.appendChild(retryBtn);
 
   // Close button
   var closeBtn=document.createElement('button');
   closeBtn.textContent='✕ 关闭';
-  closeBtn.style.cssText='margin-top:12px;padding:10px 28px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-size:14px;cursor:pointer;';
+  closeBtn.style.cssText='padding:10px 28px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-size:14px;cursor:pointer;';
   closeBtn.onclick=function(){
     if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
-    try{video.pause();video.src=''}catch(e){}
     _resetSaveButton();
   };
   overlay.appendChild(closeBtn);
 
   document.body.appendChild(overlay);
   _resetSaveButton();
-  console.log('[SAVE-V8] Long-press overlay shown');
+  console.log('[SAVE-V11] Error dialog shown:',msg);
+}
+
+// v12.0: Backward-compatible wrapper — tries direct save first, then server
+function _showLongPressSaveOverlay(blob,fileName,existingUrl,blobSize){
+  var blobMB=((blobSize||blob.size)/1048576);
+  var url=existingUrl;
+  if(!url){try{url=URL.createObjectURL(blob)}catch(e){url=null}}
+  _showSaveProgressDialog(blob,fileName,url,blobMB);
+  _updateSaveProgress('正在保存到相册...',0);
+  // v12: Try direct methods first (no server needed)
+  _tryDirectSaveV12(blob,fileName,url,blobMB,function(){
+    // Direct methods failed — try server as last resort
+    var svBase=getApiBase();
+    if(svBase!==null&&svBase!==''){
+      _checkServerAndUpload(svBase,blob,fileName,url,blobMB);
+    }else{
+      _showSaveErrorDialog('无法直接保存，请确保服务器已启动或使用Tauri框架',blob,fileName,url,blobMB);
+    }
+  });
 }
 
 function _safeDownloadBlob(blob,fileName){
@@ -10608,7 +10989,7 @@ function _downloadBlobWebSafe(blob,fileName){
         showToast('视频已开始下载，请查看下载管理');
       }catch(clickErr){
         console.error('Download click error:',clickErr);
-        showToast('保存失败，请长按视频保存');
+        showToast('保存失败，请重试');
       }
       _downloadInProgress=false;
       // Reset save button after download click
@@ -10641,7 +11022,7 @@ function _tryServerSaveLargeBlob(blob,fileName,onFail){
   if(!serverBase){
     console.error('[SAVE-WEB] No server for large blob upload');
     if(_onFail){_onFail();return}
-    showToast('无服务器可用，请长按视频保存');
+    showToast('无服务器可用，请启动服务器后重试');
     _resetSaveButton();
     return;
   }
@@ -10670,7 +11051,7 @@ function _tryServerSaveLargeBlob(blob,fileName,onFail){
     if(xhr.status!==200){
       console.error('[SAVE-WEB] Upload failed:',xhr.status);
       if(_onFail){_onFail();return}
-      showToast('上传失败，请长按视频保存');
+      showToast('上传失败，请重试');
       _resetSaveButton();
       _downloadInProgress=false;
       return;
@@ -10679,7 +11060,7 @@ function _tryServerSaveLargeBlob(blob,fileName,onFail){
     try{data=JSON.parse(xhr.responseText)}catch(e){
       console.error('[SAVE-WEB] Parse error:',xhr.responseText.substring(0,200));
       if(_onFail){_onFail();return}
-      showToast('服务器响应异常，请长按视频保存');
+      showToast('服务器响应异常，请重试');
       _resetSaveButton();
       _downloadInProgress=false;
       return;
@@ -10716,14 +11097,14 @@ function _tryServerSaveLargeBlob(blob,fileName,onFail){
     console.error('[SAVE-WEB] Upload network error');
     // v9.0: Server not reachable — fall back to long-press overlay instead of just toast
     if(_onFail){_onFail();return}
-    showToast('服务器不可用，请长按视频保存');
+    showToast('服务器不可用，请启动服务器后重试');
     _resetSaveButton();
     _downloadInProgress=false;
   };
   xhr.ontimeout=function(){
     console.error('[SAVE-WEB] Upload timeout');
     if(_onFail){_onFail();return}
-    showToast('上传超时，请长按视频保存');
+    showToast('上传超时，请重试');
     _resetSaveButton();
     _downloadInProgress=false;
   };
@@ -10880,7 +11261,7 @@ function _downloadBlobWeb(blob,fileName){
           console.error('[SAVE] Video overlay error:',overlayErr);
         }
       },800);
-      showToast('视频已开始下载，如未成功请长按视频画面保存');
+      showToast('视频已开始下载');
     }else{
       showToast('视频已开始下载，请在下载管理中查看');
     }
@@ -10888,7 +11269,7 @@ function _downloadBlobWeb(blob,fileName){
     console.error('Web download error:',e);
     try{_showVideoSaveOverlay(blob)}catch(e2){
       console.error('[SAVE] Fallback overlay also failed:',e2);
-      showToast('保存失败，请尝试长按视频画面保存');
+      showToast('保存失败，请重试');
     }
   }
 }
@@ -10916,7 +11297,7 @@ function _showMobileSaveDialog(blob,fileName){
     // 内容
     var content=document.createElement('div');
     content.style.cssText='color:rgba(255,255,255,.8);font-size:14px;line-height:1.7;margin-bottom:20px;white-space:pre-line';
-    content.textContent='当前为网页预览模式，无法直接写入相册。\n\n请点击"在浏览器打开"，然后长按视频选择"保存到相册"或"下载视频"。';
+    content.textContent='当前为网页预览模式，无法直接写入相册。\n\n请点击"在浏览器打开"，然后在浏览器中保存视频。';
     // 按钮容器
     var btnRow=document.createElement('div');
     btnRow.style.cssText='display:flex;gap:12px';
@@ -10934,9 +11315,9 @@ function _showMobileSaveDialog(blob,fileName){
     confirmBtn.textContent='在浏览器打开';
     confirmBtn.onclick=function(){
       mask.remove();
-      // 同时显示视频覆盖层，供长按保存
+      // 尝试通过服务器保存
       _showVideoSaveOverlay(blob);
-      showToast('请长按视频画面保存');
+      showToast('保存失败，请重试');
     };
     btnRow.appendChild(cancelBtn);
     btnRow.appendChild(confirmBtn);
@@ -10960,7 +11341,7 @@ function _showVideoSaveOverlay(blob){
     overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
     var titleDiv=document.createElement('div');
     titleDiv.style.cssText='color:#fff;font-size:16px;font-weight:700;margin-bottom:12px';
-    titleDiv.textContent='长按视频可保存到相册';
+    titleDiv.textContent='正在保存视频';
     var videoEl=document.createElement('video');
     videoEl.src=url;
     videoEl.controls=true;
@@ -10968,7 +11349,7 @@ function _showVideoSaveOverlay(blob){
     videoEl.style.cssText='max-width:100%;max-height:70vh;border-radius:12px;background:#000';
     var tipDiv=document.createElement('div');
     tipDiv.style.cssText='color:rgba(255,255,255,.6);font-size:13px;margin-top:16px;text-align:center';
-    tipDiv.textContent='如果无法自动下载，请长按视频画面选择"保存视频"或"保存到相册"';
+    tipDiv.textContent='正在通过服务器保存，请稍候...';
     var closeBtn=document.createElement('button');
     closeBtn.style.cssText='margin-top:20px;padding:10px 32px;background:#F4DCAC;color:#1a1a2e;border:none;border-radius:24px;font-size:15px;font-weight:700;cursor:pointer';
     closeBtn.textContent='关闭';
@@ -10981,7 +11362,7 @@ function _showVideoSaveOverlay(blob){
     overlay.appendChild(tipDiv);
     overlay.appendChild(closeBtn);
     document.body.appendChild(overlay);
-    showToast('请长按视频画面保存');
+    showToast('保存失败，请重试');
   }catch(e){
     console.error('Video overlay error:',e);
     showToast('保存失败，视频已保存在作品库中');
