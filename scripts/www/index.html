@@ -10025,22 +10025,51 @@ function _crashProofSaveFallback(blob,fileName,blobType,blobMB){
     }
 
     if(_isWebView()){
-      // ===== WebView (PakePlus/Tauri/custom): NEVER use <a download> with blob URL =====
-      console.log('[SAVE-V8] WebView detected — using safe save path (NO <a download> with blob URL)');
+      // ===== v10.1: Try navigator.share FIRST (most reliable save in WebView) =====
+      if(navigator&&navigator.share){
+        console.log('[SAVE-V8] Trying navigator.share (best WebView save method)');
+        try{
+          var _shareFile=new File([blob],fileName||('AI_video.webm'),{type:blob.type||'video/webm'});
+          var _canShare=true;
+          if(navigator.canShare){
+            _canShare=navigator.canShare({files:[_shareFile]});
+          }
+          if(_canShare){
+            showToast('正在打开分享面板...');
+            navigator.share({files:[_shareFile],title:'AI智能成片',text:'保存到相册'}).then(function(){
+              console.log('[SAVE-V8] Share succeeded');
+              showToast('视频已保存');
+              _resetSaveButton();
+            }).catch(function(e){
+              console.log('[SAVE-V8] Share cancelled/failed:',e.name);
+              if(e.name==='AbortError'){
+                _resetSaveButton();
+              }else{
+                // Share failed — fall back to overlay
+                _showLongPressSaveOverlay(blob,fileName,url,blob.size);
+              }
+            });
+            return;
+          }
+          console.log('[SAVE-V8] navigator.canShare returned false');
+        }catch(shareErr){
+          console.log('[SAVE-V8] Share setup failed:',shareErr);
+        }
+      }
+
+      // ===== WebView: NEVER use <a download> with blob URL =====
+      console.log('[SAVE-V8] WebView — trying server upload or long-press overlay');
       var _svBase=getApiBase();
       if(_svBase!==null&&_svBase!==''){
-        // Server available: upload blob → download from HTTP URL (safe, streams without OOM)
-        // v9.0: Pass onFail callback — if server is unreachable (cross-device), show long-press overlay
-        console.log('[SAVE-V8] Server available, uploading via XHR (safe, no blob URL in <a>)');
+        console.log('[SAVE-V8] Server available, uploading via XHR');
         _tryServerSaveLargeBlob(blob,fileName,function(){
-          // Server failed — show long-press overlay (works on ANY device, no server needed)
           console.log('[SAVE-V8] Server failed, falling back to long-press overlay');
           _showLongPressSaveOverlay(blob,fileName,url,blob.size);
         });
         return;
       }
-      // No server: show long-press overlay (most reliable WebView save method)
-      console.log('[SAVE-V8] No server, showing long-press overlay');
+      // No server: show long-press overlay (with share button)
+      console.log('[SAVE-V8] No server, showing long-press overlay with share button');
       _showLongPressSaveOverlay(blob,fileName,url,blob.size);
     }else{
       // ===== Regular browser: <a download> works fine =====
@@ -10105,43 +10134,66 @@ function _showLongPressSaveOverlay(blob,fileName,existingUrl,blobSize){
   sizeInfo.textContent='视频大小: '+blobMB+'MB';
   overlay.appendChild(sizeInfo);
 
-  // Video element — use preload='metadata' to avoid loading entire video into memory
+  // v10.1: Video WITHOUT controls — native controls have a download button that crashes WebView
   var video=document.createElement('video');
-  video.style.cssText='max-width:100%;max-height:50vh;border-radius:12px;background:#000;';
-  video.controls=true;
+  video.style.cssText='max-width:100%;max-height:45vh;border-radius:12px;background:#000;pointer-events:none;';
   video.playsInline=true;
   video.setAttribute('webkit-playsinline','');
-  video.preload='metadata'; // Only load metadata, not full video — prevents OOM
+  video.preload='metadata';
   video.src=url;
   overlay.appendChild(video);
 
+  // v10.1: "分享保存" button — uses navigator.share to save to gallery (most reliable in WebView)
+  var shareBtn=document.createElement('button');
+  shareBtn.textContent='📤 分享/保存到相册';
+  shareBtn.style.cssText='margin-top:16px;padding:14px 36px;background:#30D158;color:#000;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;width:80%;';
+  shareBtn.onclick=function(){
+    shareBtn.textContent='⏳ 正在打开分享...';
+    shareBtn.style.opacity='0.6';
+    try{
+      var shareFile=new File([blob],fileName||('AI_video_'+Date.now()+'.webm'),{type:blob.type||'video/webm'});
+      if(navigator&&navigator.share&&navigator.canShare&&navigator.canShare({files:[shareFile]})){
+        navigator.share({files:[shareFile],title:'AI智能成片',text:'保存到相册'}).then(function(){
+          showToast('已通过分享保存');
+          shareBtn.textContent='✅ 已保存';
+          shareBtn.style.opacity='1';
+        }).catch(function(e){
+          console.log('[SAVE] Share cancelled or failed:',e);
+          shareBtn.textContent='📤 分享/保存到相册';
+          shareBtn.style.opacity='1';
+          if(e.name!=='AbortError'){
+            showToast('分享失败，请长按视频保存');
+          }
+        });
+      }else if(navigator&&navigator.share){
+        // Older API without canShare
+        navigator.share({title:'AI智能成片',text:'保存到相册',files:[shareFile]}).then(function(){
+          showToast('已通过分享保存');
+        }).catch(function(e){
+          shareBtn.textContent='📤 分享/保存到相册';
+          shareBtn.style.opacity='1';
+        });
+      }else{
+        shareBtn.textContent='⚠️ 不支持分享，请长按视频';
+        shareBtn.style.opacity='1';
+        showToast('当前环境不支持分享，请长按视频画面保存');
+      }
+    }catch(e){
+      console.error('[SAVE] Share error:',e);
+      shareBtn.textContent='⚠️ 分享失败，请长按视频';
+      shareBtn.style.opacity='1';
+      showToast('分享失败，请长按视频画面保存');
+    }
+  };
+  overlay.appendChild(shareBtn);
+
   // Instructions
   var tip=document.createElement('div');
-  tip.style.cssText='color:#4fc3f7;font-size:15px;margin-top:20px;text-align:center;line-height:1.8;';
-  tip.innerHTML='👆 在视频画面上<strong>长按</strong>，选择<strong>「保存视频」</strong>或<strong>「保存到相册」</strong><br><span style="color:#aaa;font-size:13px">保存后视频将出现在手机相册中</span>';
+  tip.style.cssText='color:#4fc3f7;font-size:14px;margin-top:16px;text-align:center;line-height:1.8;';
+  tip.innerHTML='或 👆 在视频画面上<strong>长按</strong>，选择<strong>「保存视频」</strong>';
   overlay.appendChild(tip);
 
-  // Download button — only for small videos (large videos crash via <a download>)
-  if(!isLarge){
-    var dlBtn=document.createElement('button');
-    dlBtn.textContent='📥 直接下载';
-    dlBtn.style.cssText='margin-top:16px;padding:12px 32px;background:rgba(48,209,88,0.3);color:#30D158;border:1px solid #30D158;border-radius:10px;font-size:15px;cursor:pointer;';
-    dlBtn.onclick=function(){
-      try{
-        var a2=document.createElement('a');
-        a2.href=url;
-        a2.download=fileName||('AI_'+Date.now()+'.webm');
-        a2.style.display='none';
-        document.body.appendChild(a2);
-        a2.click();
-        setTimeout(function(){if(a2.parentNode)document.body.removeChild(a2)},5000);
-        showToast('已开始下载');
-      }catch(e){
-        showToast('下载失败，请长按视频保存');
-      }
-    };
-    overlay.appendChild(dlBtn);
-  }
+  // v10.0: "直接下载" button REMOVED — <a download> with blob URL crashes Poptile WebView
 
   // Close button
   var closeBtn=document.createElement('button');
@@ -10488,7 +10540,9 @@ function _downloadBlobWebSafe(blob,fileName){
     return;
   }
   // ===== WebView (non-PakePlus): use SERVER UPLOAD as the safe path =====
-  else if(!reuseUrl&&_isWebView()){
+  // v10.0: Removed !reuseUrl condition — <a download> with blob URL crashes ALL WebView,
+  //   regardless of whether _renderVideoUrl exists or not
+  else if(_isWebView()){
     if(blob.size>30*1048576){
       console.warn('[SAVE-WEB] Large blob in WebView: '+blobMB+'MB and no reusable URL');
     }
@@ -10523,30 +10577,20 @@ function _downloadBlobWebSafe(blob,fileName){
       }
       return;
     }
-    // Large blob (>15MB) or no share API — use <a download> (safe, no native crash)
-    console.warn('[SAVE-WEB] Using <a download> for blob ('+blobMB+'MB) — no server/share');
-    try{
-      var dlUrl=URL.createObjectURL(blob);
-      var dlA=document.createElement('a');
-      dlA.href=dlUrl;
-      dlA.download=fileName||('zhuge_'+Date.now()+'.webm');
-      dlA.style.display='none';
-      dlA.rel='noopener';
-      document.body.appendChild(dlA);
-      dlA.click();
-      setTimeout(function(){
-        if(dlA.parentNode)document.body.removeChild(dlA);
-        URL.revokeObjectURL(dlUrl);
-      },10000);
-      showToast('视频已开始下载，请在下载管理器中查看');
-      _resetSaveButton();
-      _downloadInProgress=false;
-    }catch(dlErr){
-      console.error('[SAVE-WEB] <a download> failed:',dlErr);
-      showToast('保存失败，请长按视频选择保存');
-      _resetSaveButton();
-      _downloadInProgress=false;
+    // v10.0: NO <a download> with blob URL in WebView — it CRASHES.
+    // Show long-press overlay instead (works everywhere, no crash)
+    console.warn('[SAVE-WEB] No server/share in WebView — showing long-press overlay');
+    if(!reuseUrl){
+      try{reuseUrl=URL.createObjectURL(blob)}catch(e){
+        console.error('[SAVE-WEB] createObjectURL failed:',e);
+        showToast('保存失败：视频过大');
+        _resetSaveButton();
+        _downloadInProgress=false;
+        return;
+      }
     }
+    _showLongPressSaveOverlay(blob,fileName,reuseUrl,blob.size);
+    _downloadInProgress=false;
     return;
   }
   // ===== For small blobs or when reusing URL: use <a download> =====
@@ -13837,6 +13881,9 @@ function _isWebView(){
   if(typeof window.__TAURI__!=='undefined')return true;
   // Generic WebView detection
   if(/wv|WebView|PakePlus|Tauri/i.test(ua))return true;
+  // v10.0: Mobile device detection — treat ALL mobile as WebView for safety
+  // <a download> with blob URL is unreliable on mobile, long-press is safer
+  if(/Android|iPhone|iPad|iPod|Mobile/i.test(ua))return true;
   // Non-browser, non-file protocol without plus API = likely WebView
   if(!_hasPlusAPI()&&window.location.protocol!=='file:'&&!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(window.location.href)){
     // Could be a WebView — be cautious with native APIs
